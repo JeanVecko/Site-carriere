@@ -272,11 +272,11 @@ h1 { font-size: clamp(38px, 4.6vw, 64px); letter-spacing: -2.4px; }
 .brand-title { color: var(--ink); font-size: 20px; font-weight: 700; letter-spacing: -.7px; }
 .brand-title strong { color: var(--orange); }.brand-tagline { color: #71839b; font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 1.05px; text-transform: uppercase; }
 .main-nav { align-items: center; background: #edf3f9; border: 1px solid #dfe8f1; border-radius: 999px; gap: 3px; margin-left: auto; padding: 4px; }
-.main-nav a { border: 1px solid transparent; border-radius: 999px; color: #536882; font-size: 12px; font-weight: 700; padding: 10px 14px; white-space: nowrap; }
+.main-nav a { border: 1px solid transparent; border-radius: 999px; color: #536882; font-size: 12px; font-weight: 700; padding: 10px 14px; transition: background-color .2s, border-color .2s, color .2s, transform .2s; white-space: nowrap; }
 .main-nav a.active { background: #fff; border-color: #dbe5ef; box-shadow: 0 2px 7px #092d6310; color: var(--ink); }
 .main-nav a:not(.active):hover { background: #e2ebf5; border-color: transparent; color: var(--ink); }
-.main-nav a:last-child { background: var(--ink); border-color: var(--ink); box-shadow: 0 3px 8px #092d6326; color: #fff; margin-left: 4px; padding-left: 17px; padding-right: 17px; }
-.main-nav a:last-child:hover { background: #12417f; color: #fff; transform: translateY(-1px); }
+.main-nav a:last-child { align-items: center; background: var(--ink); border-color: var(--ink); box-shadow: 0 3px 8px #092d6326; color: #fff; display: inline-flex; justify-content: center; margin-left: 4px; min-height: 42px; padding-left: 19px; padding-right: 19px; }
+.main-nav a:last-child:hover { background: var(--orange); border-color: var(--orange); color: var(--ink); transform: translateY(-1px); }
 .header-button { background: var(--ink); border: 1px solid var(--ink); border-radius: 999px; box-shadow: 0 4px 12px #092d6324; color: #fff; margin-left: auto; padding: 11px 17px; }
 .header-button svg { color: var(--orange); }.header-button:hover { background: #12417f; box-shadow: 0 7px 15px #092d6330; }
 @media (max-width: 700px) { .site-header { height: 78px; min-height: 78px; padding: 7px 18px; }.brand { gap: 9px; }.brand-emblem { height: 54px; width: 54px; }.brand-title { font-size: 16px; }.brand-tagline { font-size: 7px; letter-spacing: .8px; }.menu-toggle { align-items: center; background: var(--ink); border: 0; border-radius: 50%; color: #fff; height: 40px; justify-content: center; padding: 0; width: 40px; }.main-nav { background: #fff; border-radius: 14px; box-shadow: 0 16px 30px #092d6320; left: 18px; padding: 6px; right: 18px; top: calc(100% + 8px); }.main-nav a { border-radius: 8px; padding: 13px 14px; }.main-nav a:last-child { margin: 5px 0 0; text-align: center; }.header-button { font-size: 11px; padding: 9px 12px; } }
