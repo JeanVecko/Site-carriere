@@ -36,9 +36,6 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
 
   const links = (
     <>
-      <Link href="/" className={active === "accueil" ? "active" : undefined}>
-        Accueil
-      </Link>
       <Link href="/offres" className={active === "offres" ? "active" : undefined}>
         Offres d’emploi
       </Link>
