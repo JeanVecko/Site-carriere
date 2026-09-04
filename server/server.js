@@ -98,6 +98,12 @@ app.get('/api/announcements', async (request, response) => {
   response.json(result.rows);
 });
 
+app.get('/api/announcements/:id', async (request, response) => {
+  const result = await pool.query('SELECT id, title, category, company, location, description, created_at FROM announcements WHERE id = $1', [request.params.id]);
+  if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
+  response.json(result.rows[0]);
+});
+
 app.post('/api/announcements', requireAdmin, async (request, response) => {
   const values = validateAnnouncement(request.body);
   if (!values) return response.status(400).json({ error: 'Tous les champs de l’annonce sont obligatoires.' });
