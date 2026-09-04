@@ -1,48 +1,57 @@
-const adminPassword = 'admin2026';
-const storageKey = 'carrieres-rdc-announcements';
-const defaultAnnouncements = [
-  { title: 'Responsable de projet culturel', type: 'Emploi', category: 'Offre d’emploi', company: 'Kivu Culture', location: 'Kinshasa · Hybride', date: 'Aujourd’hui', description: 'Coordonner des projets qui rapprochent les publics de la culture en RDC.' },
-  { title: 'Photographe pour série documentaire', type: 'Mission', company: 'Regards du Congo', location: 'Goma · Sur place', date: 'Hier', description: 'Raconter en images les initiatives et les talents de la communauté.' },
-  { title: 'Développeur·se web junior', type: 'Emploi', company: 'Congo Digital', location: 'Lubumbashi · Flexible', date: 'Il y a 2 jours', description: 'Transformer des idées utiles en outils simples et accessibles.' },
-  { title: 'Identité visuelle pour commerce local', type: 'Projet', company: 'Maison Tshopo', location: 'Kisangani · À distance', date: 'Il y a 3 jours', description: 'Donner une identité forte à une nouvelle activité congolaise.' },
-  { title: 'Chargé·e de communication', type: 'Emploi', company: 'Impact RDC', location: 'Bukavu · Hybride', date: 'Il y a 4 jours', description: 'Faire connaître les projets d’une organisation engagée sur le terrain.' },
-  { title: 'Mission en expérience utilisateur', type: 'Mission', company: 'Atelier Congo', location: 'Matadi · À distance', date: 'Il y a 5 jours', description: 'Écouter les usages pour concevoir des services plus simples et plus justes.' }
-];
-let announcements = JSON.parse(localStorage.getItem(storageKey) || 'null') || defaultAnnouncements;
 const loginView = document.querySelector('#login-view');
 const dashboardView = document.querySelector('#dashboard-view');
 
-function escapeHtml(value) { return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]); }
-function save() { localStorage.setItem(storageKey, JSON.stringify(announcements)); }
-function renderAdminList() {
+function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]); }
+function saveLocalAnnouncements(items) { localStorage.setItem('carrieres-rdc-announcements', JSON.stringify(items)); }
+function localAnnouncements() { return JSON.parse(localStorage.getItem('carrieres-rdc-announcements') || '[]'); }
+
+async function renderAdminList() {
+  let announcements;
+  try { announcements = await apiRequest('/announcements', { headers: adminHeaders() }); }
+  catch { announcements = localAnnouncements(); }
   document.querySelector('#announcement-count').textContent = `${announcements.length} en ligne`;
-  document.querySelector('#admin-list').innerHTML = announcements.map((item, index) => `<article class="manage-item"><div><span class="tag">${item.type}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.company)} · ${escapeHtml(item.location)}</p></div><button class="delete-button" type="button" data-delete="${index}" aria-label="Supprimer ${escapeHtml(item.title)}"><i data-lucide="trash-2"></i></button></article>`).join('');
-  document.querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', () => { announcements.splice(Number(button.dataset.delete), 1); save(); renderAdminList(); }));
+  document.querySelector('#admin-list').innerHTML = announcements.map((item) => `<article class="manage-item"><div><span class="tag">${escapeHtml(item.category || item.type)}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.company)} · ${escapeHtml(item.location)}</p></div><button class="delete-button" type="button" data-delete="${item.id || ''}" data-title="${escapeHtml(item.title)}" aria-label="Supprimer ${escapeHtml(item.title)}"><i data-lucide="trash-2"></i></button></article>`).join('');
+  document.querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', async () => {
+    try { if (button.dataset.delete) await apiRequest(`/announcements/${button.dataset.delete}`, { method: 'DELETE', headers: adminHeaders() }); else { const items = localAnnouncements().filter((item) => item.title !== button.dataset.title); saveLocalAnnouncements(items); } }
+    catch { return; }
+    renderAdminList();
+  }));
   lucide.createIcons();
 }
-function renderMessages() {
-  const messages = JSON.parse(localStorage.getItem('carrieres-rdc-messages') || '[]');
+
+async function renderMessages() {
+  let messages;
+  try { messages = await apiRequest('/messages', { headers: adminHeaders() }); }
+  catch { messages = JSON.parse(localStorage.getItem('carrieres-rdc-messages') || '[]'); }
   document.querySelector('#message-count').textContent = `${messages.length} message${messages.length > 1 ? 's' : ''}`;
   document.querySelector('#empty-inbox').hidden = messages.length > 0;
-  document.querySelector('#message-list').innerHTML = messages.map((item, index) => `<article class="message-item"><div class="message-topline"><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.date)}</span></div><a href="mailto:${escapeHtml(item.email)}">${escapeHtml(item.email)}</a><h3>${escapeHtml(item.subject)}</h3><p>${escapeHtml(item.message)}</p><button class="delete-button" type="button" data-message-delete="${index}">Supprimer <i data-lucide="trash-2"></i></button></article>`).join('');
-  document.querySelectorAll('[data-message-delete]').forEach((button) => button.addEventListener('click', () => { messages.splice(Number(button.dataset.messageDelete), 1); localStorage.setItem('carrieres-rdc-messages', JSON.stringify(messages)); renderMessages(); }));
+  document.querySelector('#message-list').innerHTML = messages.map((item) => `<article class="message-item"><div class="message-topline"><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.created_at || item.date || '')}</span></div><a href="mailto:${escapeHtml(item.email)}">${escapeHtml(item.email)}</a><h3>${escapeHtml(item.subject)}</h3><p>${escapeHtml(item.message)}</p><button class="delete-button" type="button" data-message-delete="${item.id || ''}">Supprimer <i data-lucide="trash-2"></i></button></article>`).join('');
+  document.querySelectorAll('[data-message-delete]').forEach((button) => button.addEventListener('click', async () => {
+    try { if (button.dataset.messageDelete) await apiRequest(`/messages/${button.dataset.messageDelete}`, { method: 'DELETE', headers: adminHeaders() }); else { const items = JSON.parse(localStorage.getItem('carrieres-rdc-messages') || '[]'); items.splice(Number(button.dataset.messageDelete), 1); localStorage.setItem('carrieres-rdc-messages', JSON.stringify(items)); } }
+    catch { return; }
+    renderMessages();
+  }));
   lucide.createIcons();
 }
-window.addEventListener('storage', (event) => { if (event.key === 'carrieres-rdc-messages') renderMessages(); });
-document.querySelector('#refresh-messages').addEventListener('click', renderMessages);
 
-document.querySelector('#login-form').addEventListener('submit', (event) => {
+async function openDashboard() { loginView.hidden = true; dashboardView.hidden = false; await renderAdminList(); await renderMessages(); }
+document.querySelector('#login-form').addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (document.querySelector('#password-input').value !== adminPassword) { document.querySelector('#login-feedback').textContent = 'Mot de passe incorrect.'; return; }
-  sessionStorage.setItem('carriere-admin', 'true');
-  loginView.hidden = true; dashboardView.hidden = false; renderAdminList(); renderMessages();
+  const feedback = document.querySelector('#login-feedback');
+  try {
+    const data = await apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email: document.querySelector('#email-input').value, password: document.querySelector('#password-input').value }) });
+    sessionStorage.setItem('carrieres-admin-token', data.token);
+    await openDashboard();
+  } catch { feedback.textContent = 'Identifiants incorrects ou API indisponible.'; }
 });
-document.querySelector('#logout-button').addEventListener('click', () => { sessionStorage.removeItem('carriere-admin'); dashboardView.hidden = true; loginView.hidden = false; });
-document.querySelector('#admin-form').addEventListener('submit', (event) => {
+document.querySelector('#logout-button').addEventListener('click', () => { sessionStorage.removeItem('carrieres-admin-token'); dashboardView.hidden = true; loginView.hidden = false; });
+document.querySelector('#admin-form').addEventListener('submit', async (event) => {
   event.preventDefault();
-  const data = new FormData(event.currentTarget);
-  announcements.unshift({ title: data.get('title'), category: data.get('category'), type: data.get('category'), location: data.get('location'), company: data.get('company'), description: data.get('description'), date: 'À l’instant' });
-  save(); event.currentTarget.reset(); document.querySelector('#admin-feedback').textContent = 'Annonce publiée avec succès.'; renderAdminList();
+  const feedback = document.querySelector('#admin-feedback');
+  try { await apiRequest('/announcements', { method: 'POST', headers: adminHeaders(), body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) }); event.currentTarget.reset(); feedback.textContent = 'Annonce publiée avec succès.'; await renderAdminList(); }
+  catch { feedback.textContent = 'Impossible de publier. Vérifiez la connexion au serveur.'; }
 });
-if (sessionStorage.getItem('carriere-admin') === 'true') { loginView.hidden = true; dashboardView.hidden = false; renderAdminList(); renderMessages(); }
+window.addEventListener('storage', () => { if (!dashboardView.hidden) { renderAdminList(); renderMessages(); } });
+document.querySelector('#refresh-messages').addEventListener('click', renderMessages);
+if (sessionStorage.getItem('carrieres-admin-token')) openDashboard();
 lucide.createIcons();

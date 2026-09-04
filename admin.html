@@ -9,6 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="api-config.js"></script>
+  <script src="api-client.js"></script>
 </head>
 <body class="admin-page">
   <header class="site-header"><a class="brand" href="index.html" aria-label="Carrières RDC, accueil"><span class="brand-emblem"><img src="LOGO/Logo.png" alt="Logo Carrières RDC"></span><span class="brand-name">Carrières <strong>RDC</strong></span></a><a class="header-button" href="index.html"><i data-lucide="arrow-left"></i> Retour au site</a></header>
@@ -18,11 +20,12 @@
       <h1 id="login-title">Bonjour,<br><em>administrateur.</em></h1>
       <p class="admin-lead">Connectez-vous pour gérer les annonces publiées sur Carrières RDC.</p>
       <form id="login-form" class="admin-form">
+        <label>Adresse e-mail<input id="email-input" type="email" autocomplete="username" required placeholder="admin@carrieresrdc.cd"></label>
         <label>Mot de passe<input id="password-input" type="password" autocomplete="current-password" required placeholder="Votre mot de passe"></label>
         <button class="button button-dark" type="submit">Ouvrir le panneau <i data-lucide="arrow-right"></i></button>
         <p class="form-feedback error-feedback" id="login-feedback" role="alert"></p>
       </form>
-      <p class="demo-hint">Première connexion : utilisez <strong>admin2026</strong></p>
+      <p class="demo-hint">Utilisez l’adresse e-mail et le mot de passe définis dans les variables Render.</p>
     </section>
 
     <section class="dashboard" id="dashboard-view" hidden aria-labelledby="dashboard-title">
