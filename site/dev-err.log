@@ -1,0 +1,3 @@
+⚠ Attempted to load @next/swc-win32-x64-msvc, but an error occurred: \\?\D:\Site carriere\site\node_modules\@next\swc-win32-x64-msvc\next-swc.win32-x64-msvc.node n�est pas une application Win32 valide.
+\\?\D:\Site carriere\site\node_modules\@next\swc-win32-x64-msvc\next-swc.win32-x64-msvc.node
+⚠ turbopack.root should be absolute, using: D:\Site carriere\site

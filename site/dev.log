@@ -1,0 +1,12 @@
+
+> site@0.1.0 dev
+> next dev --webpack
+
+▲ Next.js 16.3.4 (webpack)
+- Local:         http://localhost:3000
+- Network:       http://10.2.0.2:3000
+✓ Ready in 1881ms
+✓ Running next.config.ts took 546ms
+  Skipping creating a lockfile at D:\Site carriere\site\.next\dev\lock because we're using WASM bindings
+
+○ Compiling / ...
