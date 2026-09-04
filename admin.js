@@ -42,14 +42,14 @@ document.querySelector('#login-form').addEventListener('submit', async (event) =
     const data = await apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email: document.querySelector('#email-input').value, password: document.querySelector('#password-input').value }) });
     sessionStorage.setItem('carrieres-admin-token', data.token);
     await openDashboard();
-  } catch { feedback.textContent = 'Identifiants incorrects ou API indisponible.'; }
+  } catch (error) { feedback.textContent = error.message || 'Identifiants incorrects ou API indisponible.'; }
 });
 document.querySelector('#logout-button').addEventListener('click', () => { sessionStorage.removeItem('carrieres-admin-token'); dashboardView.hidden = true; loginView.hidden = false; });
 document.querySelector('#admin-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const feedback = document.querySelector('#admin-feedback');
   try { await apiRequest('/announcements', { method: 'POST', headers: adminHeaders(), body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) }); event.currentTarget.reset(); feedback.textContent = 'Annonce publiée avec succès.'; await renderAdminList(); }
-  catch { feedback.textContent = 'Impossible de publier. Vérifiez la connexion au serveur.'; }
+  catch (error) { feedback.textContent = error.message || 'Impossible de publier. Vérifiez la connexion au serveur.'; }
 });
 window.addEventListener('storage', () => { if (!dashboardView.hidden) { renderAdminList(); renderMessages(); } });
 document.querySelector('#refresh-messages').addEventListener('click', renderMessages);
