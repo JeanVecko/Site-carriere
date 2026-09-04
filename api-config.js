@@ -1,2 +1,1 @@
-// Replace this URL with the public Render URL of the backend.
-window.CARRIERES_API_URL = 'http://localhost:10000/api';
+window.CARRIERES_API_URL = 'https://carrieres-rdc-api.onrender.com/api';
