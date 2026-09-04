@@ -313,3 +313,17 @@ h1 { font-size: clamp(34px, 3.8vw, 52px); letter-spacing: -2px; }
 .main-nav a.active:hover,
 .main-nav a:last-child:hover { background: var(--orange); border-color: var(--orange); color: var(--ink); transform: translateY(-1px); }
 @media (max-width: 700px) { .main-nav { background: #fff; border: 1px solid #dfe8f1; gap: 5px; padding: 6px; }.main-nav a, .main-nav a.active, .main-nav a:last-child { border-radius: 8px; margin: 0; padding: 13px 14px; }.main-nav a:last-child { margin-top: 0; } }
+
+/* Compact category cards on the home page */
+.directory-section { padding-bottom: 42px; padding-top: 42px; }
+.directory-grid { gap: 14px; }
+.directory-card { min-height: 220px; padding: 18px; }
+.directory-index { font-size: 10px; left: 18px; top: 18px; }
+.directory-card > svg { height: 20px; margin-top: 30px; width: 20px; }
+.directory-card h3 { font-size: 19px; margin: 10px 0 5px; }
+.directory-card p { font-size: 10px; line-height: 1.35; }
+.directory-preview { margin: 10px 0 8px; }
+.directory-preview li { font-size: 9px; padding: 5px 0; }
+.directory-preview small { font-size: 8px; }
+.directory-link { bottom: 18px; font-size: 10px; }
+@media (max-width: 850px) { .directory-card { min-height: 215px; } }
