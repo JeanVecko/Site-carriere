@@ -265,7 +265,6 @@ h1 { font-size: clamp(38px, 4.6vw, 64px); letter-spacing: -2.4px; }
 
 /* Professional navigation bar */
 .site-header { background: linear-gradient(105deg, #ffffff 0%, #f8fbff 100%); border-bottom: 1px solid #dbe5f1; box-shadow: 0 8px 24px #092d630b; height: 98px; padding: 11px clamp(22px, 5vw, 76px); position: relative; z-index: 30; }
-.site-header::before { background: linear-gradient(90deg, var(--orange), #f3cb38 38%, transparent 38%); content: ''; height: 3px; left: 0; position: absolute; top: 0; width: 100%; }
 .brand { gap: 13px; }
 .brand-emblem { background: #fff; border: 1px solid #e6b511; box-shadow: 0 5px 14px #b98c001c; height: 68px; padding: 4px; transition: transform .2s, box-shadow .2s; width: 68px; }
 .brand:hover .brand-emblem { box-shadow: 0 8px 18px #b98c0030; transform: translateY(-2px); }

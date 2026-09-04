@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Menu, X } from "lucide-react";
 
@@ -11,10 +11,27 @@ type Props = {
 
 export default function SiteHeader({ active, adminButton = false }: Props) {
   const [open, setOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     document.body.classList.toggle("menu-open", open);
     return () => document.body.classList.remove("menu-open");
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
+      if (headerRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("touchstart", closeOnOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("touchstart", closeOnOutsideClick);
+    };
   }, [open]);
 
   const links = (
@@ -55,7 +72,7 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
   }
 
   return (
-    <header className={`site-header${open ? " menu-open" : ""}`}>
+  <header ref={headerRef} className={`site-header${open ? " menu-open" : ""}`}>
       <Link className="brand" href="/" aria-label="Carrière RDC, accueil">
         <span className="brand-emblem">
           <img src="/LOGO/Logo.png" alt="Logo Carrières RDC" />
@@ -65,7 +82,7 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
           <span className="brand-tagline">Opportunités en RDC</span>
         </span>
       </Link>
-      <nav className="main-nav" aria-label="Navigation principale">
+      <nav className="main-nav" aria-label="Navigation principale" onClick={() => setOpen(false)}>
         {links}
       </nav>
       <button

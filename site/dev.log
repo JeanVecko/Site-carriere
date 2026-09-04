@@ -16,3 +16,5 @@
  GET /admin 200 in 2.3s (next.js: 1874ms, application-code: 439ms)
  GET / 200 in 451ms (next.js: 63ms, application-code: 388ms)
  GET / 200 in 275ms (next.js: 17ms, application-code: 259ms)
+ GET / 200 in 2.8s (next.js: 1920ms, application-code: 889ms)
+ GET / 200 in 1011ms (next.js: 613ms, application-code: 398ms)
