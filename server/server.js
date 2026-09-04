@@ -80,6 +80,7 @@ function validateAnnouncement(body) {
 }
 
 app.get('/api/health', (_request, response) => response.json({ status: 'ok' }));
+app.get('/', (_request, response) => response.json({ name: 'Carrieres RDC API', status: 'ok', health: '/api/health' }));
 
 app.post('/api/auth/login', async (request, response) => {
   const email = clean(request.body.email);
