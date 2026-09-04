@@ -101,6 +101,15 @@ h1 { font-size: clamp(45px, 5.5vw, 76px); }
 	.category-hero { padding-top: 52px; padding-bottom: 58px; }
 }
 
+/* Requested maximum heading sizes */
+h1, .category-hero h1, .admin-login h1, .dashboard h1 { font-size: clamp(27px, 3vw, 35px); letter-spacing: -1px; }
+.section-heading h2 { font-size: clamp(23px, 2.4vw, 28px); letter-spacing: -.8px; }
+.footer-message h2 { font-size: clamp(24px, 2.5vw, 28px); letter-spacing: -.8px; }
+@media (max-width: 560px) {
+	h1, .category-hero h1, .admin-login h1, .dashboard h1 { font-size: 30px; }
+	.section-heading h2, .footer-message h2 { font-size: 26px; }
+}
+
 /* Final compact type scale */
 h1 { font-size: clamp(27px, 3vw, 42px); letter-spacing: -1.2px; }
 .section-heading h2 { font-size: clamp(24px, 2.4vw, 34px); letter-spacing: -1px; }
