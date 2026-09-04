@@ -5,15 +5,17 @@ body { margin: 0; background: var(--cream); color: var(--ink); font-family: 'DM 
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; text-decoration: none; }
-.site-header { align-items: center; display: flex; height: 82px; justify-content: space-between; padding: 0 clamp(22px, 5vw, 76px); }
+.site-header { align-items: center; display: flex; height: 92px; justify-content: space-between; padding: 10px clamp(22px, 5vw, 76px); }
 .brand { align-items: center; display: flex; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600; gap: 12px; letter-spacing: -.5px; }
-.brand-emblem { align-items: center; background: var(--paper); border: 2px solid var(--orange); border-radius: 50%; display: flex; height: 78px; justify-content: center; overflow: hidden; padding: 3px; width: 78px; }
+.brand-emblem { align-items: center; background: var(--paper); border: 2px solid var(--orange); border-radius: 50%; display: flex; flex: 0 0 auto; height: 70px; justify-content: center; overflow: hidden; padding: 3px; width: 70px; }
 .brand-emblem img { display: block; height: 100%; object-fit: contain; width: 100%; }
 .brand-name { color: var(--ink); line-height: 1; white-space: nowrap; }.brand-name strong { color: var(--orange); font-weight: 700; }
 .brand-mark { align-items: center; background: var(--orange); border-radius: 50%; color: var(--ink); display: flex; font-size: 16px; height: 31px; justify-content: center; transform: rotate(-10deg); width: 31px; }
 .brand-dot { color: var(--orange); }
-.main-nav { display: flex; gap: 34px; margin-left: 120px; }
-.main-nav a { color: var(--muted); font-size: 13px; font-weight: 600; }
+.main-nav { display: flex; gap: 7px; margin-left: auto; }
+.main-nav a { border: 1px solid transparent; color: var(--muted); font-size: 12px; font-weight: 600; padding: 9px 12px; transition: border-color .2s, color .2s, background .2s; }
+.main-nav a.active, .main-nav a:hover { background: var(--paper); border-color: var(--orange); color: var(--ink); }
+.menu-toggle { align-items: center; background: transparent; border: 1px solid var(--ink); color: var(--ink); cursor: pointer; display: none; font-size: 11px; gap: 7px; padding: 9px 11px; }.menu-toggle svg { height: 17px; width: 17px; }
 .main-nav a.active, .main-nav a:hover { color: var(--ink); }
 .header-button, .button { align-items: center; border: 0; cursor: pointer; display: inline-flex; font-size: 13px; font-weight: 700; gap: 10px; justify-content: center; transition: transform .2s, background .2s; }
 .header-button { background: transparent; color: var(--ink); padding: 12px 0; }
@@ -99,6 +101,18 @@ h1 { font-size: clamp(45px, 5.5vw, 76px); }
 	.content-section, .directory-section { padding-top: 46px; padding-bottom: 48px; }
 	.directory-card { min-height: 285px; }
 	.category-hero { padding-top: 52px; padding-bottom: 58px; }
+}
+
+/* Mobile navigation */
+@media (max-width: 700px) {
+	.site-header { min-height: 78px; height: auto; padding: 8px 18px; position: relative; }
+	.brand { font-size: 16px; gap: 8px; }
+	.brand-emblem { height: 52px; width: 52px; }
+	.menu-toggle { display: inline-flex; margin-left: auto; }
+	.main-nav { background: var(--paper); border: 1px solid var(--line); display: none; flex-direction: column; gap: 0; left: 18px; margin: 0; position: absolute; right: 18px; top: calc(100% - 1px); z-index: 20; }
+	.main-nav a { border: 0; border-bottom: 1px solid var(--line); display: block; padding: 13px 15px; }
+	.main-nav a:last-child { border-bottom: 0; }
+	.site-header.menu-open .main-nav { display: flex; }
 }
 
 /* Medium contact footer */
