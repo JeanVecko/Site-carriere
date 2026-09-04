@@ -101,6 +101,25 @@ h1 { font-size: clamp(45px, 5.5vw, 76px); }
 	.category-hero { padding-top: 52px; padding-bottom: 58px; }
 }
 
+/* Final compact type scale */
+h1 { font-size: clamp(27px, 3vw, 42px); letter-spacing: -1.2px; }
+.section-heading h2 { font-size: clamp(24px, 2.4vw, 34px); letter-spacing: -1px; }
+.category-hero h1, .admin-login h1, .dashboard h1 { font-size: clamp(30px, 3.8vw, 48px); letter-spacing: -1.5px; }
+.footer-message h2 { font-size: clamp(27px, 3vw, 38px); letter-spacing: -1px; }
+.hero { min-height: 415px; padding-top: 28px; padding-bottom: 18px; }
+.hero-intro { margin-top: 20px; margin-bottom: 22px; }
+.content-section { padding-top: 30px; padding-bottom: 32px; }
+.directory-section { padding-top: 32px; padding-bottom: 36px; }
+.category-hero { padding-top: 46px; padding-bottom: 52px; }
+.site-footer { padding-top: 48px; }
+@media (max-width: 560px) {
+	h1 { font-size: clamp(25px, 7vw, 34px); }
+	.section-heading h2 { font-size: clamp(23px, 6vw, 30px); }
+	.category-hero h1, .admin-login h1, .dashboard h1 { font-size: clamp(28px, 7vw, 38px); }
+	.footer-message h2 { font-size: clamp(25px, 7vw, 34px); }
+	.hero { min-height: 500px; padding-top: 22px; }
+}
+
 /* Extra compact headings */
 h1 { font-size: clamp(30px, 3.6vw, 50px); letter-spacing: -1.8px; }
 .section-heading h2 { font-size: clamp(26px, 2.8vw, 40px); letter-spacing: -1.4px; }
