@@ -101,6 +101,21 @@ h1 { font-size: clamp(45px, 5.5vw, 76px); }
 	.category-hero { padding-top: 52px; padding-bottom: 58px; }
 }
 
+/* Half-height category cards */
+.directory-card { min-height: 185px; padding: 15px; }
+.directory-index { left: 15px; top: 15px; font-size: 10px; }
+.directory-card > svg { height: 19px; margin-top: 28px; width: 19px; }
+.directory-card h3 { font-size: 16px; letter-spacing: -.4px; margin: 9px 0 5px; }
+.directory-card p { font-size: 9px; line-height: 1.3; margin: 0; }
+.directory-preview { margin: 9px 0 6px; }
+.directory-preview li { font-size: 8px; padding: 4px 0; }
+.directory-preview small { font-size: 7px; margin-top: 2px; }
+.directory-link { bottom: 14px; font-size: 9px; }
+.directory-link svg { height: 11px; width: 11px; }
+@media (max-width: 850px) {
+	.directory-card { min-height: 185px; }
+}
+
 /* Requested maximum heading sizes */
 h1, .category-hero h1, .admin-login h1, .dashboard h1 { font-size: clamp(27px, 3vw, 35px); letter-spacing: -1px; }
 .section-heading h2 { font-size: clamp(23px, 2.4vw, 28px); letter-spacing: -.8px; }
