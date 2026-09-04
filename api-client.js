@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
       toggle = document.createElement('button');
       toggle.className = 'menu-toggle';
       toggle.type = 'button';
-      toggle.innerHTML = '<i data-lucide="menu"></i><span>Menu</span>';
+      toggle.innerHTML = '<i data-lucide="menu"></i>';
       header.append(toggle);
     }
     toggle.setAttribute('aria-expanded', 'false');
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     toggle.addEventListener('click', () => {
       const isOpen = header.classList.toggle('menu-open');
       toggle.setAttribute('aria-expanded', String(isOpen));
-      toggle.innerHTML = `<i data-lucide="${isOpen ? 'x' : 'menu'}"></i><span>Menu</span>`;
+      toggle.innerHTML = `<i data-lucide="${isOpen ? 'x' : 'menu'}"></i>`;
       if (window.lucide) lucide.createIcons();
     });
   });
