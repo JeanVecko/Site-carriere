@@ -10,3 +10,9 @@
   Skipping creating a lockfile at D:\Site carriere\site\.next\dev\lock because we're using WASM bindings
 
 ○ Compiling / ...
+ GET / 200 in 21.2s (next.js: 20.5s, application-code: 653ms)
+○ Compiling /offres ...
+ GET /offres 200 in 5.2s (next.js: 4.8s, application-code: 388ms)
+ GET /admin 200 in 2.3s (next.js: 1874ms, application-code: 439ms)
+ GET / 200 in 451ms (next.js: 63ms, application-code: 388ms)
+ GET / 200 in 275ms (next.js: 17ms, application-code: 259ms)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { ArrowLeft, Menu, X } from "lucide-react";
 
 type Props = {
   active?: "accueil" | "offres" | "annonces" | "appels-offres";
@@ -43,11 +43,12 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
             <img src="/LOGO/Logo.png" alt="Logo Carrières RDC" />
           </span>
           <span className="brand-name">
-            Carrières <strong>RDC</strong>
+            <span className="brand-title">Carrières <strong>RDC</strong></span>
+            <span className="brand-tagline">Opportunités en RDC</span>
           </span>
         </Link>
         <a className="header-button" href="/">
-          <Menu size={17} /> Retour au site
+          <ArrowLeft size={17} /> Retour au site
         </a>
       </header>
     );
@@ -60,7 +61,8 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
           <img src="/LOGO/Logo.png" alt="Logo Carrières RDC" />
         </span>
         <span className="brand-name">
-          Carrières <strong>RDC</strong>
+          <span className="brand-title">Carrières <strong>RDC</strong></span>
+          <span className="brand-tagline">Opportunités en RDC</span>
         </span>
       </Link>
       <nav className="main-nav" aria-label="Navigation principale">
