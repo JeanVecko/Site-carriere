@@ -9,7 +9,7 @@ const searchInput = document.querySelector('#search-input');
 
 function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]); }
 function categoryFor(item) { return item.category || (item.type === 'Emploi' ? 'Offre d’emploi' : item.type === 'Appel d’offre' ? 'Appel d’offre' : 'Annonce'); }
-function categoryMatches(item) { return currentFilter === 'Toutes' || (currentFilter === 'Emploi' && categoryFor(item) === 'Offre d’emploi') || categoryFor(item) === currentFilter; }
+function categoryMatches(item) { return currentFilter === 'Toutes' || categoryFor(item) === currentFilter; }
 
 function renderDirectoryPreviews() {
   const categories = { 'Offre d’emploi': 'jobs-preview', Annonce: 'notices-preview', 'Appel d’offre': 'tenders-preview' };
