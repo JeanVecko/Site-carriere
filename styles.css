@@ -101,6 +101,24 @@ h1 { font-size: clamp(45px, 5.5vw, 76px); }
 	.category-hero { padding-top: 52px; padding-bottom: 58px; }
 }
 
+/* Extra compact headings */
+h1 { font-size: clamp(30px, 3.6vw, 50px); letter-spacing: -1.8px; }
+.section-heading h2 { font-size: clamp(26px, 2.8vw, 40px); letter-spacing: -1.4px; }
+.category-hero h1, .admin-login h1, .dashboard h1 { font-size: clamp(34px, 4.4vw, 58px); letter-spacing: -2px; }
+.footer-message h2 { font-size: clamp(30px, 3.5vw, 46px); letter-spacing: -1.5px; }
+.hero { min-height: 465px; padding-top: 35px; padding-bottom: 24px; }
+.content-section { padding-top: 38px; padding-bottom: 40px; }
+.section-heading { margin-bottom: 30px; }
+.directory-section { padding-top: 42px; padding-bottom: 46px; }
+.footer-contact { margin-bottom: 42px; }
+@media (max-width: 560px) {
+	h1 { font-size: clamp(28px, 8vw, 40px); }
+	.section-heading h2 { font-size: clamp(25px, 7vw, 34px); }
+	.category-hero h1, .admin-login h1, .dashboard h1 { font-size: clamp(32px, 8vw, 45px); }
+	.footer-message h2 { font-size: clamp(28px, 8vw, 40px); }
+	.hero { min-height: 540px; padding-top: 25px; }
+}
+
 /* Smaller headings */
 h1 { font-size: clamp(38px, 4.6vw, 64px); letter-spacing: -2.4px; }
 .section-heading h2 { font-size: clamp(32px, 3.4vw, 48px); letter-spacing: -2px; }
