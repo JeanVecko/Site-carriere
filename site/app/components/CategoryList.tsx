@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ArrowUpRight, MapPin, Search } from "lucide-react";
 import { Announcement, apiRequest, detailHref, escapeHtml, paragraphs } from "../lib/api";
 
@@ -78,13 +79,13 @@ export default function CategoryList({ category }: { category: string }) {
               onChange={(event) => setSearch(event.target.value)}
             />
           </label>
-          <a className="text-button" href="/#annonces">
+          <Link className="text-button" href="/#annonces">
             Retour à l’accueil <ArrowUpRight size={15} />
-          </a>
+          </Link>
         </div>
         <div className="category-list" id="category-list">
           {visible.map((item) => (
-            <a
+            <Link
               key={String(item.id ?? item.title)}
               className="announcement-card category-item"
               href={detailHref(item)}
@@ -109,7 +110,7 @@ export default function CategoryList({ category }: { category: string }) {
               <span className="detail-hint">
                 Voir le détail complet <ArrowUpRight size={13} />
               </span>
-            </a>
+            </Link>
           ))}
         </div>
         <div className="empty-state" id="category-empty" hidden={visible.length > 0}>

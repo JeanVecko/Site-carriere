@@ -45,7 +45,7 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
       <Link href="/appels-offres" className={active === "appels-offres" ? "active" : undefined}>
         Appels d’offres
       </Link>
-      {adminButton ? null : <a href="/#contact">Contact</a>}
+      {adminButton ? null : <Link href="/#contact">Contact</Link>}
     </>
   );
 
@@ -61,9 +61,9 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
             <span className="brand-tagline">Opportunités en RDC</span>
           </span>
         </Link>
-        <a className="header-button" href="/">
+        <Link className="header-button" href="/">
           <ArrowLeft size={17} /> Retour au site
-        </a>
+        </Link>
       </header>
     );
   }

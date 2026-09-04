@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, ArrowUpRight, LogOut, RefreshCw, Send, Trash2 } from "lucide-react";
+import { ArrowRight, LogOut, RefreshCw, Send, Trash2 } from "lucide-react";
 import {
   Announcement,
   ContactMessage,
@@ -11,17 +11,13 @@ import {
 } from "../lib/api";
 
 export default function AdminContent() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(
+    () => typeof window !== "undefined" && Boolean(sessionStorage.getItem("carrieres-admin-token"))
+  );
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [loginFeedback, setLoginFeedback] = useState("");
   const [adminFeedback, setAdminFeedback] = useState("");
-
-  useEffect(() => {
-    if (sessionStorage.getItem("carrieres-admin-token")) {
-      setLoggedIn(true);
-    }
-  }, []);
 
   const loadAnnouncements = useCallback(async () => {
     try {
@@ -40,10 +36,12 @@ export default function AdminContent() {
   }, []);
 
   useEffect(() => {
-    if (loggedIn) {
-      loadAnnouncements();
-      loadMessages();
-    }
+    if (!loggedIn) return;
+    const loadTimer = window.setTimeout(() => {
+      void loadAnnouncements();
+      void loadMessages();
+    }, 0);
+    return () => window.clearTimeout(loadTimer);
   }, [loggedIn, loadAnnouncements, loadMessages]);
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
