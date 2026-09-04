@@ -101,6 +101,26 @@ h1 { font-size: clamp(45px, 5.5vw, 76px); }
 	.category-hero { padding-top: 52px; padding-bottom: 58px; }
 }
 
+/* Medium contact footer */
+.site-footer { padding-top: 38px; padding-bottom: 18px; }
+.footer-contact { gap: 8%; margin-bottom: 34px; }
+.footer-message h2 { font-size: 30px; line-height: 1; }
+.footer-message p:last-child { font-size: 11px; line-height: 1.45; margin-top: 16px; max-width: 280px; }
+.footer-details { padding-top: 10px; }
+.footer-label { margin-bottom: 12px; }
+.footer-contact-link { font-size: 16px; padding: 8px 0; }
+.contact-form { margin-top: 16px; padding-top: 12px; }
+.contact-form label { font-size: 9px; margin-bottom: 9px; }
+.contact-form input, .contact-form textarea { font-size: 11px; margin-top: 3px; padding: 4px 0 6px; }
+.contact-form textarea { height: 54px; }
+.contact-form .button { font-size: 10px; padding: 10px 13px; }
+.footer-bottom { padding-top: 14px; }
+@media (max-width: 560px) {
+	.site-footer { padding-top: 32px; }
+	.footer-contact { gap: 30px; margin-bottom: 30px; }
+	.footer-message h2 { font-size: 28px; }
+}
+
 /* Half-height category cards */
 .directory-card { min-height: 185px; padding: 15px; }
 .directory-index { left: 15px; top: 15px; font-size: 10px; }
