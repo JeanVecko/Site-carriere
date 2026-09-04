@@ -317,13 +317,10 @@ h1 { font-size: clamp(34px, 3.8vw, 52px); letter-spacing: -2px; }
 /* Compact category cards on the home page */
 .directory-section { padding-bottom: 42px; padding-top: 42px; }
 .directory-grid { gap: 14px; }
-.directory-card { min-height: 220px; padding: 18px; }
-.directory-index { font-size: 10px; left: 18px; top: 18px; }
-.directory-card > svg { height: 20px; margin-top: 30px; width: 20px; }
-.directory-card h3 { font-size: 19px; margin: 10px 0 5px; }
-.directory-card p { font-size: 10px; line-height: 1.35; }
-.directory-preview { margin: 10px 0 8px; }
-.directory-preview li { font-size: 9px; padding: 5px 0; }
-.directory-preview small { font-size: 8px; }
-.directory-link { bottom: 18px; font-size: 10px; }
-@media (max-width: 850px) { .directory-card { min-height: 215px; } }
+.directory-card { min-height: 125px; padding: 14px; }
+.directory-index { font-size: 9px; left: 14px; top: 14px; }
+.directory-card > svg { height: 18px; margin-top: 24px; width: 18px; }
+.directory-card h3 { font-size: 17px; margin: 7px 0 0; }
+.directory-card p, .directory-preview { display: none; }
+.directory-link { bottom: 14px; font-size: 9px; }
+@media (max-width: 850px) { .directory-card { min-height: 125px; } }
