@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Carrière — la plateforme simple pour publier et trouver les bonnes opportunités.">
-  <title>Carrière — Offres et annonces</title>
+  <meta name="description" content="Carrières RDC — la plateforme pour publier et trouver des opportunités en République démocratique du Congo.">
+  <title>Carrières RDC — Offres et annonces</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -18,8 +18,10 @@
       <span class="brand-name">Carrières <strong>RDC</strong></span>
     </a>
     <nav class="main-nav" aria-label="Navigation principale">
-      <a class="active" href="#annonces">Explorer</a>
-      <a href="#a-propos">À propos</a>
+      <a class="active" href="offres.html">Offres d’emploi</a>
+      <a href="annonces.html">Annonces</a>
+      <a href="appels-offres.html">Appels d’offres</a>
+      <a href="#contact">Contact</a>
     </nav>
   </header>
 
@@ -53,7 +55,7 @@
       <div class="toolbar" role="search">
         <label class="search-box">
           <i data-lucide="search"></i>
-          <input id="search-input" type="search" placeholder="Rechercher un métier, une ville..." aria-label="Rechercher une annonce">
+          <input id="search-input" type="search" placeholder="Rechercher un métier, une ville en RDC..." aria-label="Rechercher une annonce">
         </label>
         <div class="filter-group" aria-label="Filtrer par type">
           <button class="filter-button active" type="button" data-filter="Toutes">Toutes</button>
@@ -77,9 +79,18 @@
       <div class="empty-state" id="empty-state" hidden>Aucune annonce ne correspond à votre recherche.</div>
     </section>
 
+    <section class="directory-section" aria-labelledby="directory-title">
+      <div class="section-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> Tout au même endroit</p><h2 id="directory-title">Explorez par<br><em>catégorie.</em></h2></div><p class="section-description">Retrouvez rapidement les opportunités qui correspondent à votre recherche.</p></div>
+      <div class="directory-grid">
+        <article class="directory-card directory-jobs"><span class="directory-index">01</span><i data-lucide="briefcase-business"></i><h3>Offres d’emploi</h3><p>Des postes ouverts dans les entreprises et organisations de la RDC.</p><ul class="directory-preview" id="jobs-preview"></ul><a class="directory-link" href="offres.html">Voir toutes les offres <i data-lucide="arrow-up-right"></i></a></article>
+        <article class="directory-card directory-notices"><span class="directory-index">02</span><i data-lucide="megaphone"></i><h3>Annonces</h3><p>Des missions, projets et opportunités à découvrir au quotidien.</p><ul class="directory-preview" id="notices-preview"></ul><a class="directory-link" href="annonces.html">Voir toutes les annonces <i data-lucide="arrow-up-right"></i></a></article>
+        <article class="directory-card directory-tenders"><span class="directory-index">03</span><i data-lucide="file-check-2"></i><h3>Appels d’offres</h3><p>Les consultations et marchés publiés par les organisations.</p><ul class="directory-preview" id="tenders-preview"></ul><a class="directory-link" href="appels-offres.html">Voir tous les appels d’offres <i data-lucide="arrow-up-right"></i></a></article>
+      </div>
+    </section>
+
   </main>
 
-  <footer id="a-propos" class="site-footer">
+  <footer id="contact" class="site-footer">
     <div class="footer-contact">
       <div class="footer-message">
         <p class="eyebrow eyebrow-light"><span class="eyebrow-line"></span> Vous avez une offre ?</p>
@@ -91,6 +102,14 @@
         <!-- Coordonnées à personnaliser dans ce fichier -->
         <a href="mailto:contact@carrieresrdc.cd" class="footer-contact-link"><i data-lucide="mail"></i><span>contact@carrieresrdc.cd</span></a>
         <a href="tel:+243810000000" class="footer-contact-link"><i data-lucide="phone"></i><span>+243 81 000 00 00</span></a>
+        <form class="contact-form" id="contact-form">
+          <label>Votre nom<input name="name" type="text" placeholder="Nom complet" required></label>
+          <label>Votre e-mail<input name="email" type="email" placeholder="vous@exemple.cd" required></label>
+          <label>Sujet<input name="subject" type="text" placeholder="Objet de votre message" required></label>
+          <label>Votre message<textarea name="message" rows="4" placeholder="Écrivez votre message ici..." required></textarea></label>
+          <button class="button button-light" type="submit">Envoyer le message <i data-lucide="send"></i></button>
+          <p class="form-feedback" id="contact-feedback" role="status"></p>
+        </form>
       </div>
     </div>
     <div class="footer-bottom"><span>Carrière <strong>RDC</strong></span><span>Les opportunités sont partout.</span><span>© 2026 Carrières RDC</span></div>

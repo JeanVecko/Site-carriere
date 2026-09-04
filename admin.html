@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Administration — Carrière</title>
+  <title>Administration — Carrières RDC</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
     <section class="admin-login" id="login-view" aria-labelledby="login-title">
       <p class="eyebrow"><span class="eyebrow-line"></span> Accès privé</p>
       <h1 id="login-title">Bonjour,<br><em>administrateur.</em></h1>
-      <p class="admin-lead">Connectez-vous pour gérer les annonces publiées sur Carrière.</p>
+      <p class="admin-lead">Connectez-vous pour gérer les annonces publiées sur Carrières RDC.</p>
       <form id="login-form" class="admin-form">
         <label>Mot de passe<input id="password-input" type="password" autocomplete="current-password" required placeholder="Votre mot de passe"></label>
         <button class="button button-dark" type="submit">Ouvrir le panneau <i data-lucide="arrow-right"></i></button>
@@ -31,13 +31,14 @@
         <form class="publish-form admin-publish-form" id="admin-form">
           <div class="form-topline"><span>Nouvelle annonce</span><span id="announcement-count">0 en ligne</span></div>
           <label>Titre de l’annonce<input name="title" type="text" placeholder="Ex. Designer graphique indépendant" required></label>
-          <div class="form-row"><label>Type<select name="type"><option>Emploi</option><option>Mission</option><option>Projet</option></select></label><label>Localisation<input name="location" type="text" placeholder="Ex. Paris · Hybride" required></label></div>
+          <div class="form-row"><label>Catégorie<select name="category"><option>Offre d’emploi</option><option>Annonce</option><option>Appel d’offre</option></select></label><label>Localisation<input name="location" type="text" placeholder="Ex. Kinshasa · Hybride" required></label></div>
           <label>Nom de l’organisation<input name="company" type="text" placeholder="Ex. Atelier Nord" required></label>
           <label>Description<textarea name="description" rows="4" placeholder="Quelques mots sur l'opportunité..." required></textarea></label>
           <button class="button button-light" type="submit">Publier l’annonce <i data-lucide="send"></i></button><p class="form-feedback" id="admin-feedback" role="status"></p>
         </form>
         <div class="manage-list"><div class="manage-list-heading"><span>Annonces en ligne</span><span class="live-dot">● En direct</span></div><div id="admin-list"></div></div>
       </div>
+      <section class="inbox-section" aria-labelledby="inbox-title"><div class="manage-list-heading"><span id="inbox-title">Messages reçus</span><span class="inbox-actions"><span id="message-count" class="live-dot">0 message</span><button class="refresh-button" id="refresh-messages" type="button"><i data-lucide="refresh-cw"></i> Actualiser</button></span></div><div id="message-list" class="message-list"></div><p class="empty-inbox" id="empty-inbox">Aucun message reçu pour le moment.</p></section>
     </section>
   </main>
   <script src="admin.js"></script>
