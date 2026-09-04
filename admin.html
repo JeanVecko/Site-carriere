@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration — Carrière</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="admin-page">
+  <header class="site-header"><a class="brand" href="index.html" aria-label="Carrières RDC, accueil"><span class="brand-emblem"><img src="LOGO/Logo.png" alt="Logo Carrières RDC"></span><span class="brand-name">Carrières <strong>RDC</strong></span></a><a class="header-button" href="index.html"><i data-lucide="arrow-left"></i> Retour au site</a></header>
+  <main class="admin-main">
+    <section class="admin-login" id="login-view" aria-labelledby="login-title">
+      <p class="eyebrow"><span class="eyebrow-line"></span> Accès privé</p>
+      <h1 id="login-title">Bonjour,<br><em>administrateur.</em></h1>
+      <p class="admin-lead">Connectez-vous pour gérer les annonces publiées sur Carrière.</p>
+      <form id="login-form" class="admin-form">
+        <label>Mot de passe<input id="password-input" type="password" autocomplete="current-password" required placeholder="Votre mot de passe"></label>
+        <button class="button button-dark" type="submit">Ouvrir le panneau <i data-lucide="arrow-right"></i></button>
+        <p class="form-feedback error-feedback" id="login-feedback" role="alert"></p>
+      </form>
+      <p class="demo-hint">Première connexion : utilisez <strong>admin2026</strong></p>
+    </section>
+
+    <section class="dashboard" id="dashboard-view" hidden aria-labelledby="dashboard-title">
+      <div class="dashboard-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> Tableau de bord</p><h1 id="dashboard-title">Vos <em>annonces.</em></h1></div><button class="text-button" id="logout-button" type="button">Se déconnecter <i data-lucide="log-out"></i></button></div>
+      <div class="dashboard-grid">
+        <form class="publish-form admin-publish-form" id="admin-form">
+          <div class="form-topline"><span>Nouvelle annonce</span><span id="announcement-count">0 en ligne</span></div>
+          <label>Titre de l’annonce<input name="title" type="text" placeholder="Ex. Designer graphique indépendant" required></label>
+          <div class="form-row"><label>Type<select name="type"><option>Emploi</option><option>Mission</option><option>Projet</option></select></label><label>Localisation<input name="location" type="text" placeholder="Ex. Paris · Hybride" required></label></div>
+          <label>Nom de l’organisation<input name="company" type="text" placeholder="Ex. Atelier Nord" required></label>
+          <label>Description<textarea name="description" rows="4" placeholder="Quelques mots sur l'opportunité..." required></textarea></label>
+          <button class="button button-light" type="submit">Publier l’annonce <i data-lucide="send"></i></button><p class="form-feedback" id="admin-feedback" role="status"></p>
+        </form>
+        <div class="manage-list"><div class="manage-list-heading"><span>Annonces en ligne</span><span class="live-dot">● En direct</span></div><div id="admin-list"></div></div>
+      </div>
+    </section>
+  </main>
+  <script src="admin.js"></script>
+</body>
+</html>
