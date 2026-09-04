@@ -26,7 +26,7 @@ function renderAnnouncements() {
     return categoryMatches(announcement) && searchable.includes(search);
   });
   const sorted = newestFirst ? visible : [...visible].reverse();
-  list.innerHTML = sorted.slice(0, 4).map((announcement) => `<article class="announcement-card"><div class="card-meta"><span class="tag">${escapeHtml(categoryFor(announcement))}</span><span class="date">${escapeHtml(announcement.date || 'Récent')}</span></div><h3>${escapeHtml(announcement.title)}</h3><span class="company">${escapeHtml(announcement.company)}</span><span class="location"><i data-lucide="map-pin"></i>${escapeHtml(announcement.location)}</span></article>`).join('');
+  list.innerHTML = sorted.slice(0, 4).map((announcement) => `<a class="announcement-card" href="detail.html?id=${encodeURIComponent(announcement.id ?? announcement._id ?? '')}"><div class="card-meta"><span class="tag">${escapeHtml(categoryFor(announcement))}</span><span class="date">${escapeHtml(announcement.date || 'Récent')}</span></div><h3>${escapeHtml(announcement.title)}</h3><span class="company">${escapeHtml(announcement.company)}</span><span class="location"><i data-lucide="map-pin"></i>${escapeHtml(announcement.location)}</span><span class="detail-hint">Voir le détail complet <i data-lucide="arrow-up-right"></i></span></a>`).join('');
   emptyState.hidden = sorted.length > 0;
   renderDirectoryPreviews();
   lucide.createIcons();

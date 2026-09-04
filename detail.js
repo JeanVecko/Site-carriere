@@ -8,7 +8,13 @@ function paragraphs(value) { return String(value).split(/\n+|(?<=;)\s+/).map((pa
 async function loadDetail() {
   if (!id) { content.hidden = true; error.hidden = false; return; }
   try {
-    const item = await apiRequest(`/announcements/${encodeURIComponent(id)}`);
+    let item;
+    try { item = await apiRequest(`/announcements/${encodeURIComponent(id)}`); }
+    catch {
+      const items = await apiRequest('/announcements');
+      item = items.find((announcement) => String(announcement.id) === String(id));
+      if (!item) throw new Error('Annonce introuvable.');
+    }
     document.title = `${item.title} — Carrières RDC`;
     document.querySelector('.detail-page-tag').textContent = item.category;
     document.querySelector('.detail-page-title').textContent = item.title;
