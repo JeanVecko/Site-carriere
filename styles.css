@@ -79,6 +79,28 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 .admin-page { min-height: 100vh; background: var(--cream); }.admin-main { margin: 0 auto; max-width: 1200px; padding: 78px clamp(22px, 7vw, 100px) 100px; }.admin-login { max-width: 560px; }.admin-login h1, .dashboard h1 { font-size: clamp(54px, 7vw, 90px); }.admin-lead { color: var(--muted); font-size: 15px; line-height: 1.6; margin: 27px 0 35px; max-width: 330px; }.admin-form { max-width: 420px; }.admin-form .button { margin-top: 8px; }.demo-hint { color: var(--muted); font-size: 11px; margin-top: 21px; }.demo-hint strong { color: var(--ink); }.error-feedback { color: #d84f33; }.dashboard-heading { align-items: end; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding-bottom: 42px; }.dashboard-heading .text-button { margin-bottom: 9px; }.dashboard-grid { display: grid; gap: 75px; grid-template-columns: minmax(280px, .8fr) 1.2fr; padding-top: 40px; }.admin-publish-form { border-top: 1px solid var(--line); }.admin-publish-form .form-topline { color: var(--muted); }.admin-publish-form label { color: var(--muted); }.admin-publish-form input, .admin-publish-form select, .admin-publish-form textarea { border-color: var(--line); color: var(--ink); }.admin-publish-form select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23ff6b35' stroke-width='2'%3E%3Cpath d='m2 4 4 4 4-4'/%3E%3C/svg%3E"); }.manage-list-heading { align-items: center; border-bottom: 1px solid var(--line); display: flex; font-size: 11px; font-weight: 700; justify-content: space-between; letter-spacing: 1px; padding: 0 0 16px; text-transform: uppercase; }.live-dot { color: #5f9263; font-size: 10px; letter-spacing: 0; text-transform: none; }.manage-item { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 18px; justify-content: space-between; padding: 20px 0; }.manage-item .tag { display: inline-block; font-size: 9px; }.manage-item h3 { font-family: 'Space Grotesk', sans-serif; font-size: 17px; letter-spacing: -.5px; margin: 9px 0 5px; }.manage-item p { color: var(--muted); font-size: 11px; margin: 0; }.delete-button { background: transparent; border: 1px solid var(--line); color: var(--muted); cursor: pointer; display: flex; padding: 9px; }.delete-button:hover { border-color: #d84f33; color: #d84f33; }.delete-button svg { height: 16px; width: 16px; }
 @media (max-width: 700px) { .admin-main { padding-top: 50px; }.admin-entry { align-items: flex-start; flex-wrap: wrap; }.admin-entry .button { margin-left: 65px; }.dashboard-grid { gap: 55px; grid-template-columns: 1fr; }.dashboard-heading { align-items: flex-start; flex-direction: column; gap: 22px; }.dashboard-heading .text-button { margin: 0; } }
 
+/* Compact layout */
+.hero { min-height: 535px; padding-top: 48px; padding-bottom: 32px; }
+h1 { font-size: clamp(45px, 5.5vw, 76px); }
+.content-section { padding-top: 52px; padding-bottom: 55px; }
+.section-heading h2 { font-size: clamp(38px, 4vw, 56px); }
+.directory-section { padding-top: 58px; padding-bottom: 62px; }
+.directory-card { min-height: 290px; padding: 22px; }
+.directory-card h3 { font-size: 21px; }
+.category-hero { padding-top: 64px; padding-bottom: 72px; }
+.category-hero h1 { font-size: clamp(48px, 6vw, 80px); }
+.category-content { padding-top: 44px; padding-bottom: 65px; }
+.site-footer { padding-top: 65px; }
+.footer-contact { margin-bottom: 60px; }
+.footer-message h2 { font-size: clamp(40px, 5vw, 64px); }
+@media (max-width: 560px) {
+	.hero { min-height: 610px; padding-top: 30px; }
+	h1 { font-size: clamp(40px, 12vw, 58px); }
+	.content-section, .directory-section { padding-top: 46px; padding-bottom: 48px; }
+	.directory-card { min-height: 285px; }
+	.category-hero { padding-top: 52px; padding-bottom: 58px; }
+}
+
 /* Professional contact footer */
 .site-footer { background: var(--ink); color: var(--paper); display: block; padding: 92px clamp(22px, 8vw, 130px) 25px; }
 .footer-contact { display: grid; gap: 12%; grid-template-columns: 1fr 1fr; margin: 0 auto 95px; max-width: 1080px; }
