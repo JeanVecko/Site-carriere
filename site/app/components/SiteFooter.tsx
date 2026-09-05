@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { ArrowUpRight, Mail, Phone, Send } from "lucide-react";
+import { Mail, Phone, Send } from "lucide-react";
 import { apiRequest } from "../lib/api";
 
 export default function SiteFooter() {
@@ -79,9 +78,6 @@ export default function SiteFooter() {
               {feedback}
             </p>
           </form>
-          <Link className="footer-admin-link" href="/admin">
-            Espace administrateur <ArrowUpRight size={14} />
-          </Link>
         </div>
       </div>
       <div className="footer-bottom">
