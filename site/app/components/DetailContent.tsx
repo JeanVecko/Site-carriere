@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft, FileText, MapPin } from "lucide-react";
 import { Announcement, apiRequest, escapeHtml, paragraphs } from "../lib/api";
 
 const CATEGORY_URLS: Record<string, string> = {
@@ -92,11 +92,33 @@ export default function DetailContent() {
           <MapPin size={14} />
           {escapeHtml(item.location)}
         </p>
-        <div className="detail-page-description">
-          {paragraphs(item.description).map((paragraph, index) => (
-            <p key={index}>{escapeHtml(paragraph)}</p>
-          ))}
-        </div>
+        {item.description && (
+          <div className="detail-page-description">
+            {paragraphs(item.description).map((paragraph, index) => (
+              <p key={index}>{escapeHtml(paragraph)}</p>
+            ))}
+          </div>
+        )}
+        {item.media && item.media.length > 0 && (
+          <section className="announcement-media" aria-labelledby="announcement-media-title">
+            <h2 id="announcement-media-title">Document{item.media.length > 1 ? "s" : ""} joint{item.media.length > 1 ? "s" : ""}</h2>
+            <div className="announcement-media-grid">
+              {item.media.map((file, index) =>
+                file.type === "application/pdf" ? (
+                  <a className="announcement-pdf" href={file.dataUrl} download={file.name} key={`${file.name}-${index}`}>
+                    <FileText size={28} />
+                    <span>{escapeHtml(file.name)}</span>
+                    <small>Télécharger le PDF</small>
+                  </a>
+                ) : (
+                  <a href={file.dataUrl} target="_blank" rel="noreferrer" key={`${file.name}-${index}`}>
+                    <img className="announcement-image" src={file.dataUrl} alt={`Document scanné : ${file.name}`} />
+                  </a>
+                )
+              )}
+            </div>
+          </section>
+        )}
       </article>
     </main>
   );

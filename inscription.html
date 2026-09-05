@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Inscription Express — Carrières RDC.">
+  <title>Inscription Express — Carrières RDC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <!-- Header Carrières RDC -->
+  <header class="site-header public-header" id="site-header">
+    <div class="header-brand-row">
+      <a class="brand" href="index.html" aria-label="Carrières RDC, accueil">
+        <span class="brand-emblem"><img src="LOGO/Logo.png" alt="Logo Carrières RDC"></span>
+        <span class="brand-name">
+          <span class="brand-title">Carrières <strong>RDC</strong></span>
+          <span class="brand-tagline">Opportunités en RDC</span>
+        </span>
+      </a>
+    </div>
+    <div class="header-navigation-row">
+      <div class="social-links" aria-label="Réseaux sociaux">
+        <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M13.7 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.3-1.5 1.6-1.5h1.7V3.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.2v2.2H7.7V13h2.8v8h3.2Z"/></svg>
+        </a>
+        <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" aria-label="LinkedIn">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6.5 8.4A1.9 1.9 0 1 0 6.5 4.6a1.9 1.9 0 0 0 0 3.8ZM4.9 20h3.2v-10H4.9v10Zm5.2 0h3.2v-5.6c0-1.5.3-2.9 2.1-2.9 1.8 0 1.8 1.7 1.8 3V20h3.2v-6.2c0-3-.6-5.3-4.1-5.3-1.7 0-2.8.9-3.3 1.8h-.1V10h-3v10Z"/></svg>
+        </a>
+      </div>
+      <nav class="main-nav" aria-label="Navigation principale">
+        <a href="offres.html">Offres d’emploi</a>
+        <a href="annonces.html">Annonces</a>
+        <a href="appels-offres.html">Appels d’offres</a>
+        <a href="index.html#contact">Contact</a>
+      </nav>
+      <div class="account-actions">
+        <a class="login-link" href="connexion.html">Se connecter</a>
+        <a class="signup-link active" href="inscription.html">S’inscrire</a>
+      </div>
+      <button class="menu-toggle" type="button" id="menu-toggle-btn" aria-label="Ouvrir le menu">
+        <i data-lucide="menu"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="express-register-page">
+    <!-- Bandeau supérieur -->
+    <section class="express-register-banner" aria-label="En-tête">
+      <h1>Inscription Express</h1>
+    </section>
+
+    <!-- Grille des 2 cartes : Candidat & Recruteur -->
+    <section class="express-register-container" aria-label="Choix profil">
+      <div class="express-register-grid">
+        <!-- CARTE GAUCHE : CANDIDAT -->
+        <article class="express-card">
+          <h2 class="express-card-title">Candidat</h2>
+          <div class="express-illustration" aria-hidden="true">
+            <svg viewBox="0 0 380 250" fill="none" xmlns="http://www.w3.org/2000/svg" class="illustration-svg">
+              <rect x="20" y="30" width="340" height="200" rx="16" fill="#f4f7fb" opacity="0.8" />
+              <circle cx="190" cy="115" r="75" fill="#e2ecf7" />
+              <path d="M75 10 L85 45 L65 45 Z" fill="#092d63" />
+              <line x1="75" y1="0" x2="75" y2="10" stroke="#092d63" stroke-width="3" />
+              <path d="M50 45 L100 45 L115 190 L35 190 Z" fill="#d9a400" opacity="0.12" />
+              <path d="M190 10 L200 45 L180 45 Z" fill="#092d63" />
+              <line x1="190" y1="0" x2="190" y2="10" stroke="#092d63" stroke-width="3" />
+              <path d="M165 45 L215 45 L245 220 L135 220 Z" fill="#d9a400" opacity="0.22" />
+              <path d="M305 10 L315 45 L295 45 Z" fill="#092d63" />
+              <line x1="305" y1="0" x2="305" y2="10" stroke="#092d63" stroke-width="3" />
+              <path d="M280 45 L330 45 L345 190 L265 190 Z" fill="#d9a400" opacity="0.12" />
+              <path d="M190 62 L193 72 L203 72 L195 78 L198 88 L190 82 L182 88 L185 78 L177 72 L187 72 Z" fill="#d9a400" />
+              <circle cx="85" cy="100" r="13" fill="#092d63" />
+              <path d="M72 120 C72 113 78 111 85 111 C92 111 98 113 98 120 L101 170 L91 170 L91 220 L80 220 L80 170 L70 170 Z" fill="#092d63" />
+              <path d="M85 118 L87 142 L85 147 L83 142 Z" fill="#d9a400" />
+              <path d="M72 125 L60 148 L65 152 L73 133 Z" fill="#092d63" />
+              <circle cx="58" cy="144" r="5" fill="#f3be94" />
+              <rect x="98" y="162" width="16" height="20" rx="3" fill="#293c52" />
+              <rect x="103" y="158" width="6" height="4" rx="1" stroke="#293c52" stroke-width="1.5" fill="none" />
+              <circle cx="190" cy="98" r="14" fill="#092d63" />
+              <path d="M174 95 C174 85 180 82 190 82 C200 82 206 85 206 95 C206 102 201 106 200 109 L180 109 C179 106 174 102 174 95 Z" fill="#1b2a3a" />
+              <circle cx="190" cy="98" r="10" fill="#f3be94" />
+              <path d="M175 114 C175 110 180 108 190 108 C200 108 205 110 205 114 L209 170 L171 170 Z" fill="#d9a400" />
+              <polygon points="190,110 186,132 194,132" fill="#ffffff" />
+              <path d="M174 170 L188 170 L186 225 L174 225 Z" fill="#092d63" />
+              <path d="M192 170 L206 170 L206 225 L194 225 Z" fill="#092d63" />
+              <circle cx="295" cy="102" r="13" fill="#092d63" />
+              <path d="M281 100 C281 88 288 85 295 85 C302 85 309 88 309 100 C309 110 306 115 305 125 L285 125 Z" fill="#1a1c23" />
+              <circle cx="295" cy="102" r="9" fill="#9e6647" />
+              <path d="M280 116 C280 112 286 110 295 110 C304 110 310 112 310 116 L313 166 L277 166 Z" fill="#092d63" />
+              <rect x="281" y="130" width="28" height="11" rx="5" fill="#d9a400" />
+              <path d="M280 166 L310 166 L306 222 L284 222 Z" fill="#1e2c3c" />
+              <circle cx="225" cy="100" r="10" fill="#ffffff" stroke="#d9a400" stroke-width="2" />
+              <path d="M221 100 L224 103 L229 97" stroke="#092d63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="express-action">
+            <a href="inscription-candidat.html" class="pill-button pill-button-primary express-pill-btn">
+              Cliquez ici
+            </a>
+          </div>
+        </article>
+
+        <!-- CARTE DROITE : RECRUTEUR -->
+        <article class="express-card">
+          <h2 class="express-card-title">Recruteur</h2>
+          <div class="express-illustration" aria-hidden="true">
+            <svg viewBox="0 0 380 250" fill="none" xmlns="http://www.w3.org/2000/svg" class="illustration-svg">
+              <ellipse cx="230" cy="130" rx="135" ry="90" fill="#fceded" opacity="0.6" />
+              <ellipse cx="230" cy="130" rx="110" ry="75" fill="#e8f0f8" />
+              <g fill="#d9a400" opacity="0.3">
+                <circle cx="260" cy="65" r="24" stroke="#d9a400" stroke-width="6" fill="none" stroke-dasharray="6 6" />
+                <circle cx="215" cy="175" r="30" stroke="#d9a400" stroke-width="7" fill="none" stroke-dasharray="8 6" />
+              </g>
+              <rect x="50" y="65" width="60" height="75" rx="6" fill="#ffffff" stroke="#cbd7e4" stroke-width="1.8" />
+              <circle cx="80" cy="85" r="9" fill="#092d63" />
+              <line x1="62" y1="105" x2="98" y2="105" stroke="#cbd7e4" stroke-width="3" stroke-linecap="round" />
+              <line x1="65" y1="115" x2="95" y2="115" stroke="#d9a400" stroke-width="2.5" stroke-linecap="round" />
+              <rect x="100" y="45" width="76" height="95" rx="7" fill="#ffffff" stroke="#092d63" stroke-width="2.2" />
+              <circle cx="138" cy="70" r="13" fill="#092d63" />
+              <circle cx="138" cy="70" r="9" fill="#f3be94" />
+              <path d="M129 88 C129 83 133 81 138 81 C143 81 147 83 147 88 Z" fill="#d9a400" />
+              <line x1="115" y1="100" x2="161" y2="100" stroke="#cbd7e4" stroke-width="3.5" stroke-linecap="round" />
+              <g fill="#d9a400">
+                <polygon points="120,112 121,115 124,115 122,117 123,120 120,118 117,120 118,117 116,115 119,115" />
+                <polygon points="129,112 130,115 133,115 131,117 132,120 129,118 126,120 127,117 125,115 128,115" />
+                <polygon points="138,112 139,115 142,115 140,117 141,120 138,118 135,120 136,117 134,115 137,115" />
+                <polygon points="147,112 148,115 151,115 149,117 150,120 147,118 144,120 145,117 143,115 146,115" />
+                <polygon points="156,112 157,115 160,115 158,117 159,120 156,118 153,120 154,117 152,115 155,115" />
+              </g>
+              <rect x="165" y="65" width="60" height="75" rx="6" fill="#ffffff" stroke="#cbd7e4" stroke-width="1.8" />
+              <circle cx="195" cy="85" r="9" fill="#092d63" />
+              <line x1="177" y1="105" x2="213" y2="105" stroke="#cbd7e4" stroke-width="3" stroke-linecap="round" />
+              <line x1="180" y1="115" x2="210" y2="115" stroke="#d9a400" stroke-width="2.5" stroke-linecap="round" />
+              <rect x="290" y="44" width="16" height="16" rx="3.5" stroke="#092d63" stroke-width="1.8" fill="#ffffff" />
+              <path d="M293.5 52 L296.5 55 L303 48" stroke="#d9a400" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+              <rect x="180" y="160" width="155" height="6" rx="3" fill="#092d63" />
+              <line x1="205" y1="166" x2="195" y2="225" stroke="#092d63" stroke-width="4" stroke-linecap="round" />
+              <line x1="310" y1="166" x2="320" y2="225" stroke="#092d63" stroke-width="4" stroke-linecap="round" />
+              <polygon points="210,160 216,142 244,142 240,160" fill="#cbd7e4" stroke="#092d63" stroke-width="1.5" />
+              <rect x="216" y="142" width="28" height="17" rx="2" fill="#092d63" />
+              <rect x="218" y="144" width="24" height="13" rx="1" fill="#d9a400" opacity="0.4" />
+              <path d="M335 185 Q325 170 338 160 Q348 175 335 185 Z" fill="#699277" />
+              <path d="M342 188 Q355 175 348 162 Q338 176 342 188 Z" fill="#4d775b" />
+              <rect x="330" y="185" width="18" height="20" rx="3" fill="#d9a400" />
+              <circle cx="282" cy="118" r="11" fill="#f3be94" />
+              <path d="M272 118 C272 108 280 106 288 106 C294 106 298 110 298 124 L290 124 Z" fill="#092d63" />
+              <path d="M270 134 C270 130 276 128 282 128 C288 128 294 130 294 134 L294 175 L268 175 Z" fill="#092d63" />
+              <path d="M274 136 L242 154 L244 158 L278 142 Z" fill="#f3be94" />
+              <path d="M270 175 L288 175 L252 215 L240 215 Z" fill="#d9a400" />
+              <path d="M296 142 L306 142 L302 215" stroke="#092d63" stroke-width="4" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="express-action">
+            <button type="button" class="pill-button pill-button-primary express-pill-btn" id="btn-recruteur">
+              Cliquez ici
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- MODALE CANDIDAT -->
+    <div class="modal-overlay" id="modal-candidat" style="display: none;">
+      <div class="modal-content modal-register">
+        <div class="modal-header">
+          <h3>Inscription Candidat</h3>
+          <button type="button" class="modal-close-btn" id="close-candidat-btn" aria-label="Fermer"><i data-lucide="x"></i></button>
+        </div>
+        <p class="modal-description">Créez votre profil de candidat sur Carrières RDC pour postuler aux meilleures opportunités.</p>
+        <form id="form-candidat">
+          <div class="input-field-wrapper">
+            <input type="text" placeholder="Nom complet (ex: Jean Mukendi) *" required class="access-input">
+          </div>
+          <div class="input-field-wrapper">
+            <input type="email" placeholder="Adresse e-mail *" required class="access-input">
+          </div>
+          <div class="input-field-wrapper">
+            <input type="text" placeholder="Métier ou domaine recherché *" required class="access-input">
+          </div>
+          <div class="input-field-wrapper">
+            <select class="access-input access-select">
+              <option value="Kinshasa">Kinshasa</option>
+              <option value="Lubumbashi">Lubumbashi</option>
+              <option value="Goma">Goma</option>
+              <option value="Autre">Autre ville en RDC</option>
+            </select>
+          </div>
+          <div class="input-field-wrapper">
+            <input type="password" placeholder="Mot de passe (min. 6 caractères) *" minlength="6" required class="access-input">
+          </div>
+          <div class="modal-actions">
+            <button type="submit" class="pill-button pill-button-primary">Finaliser mon inscription Candidat</button>
+          </div>
+        </form>
+        <div class="form-feedback-message success" id="candidat-feedback" style="display: none; margin-top: 15px;"></div>
+      </div>
+    </div>
+
+    <!-- MODALE RECRUTEUR -->
+    <div class="modal-overlay" id="modal-recruteur" style="display: none;">
+      <div class="modal-content modal-register">
+        <div class="modal-header">
+          <h3>Inscription Recruteur</h3>
+          <button type="button" class="modal-close-btn" id="close-recruteur-btn" aria-label="Fermer"><i data-lucide="x"></i></button>
+        </div>
+        <p class="modal-description">Inscrivez votre entreprise ou organisation pour publier vos opportunités.</p>
+        <form id="form-recruteur">
+          <div class="input-field-wrapper">
+            <input type="text" placeholder="Nom de l’entreprise ou organisation *" required class="access-input">
+          </div>
+          <div class="input-field-wrapper">
+            <input type="text" placeholder="Nom du responsable RH *" required class="access-input">
+          </div>
+          <div class="input-field-wrapper">
+            <input type="email" placeholder="Adresse e-mail professionnelle *" required class="access-input">
+          </div>
+          <div class="input-field-wrapper">
+            <select class="access-input access-select">
+              <option value="Kinshasa">Siège : Kinshasa</option>
+              <option value="Lubumbashi">Siège : Lubumbashi</option>
+              <option value="Goma">Siège : Goma</option>
+              <option value="Autre">Autre ville / International</option>
+            </select>
+          </div>
+          <div class="input-field-wrapper">
+            <input type="password" placeholder="Mot de passe (min. 6 caractères) *" minlength="6" required class="access-input">
+          </div>
+          <div class="modal-actions">
+            <button type="submit" class="pill-button pill-button-primary">Finaliser mon inscription Recruteur</button>
+          </div>
+        </form>
+        <div class="form-feedback-message success" id="recruteur-feedback" style="display: none; margin-top: 15px;"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <span>Carrières <strong>RDC</strong></span>
+    <span>Plateforme locale des opportunités et carrières</span>
+    <span>© 2026 Carrières RDC. Tous droits réservés.</span>
+  </footer>
+
+  <script>
+    if (window.lucide) lucide.createIcons();
+
+    // Modales
+    const modalCandidat = document.getElementById('modal-candidat');
+    const btnCandidat = document.getElementById('btn-candidat');
+    const closeCandidat = document.getElementById('close-candidat-btn');
+    const formCandidat = document.getElementById('form-candidat');
+    const feedbackCandidat = document.getElementById('candidat-feedback');
+
+    if (btnCandidat && modalCandidat) {
+      btnCandidat.addEventListener('click', () => modalCandidat.style.display = 'flex');
+      closeCandidat.addEventListener('click', () => modalCandidat.style.display = 'none');
+      modalCandidat.addEventListener('click', (e) => { if (e.target === modalCandidat) modalCandidat.style.display = 'none'; });
+      formCandidat.addEventListener('submit', (e) => {
+        e.preventDefault();
+        feedbackCandidat.textContent = 'Compte Candidat créé avec succès !';
+        feedbackCandidat.style.display = 'block';
+        setTimeout(() => { modalCandidat.style.display = 'none'; feedbackCandidat.style.display = 'none'; }, 2200);
+      });
+    }
+
+    const modalRecruteur = document.getElementById('modal-recruteur');
+    const btnRecruteur = document.getElementById('btn-recruteur');
+    const closeRecruteur = document.getElementById('close-recruteur-btn');
+    const formRecruteur = document.getElementById('form-recruteur');
+    const feedbackRecruteur = document.getElementById('recruteur-feedback');
+
+    if (btnRecruteur && modalRecruteur) {
+      btnRecruteur.addEventListener('click', () => modalRecruteur.style.display = 'flex');
+      closeRecruteur.addEventListener('click', () => modalRecruteur.style.display = 'none');
+      modalRecruteur.addEventListener('click', (e) => { if (e.target === modalRecruteur) modalRecruteur.style.display = 'none'; });
+      formRecruteur.addEventListener('submit', (e) => {
+        e.preventDefault();
+        feedbackRecruteur.textContent = 'Compte Recruteur créé avec succès !';
+        feedbackRecruteur.style.display = 'block';
+        setTimeout(() => { modalRecruteur.style.display = 'none'; feedbackRecruteur.style.display = 'none'; }, 2200);
+      });
+    }
+
+    const menuToggle = document.getElementById('menu-toggle-btn');
+    const header = document.getElementById('site-header');
+    if (menuToggle && header) {
+      menuToggle.addEventListener('click', () => header.classList.toggle('menu-open'));
+    }
+  </script>
+</body>
+</html>
+

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Menu, X } from "lucide-react";
 
 type Props = {
-  active?: "accueil" | "offres" | "annonces" | "appels-offres";
+  active?: "accueil" | "offres" | "annonces" | "appels-offres" | "connexion" | "inscription";
   adminButton?: boolean;
 };
 
@@ -51,7 +51,7 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
 
   if (adminButton) {
     return (
-      <header className="site-header">
+      <header className="site-header admin-header">
         <Link className="brand" href="/" aria-label="Carrières RDC, accueil">
           <span className="brand-emblem">
             <img src="/LOGO/Logo.png" alt="Logo Carrières RDC" />
@@ -69,28 +69,48 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
   }
 
   return (
-  <header ref={headerRef} className={`site-header${open ? " menu-open" : ""}`}>
-      <Link className="brand" href="/" aria-label="Carrière RDC, accueil">
-        <span className="brand-emblem">
-          <img src="/LOGO/Logo.png" alt="Logo Carrières RDC" />
-        </span>
-        <span className="brand-name">
-          <span className="brand-title">Carrières <strong>RDC</strong></span>
-          <span className="brand-tagline">Opportunités en RDC</span>
-        </span>
-      </Link>
-      <nav className="main-nav" aria-label="Navigation principale" onClick={() => setOpen(false)}>
-        {links}
-      </nav>
-      <button
-        className="menu-toggle"
-        type="button"
-        aria-label="Ouvrir le menu"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-      >
-        {open ? <X size={17} /> : <Menu size={17} />}
-      </button>
+    <header ref={headerRef} className={`site-header public-header${open ? " menu-open" : ""}`}>
+      <div className="header-brand-row">
+        <Link className="brand" href="/" aria-label="Carrière RDC, accueil">
+          <span className="brand-emblem">
+            <img src="/LOGO/Logo.png" alt="Logo Carrières RDC" />
+          </span>
+          <span className="brand-name">
+            <span className="brand-title">Carrières <strong>RDC</strong></span>
+            <span className="brand-tagline">Opportunités en RDC</span>
+          </span>
+        </Link>
+      </div>
+      <div className="header-navigation-row">
+        <div className="social-links" aria-label="Réseaux sociaux">
+          <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook Carrières RDC">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M13.7 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.3-1.5 1.6-1.5h1.7V3.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.2v2.2H7.7V13h2.8v8h3.2Z" />
+            </svg>
+          </a>
+          <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" aria-label="LinkedIn Carrières RDC">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M6.5 8.4A1.9 1.9 0 1 0 6.5 4.6a1.9 1.9 0 0 0 0 3.8ZM4.9 20h3.2v-10H4.9v10Zm5.2 0h3.2v-5.6c0-1.5.3-2.9 2.1-2.9 1.8 0 1.8 1.7 1.8 3V20h3.2v-6.2c0-3-.6-5.3-4.1-5.3-1.7 0-2.8.9-3.3 1.8h-.1V10h-3v10Z" />
+            </svg>
+          </a>
+        </div>
+        <nav className="main-nav" aria-label="Navigation principale" onClick={() => setOpen(false)}>
+          {links}
+        </nav>
+        <div className="account-actions">
+          <Link className={`login-link${active === "connexion" ? " active" : ""}`} href="/connexion">Se connecter</Link>
+          <Link className={`signup-link${active === "inscription" ? " active" : ""}`} href="/inscription">S’inscrire</Link>
+        </div>
+        <button
+          className="menu-toggle"
+          type="button"
+          aria-label="Ouvrir le menu"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          {open ? <X size={17} /> : <Menu size={17} />}
+        </button>
+      </div>
     </header>
   );
 }

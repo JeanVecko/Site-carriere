@@ -23,7 +23,7 @@ const pool = new Pool({
 });
 
 app.use(cors({ origin: true }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '30mb' }));
 
 const defaultAnnouncements = [
   ['Responsable de projet culturel', 'Offre d’emploi', 'Kivu Culture', 'Kinshasa · Hybride', 'Coordonner des projets qui rapprochent les publics de la culture en RDC.'],
@@ -42,7 +42,8 @@ async function initializeDatabase() {
       category TEXT NOT NULL CHECK (category IN ('Offre d’emploi', 'Annonce', 'Appel d’offre')),
       company TEXT NOT NULL,
       location TEXT NOT NULL,
-      description TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      media JSONB NOT NULL DEFAULT '[]'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS messages (
@@ -54,6 +55,7 @@ async function initializeDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media JSONB NOT NULL DEFAULT '[]'::jsonb");
   const result = await pool.query('SELECT COUNT(*)::int AS count FROM announcements');
   if (result.rows[0].count === 0) {
     for (const item of defaultAnnouncements) {
@@ -74,9 +76,30 @@ function requireAdmin(request, response, next) {
 }
 
 function clean(value) { return typeof value === 'string' ? value.trim() : ''; }
+function cleanMedia(media) {
+  if (!Array.isArray(media)) return null;
+  const supportedTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+  const files = media.map((file) => ({
+    name: clean(file?.name).slice(0, 120),
+    type: clean(file?.type),
+    dataUrl: typeof file?.dataUrl === 'string' ? file.dataUrl : ''
+  }));
+  const totalLength = files.reduce((total, file) => total + file.dataUrl.length, 0);
+  if (totalLength > 28_000_000) return null;
+  if (files.some((file) => !file.name || !supportedTypes.has(file.type) || !file.dataUrl.startsWith(`data:${file.type};base64,`))) return null;
+  return files;
+}
 function validateAnnouncement(body) {
   const values = [clean(body.title), clean(body.category), clean(body.company), clean(body.location), clean(body.description)];
   return values.every(Boolean) && ['Offre d’emploi', 'Annonce', 'Appel d’offre'].includes(values[1]) ? values : null;
+}
+
+function validateAnnouncementWithMedia(body) {
+  const values = [clean(body.title), clean(body.category), clean(body.company), clean(body.location), clean(body.description)];
+  const media = cleanMedia(body.media || []);
+  const validMetadata = validateAnnouncement({ ...body, description: values[4] || 'document attached' });
+  if (!validMetadata || !media || (!values[4] && media.length === 0)) return null;
+  return [...values, media];
 }
 
 app.get('/api/health', (_request, response) => response.json({ status: 'ok' }));
@@ -94,20 +117,20 @@ app.post('/api/auth/login', async (request, response) => {
 app.get('/api/announcements', async (request, response) => {
   const category = clean(request.query.category);
   const values = category ? [category] : [];
-  const result = await pool.query(`SELECT id, title, category, company, location, description, created_at FROM announcements ${category ? 'WHERE category = $1' : ''} ORDER BY created_at DESC`, values);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, media, created_at FROM announcements ${category ? 'WHERE category = $1' : ''} ORDER BY created_at DESC`, values);
   response.json(result.rows);
 });
 
 app.get('/api/announcements/:id', async (request, response) => {
-  const result = await pool.query('SELECT id, title, category, company, location, description, created_at FROM announcements WHERE id = $1', [request.params.id]);
+  const result = await pool.query('SELECT id, title, category, company, location, description, media, created_at FROM announcements WHERE id = $1', [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   response.json(result.rows[0]);
 });
 
 app.post('/api/announcements', requireAdmin, async (request, response) => {
-  const values = validateAnnouncement(request.body);
+  const values = validateAnnouncementWithMedia(request.body);
   if (!values) return response.status(400).json({ error: 'Tous les champs de l’annonce sont obligatoires.' });
-  const result = await pool.query('INSERT INTO announcements (title, category, company, location, description) VALUES ($1, $2, $3, $4, $5) RETURNING *', values);
+  const result = await pool.query('INSERT INTO announcements (title, category, company, location, description, media) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *', values);
   response.status(201).json(result.rows[0]);
 });
 

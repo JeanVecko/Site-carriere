@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, MapPin, Search } from "lucide-react";
+import { ArrowUpRight, FileText, MapPin, Search } from "lucide-react";
 import { Announcement, apiRequest, detailHref, escapeHtml, paragraphs } from "../lib/api";
 
 const LABELS: Record<string, string> = {
@@ -110,6 +110,9 @@ export default function CategoryList({ category }: { category: string }) {
               <span className="detail-hint">
                 Voir le détail complet <ArrowUpRight size={13} />
               </span>
+              {item.media && item.media.length > 0 && (
+                <span className="media-status"><FileText size={13} /> {item.media.length} document{item.media.length > 1 ? "s" : ""} joint{item.media.length > 1 ? "s" : ""}</span>
+              )}
             </Link>
           ))}
         </div>

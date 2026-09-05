@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Connectez-vous à votre compte Carrières RDC.">
+  <title>Connexion — Carrières RDC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <!-- Header Carrières RDC -->
+  <header class="site-header public-header" id="site-header">
+    <div class="header-brand-row">
+      <a class="brand" href="index.html" aria-label="Carrières RDC, accueil">
+        <span class="brand-emblem"><img src="LOGO/Logo.png" alt="Logo Carrières RDC"></span>
+        <span class="brand-name">
+          <span class="brand-title">Carrières <strong>RDC</strong></span>
+          <span class="brand-tagline">Opportunités en RDC</span>
+        </span>
+      </a>
+    </div>
+    <div class="header-navigation-row">
+      <div class="social-links" aria-label="Réseaux sociaux">
+        <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M13.7 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.3-1.5 1.6-1.5h1.7V3.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.2v2.2H7.7V13h2.8v8h3.2Z"/></svg>
+        </a>
+        <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" aria-label="LinkedIn">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6.5 8.4A1.9 1.9 0 1 0 6.5 4.6a1.9 1.9 0 0 0 0 3.8ZM4.9 20h3.2v-10H4.9v10Zm5.2 0h3.2v-5.6c0-1.5.3-2.9 2.1-2.9 1.8 0 1.8 1.7 1.8 3V20h3.2v-6.2c0-3-.6-5.3-4.1-5.3-1.7 0-2.8.9-3.3 1.8h-.1V10h-3v10Z"/></svg>
+        </a>
+      </div>
+      <nav class="main-nav" aria-label="Navigation principale">
+        <a href="offres.html">Offres d’emploi</a>
+        <a href="annonces.html">Annonces</a>
+        <a href="appels-offres.html">Appels d’offres</a>
+        <a href="index.html#contact">Contact</a>
+      </nav>
+      <div class="account-actions">
+        <a class="login-link active" href="connexion.html">Se connecter</a>
+        <a class="signup-link" href="inscription.html">S’inscrire</a>
+      </div>
+      <button class="menu-toggle" type="button" id="menu-toggle-btn" aria-label="Ouvrir le menu">
+        <i data-lucide="menu"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Page de connexion -->
+  <main class="company-access-page">
+    <!-- Bandeau supérieur -->
+    <section class="company-access-banner" aria-label="En-tête">
+      <h1>Connectez-vous à votre compte !</h1>
+    </section>
+
+    <!-- Grille des 2 cartes : S'inscrire & Se connecter -->
+    <section class="company-access-container" aria-label="Accès compte">
+      <div class="company-access-grid">
+        <!-- CARTE GAUCHE : S'INSCRIRE -->
+        <article class="access-card" id="inscription">
+          <div class="access-card-header">
+            <h2>S’inscrire</h2>
+          </div>
+          <div class="access-card-body">
+            <h3 class="benefits-title">Nos avantages</h3>
+            <ul class="benefits-list">
+              <li class="benefits-item">
+                <span class="checkbox-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="2" width="16" height="16" rx="3.5" stroke="#092d63" stroke-width="1.8" fill="#f8fafc"/>
+                    <path d="M5.5 10.2L8.8 13.5L15.2 6.2" stroke="#d9a400" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="benefits-text">Inscription rapide</span>
+              </li>
+              <li class="benefits-item">
+                <span class="checkbox-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="2" width="16" height="16" rx="3.5" stroke="#092d63" stroke-width="1.8" fill="#f8fafc"/>
+                    <path d="M5.5 10.2L8.8 13.5L15.2 6.2" stroke="#d9a400" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="benefits-text">Des recherches rapides et efficaces</span>
+              </li>
+              <li class="benefits-item">
+                <span class="checkbox-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="2" width="16" height="16" rx="3.5" stroke="#092d63" stroke-width="1.8" fill="#f8fafc"/>
+                    <path d="M5.5 10.2L8.8 13.5L15.2 6.2" stroke="#d9a400" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="benefits-text">Publication d’annonces 24h/24 7j/7</span>
+              </li>
+              <li class="benefits-item">
+                <span class="checkbox-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="2" width="16" height="16" rx="3.5" stroke="#092d63" stroke-width="1.8" fill="#f8fafc"/>
+                    <path d="M5.5 10.2L8.8 13.5L15.2 6.2" stroke="#d9a400" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="benefits-text">Stricte confidentialité de vos données</span>
+              </li>
+            </ul>
+            <div class="card-actions">
+              <a href="inscription.html" class="pill-button pill-button-primary">
+                S’inscrire
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <!-- CARTE DROITE : SE CONNECTER -->
+        <article class="access-card" id="connexion-card">
+          <div class="access-card-header">
+            <h2>Se connecter</h2>
+          </div>
+          <div class="access-card-body">
+            <form class="access-form" id="login-form">
+              <!-- Champ Email -->
+              <div class="input-field-wrapper">
+                <input
+                  type="email"
+                  name="email"
+                  id="login-email"
+                  placeholder="Votre email *"
+                  autoComplete="email"
+                  required
+                  class="access-input"
+                >
+              </div>
+
+              <!-- Champ Mot de passe avec toggle oeil -->
+              <div class="input-field-wrapper password-field-wrapper">
+                <input
+                  type="password"
+                  name="password"
+                  id="login-password"
+                  placeholder="Mot de passe *"
+                  autoComplete="current-password"
+                  required
+                  class="access-input"
+                >
+                <button
+                  type="button"
+                  class="password-toggle-button"
+                  id="toggle-password-btn"
+                  aria-label="Afficher le mot de passe"
+                >
+                  <i data-lucide="eye" id="eye-icon"></i>
+                </button>
+              </div>
+
+              <!-- Mot de passe oublié -->
+              <div class="forgot-password-row">
+                <button type="button" class="forgot-link-btn" id="open-forgot-btn">
+                  Mot de passe oublié ?
+                </button>
+              </div>
+
+              <!-- Bouton Se connecter -->
+              <div class="card-actions">
+                <button type="submit" class="pill-button pill-button-primary" id="login-submit-btn">
+                  Se connecter
+                </button>
+              </div>
+
+              <!-- Zone de feedback -->
+              <div class="form-feedback-message" id="login-feedback" style="display: none;"></div>
+            </form>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- MODALE : MOT DE PASSE OUBLIÉ -->
+    <div class="modal-overlay" id="forgot-modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Mot de passe oublié</h3>
+          <button type="button" class="modal-close-btn" id="close-forgot-btn" aria-label="Fermer">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <p class="modal-description">
+          Saisissez votre adresse e-mail pour recevoir un lien de réinitialisation de votre mot de passe.
+        </p>
+        <form id="forgot-form">
+          <div class="input-field-wrapper">
+            <input type="email" id="forgot-email-input" placeholder="Votre email *" required class="access-input">
+          </div>
+          <div class="modal-actions">
+            <button type="submit" class="pill-button pill-button-primary">Envoyer le lien</button>
+          </div>
+        </form>
+        <div class="form-feedback-message success" id="forgot-feedback" style="display: none; margin-top: 15px;"></div>
+      </div>
+    </div>
+
+    <!-- MODALE : INSCRIPTION -->
+    <div class="modal-overlay" id="register-modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Créer un compte Carrières RDC</h3>
+          <button type="button" class="modal-close-btn" id="close-register-btn" aria-label="Fermer">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <p class="modal-description">
+          Rejoignez la plateforme de référence pour l’emploi et les opportunités en RDC.
+        </p>
+        <form id="register-form">
+          <div class="input-field-wrapper">
+            <input type="text" placeholder="Nom complet ou organisation *" required class="access-input">
+          </div>
+          <div class="input-field-wrapper">
+            <input type="email" placeholder="Adresse email professionnelle *" required class="access-input">
+          </div>
+          <div class="input-field-wrapper">
+            <input type="password" placeholder="Mot de passe (min. 6 caractères) *" minlength="6" required class="access-input">
+          </div>
+          <div class="modal-actions">
+            <button type="submit" class="pill-button pill-button-primary">Créer mon compte</button>
+          </div>
+        </form>
+        <div class="form-feedback-message success" id="register-feedback" style="display: none; margin-top: 15px;"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer Carrières RDC -->
+  <footer class="site-footer">
+    <span>Carrières <strong>RDC</strong></span>
+    <span>Plateforme locale des opportunités et carrières</span>
+    <span>© 2026 Carrières RDC. Tous droits réservés.</span>
+  </footer>
+
+  <script>
+    // Initialisation des icônes
+    if (window.lucide) lucide.createIcons();
+
+    // Toggle affichage mot de passe
+    const passwordInput = document.getElementById('login-password');
+    const toggleBtn = document.getElementById('toggle-password-btn');
+    let isPasswordVisible = false;
+
+    if (toggleBtn && passwordInput) {
+      toggleBtn.addEventListener('click', () => {
+        isPasswordVisible = !isPasswordVisible;
+        passwordInput.type = isPasswordVisible ? 'text' : 'password';
+        toggleBtn.innerHTML = isPasswordVisible 
+          ? '<i data-lucide="eye-off"></i>' 
+          : '<i data-lucide="eye"></i>';
+        if (window.lucide) lucide.createIcons();
+      });
+    }
+
+    // Gestion de la soumission de connexion
+    const loginForm = document.getElementById('login-form');
+    const loginFeedback = document.getElementById('login-feedback');
+    const submitBtn = document.getElementById('login-submit-btn');
+
+    if (loginForm) {
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = passwordInput.value;
+
+        submitBtn.textContent = 'Connexion...';
+        submitBtn.disabled = true;
+
+        setTimeout(() => {
+          submitBtn.textContent = 'Se connecter';
+          submitBtn.disabled = false;
+          if (email.includes('@') && password.length >= 4) {
+            loginFeedback.className = 'form-feedback-message success';
+            loginFeedback.textContent = 'Connexion réussie ! Bienvenue sur Carrières RDC.';
+            loginFeedback.style.display = 'block';
+          } else {
+            loginFeedback.className = 'form-feedback-message error';
+            loginFeedback.textContent = 'Adresse e-mail ou mot de passe incorrect.';
+            loginFeedback.style.display = 'block';
+          }
+        }, 600);
+      });
+    }
+
+    // Gestion des modales
+    const forgotModal = document.getElementById('forgot-modal');
+    const openForgotBtn = document.getElementById('open-forgot-btn');
+    const closeForgotBtn = document.getElementById('close-forgot-btn');
+    const forgotForm = document.getElementById('forgot-form');
+    const forgotFeedback = document.getElementById('forgot-feedback');
+
+    if (openForgotBtn && forgotModal) {
+      openForgotBtn.addEventListener('click', () => forgotModal.style.display = 'flex');
+      closeForgotBtn.addEventListener('click', () => forgotModal.style.display = 'none');
+      forgotModal.addEventListener('click', (e) => {
+        if (e.target === forgotModal) forgotModal.style.display = 'none';
+      });
+      forgotForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        forgotFeedback.textContent = 'Un lien de réinitialisation a été envoyé à votre adresse e-mail.';
+        forgotFeedback.style.display = 'block';
+        setTimeout(() => {
+          forgotModal.style.display = 'none';
+          forgotFeedback.style.display = 'none';
+          document.getElementById('forgot-email-input').value = '';
+        }, 2500);
+      });
+    }
+
+    const registerModal = document.getElementById('register-modal');
+    const openRegisterBtn = document.getElementById('open-register-btn');
+    const closeRegisterBtn = document.getElementById('close-register-btn');
+    const registerForm = document.getElementById('register-form');
+    const registerFeedback = document.getElementById('register-feedback');
+
+    if (openRegisterBtn && registerModal) {
+      openRegisterBtn.addEventListener('click', () => registerModal.style.display = 'flex');
+      closeRegisterBtn.addEventListener('click', () => registerModal.style.display = 'none');
+      registerModal.addEventListener('click', (e) => {
+        if (e.target === registerModal) registerModal.style.display = 'none';
+      });
+      registerForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        registerFeedback.textContent = 'Votre compte a été créé avec succès !';
+        registerFeedback.style.display = 'block';
+        setTimeout(() => {
+          registerModal.style.display = 'none';
+          registerFeedback.style.display = 'none';
+        }, 2200);
+      });
+    }
+
+    // Menu mobile
+    const menuToggle = document.getElementById('menu-toggle-btn');
+    const header = document.getElementById('site-header');
+    if (menuToggle && header) {
+      menuToggle.addEventListener('click', () => {
+        header.classList.toggle('menu-open');
+      });
+    }
+  </script>
+</body>
+</html>
+

@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS announcements (
   category TEXT NOT NULL CHECK (category IN ('Offre d’emploi', 'Annonce', 'Appel d’offre')),
   company TEXT NOT NULL,
   location TEXT NOT NULL,
-  description TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  media JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

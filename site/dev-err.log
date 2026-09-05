@@ -1,3 +1,75 @@
 ⚠ Attempted to load @next/swc-win32-x64-msvc, but an error occurred: \\?\D:\Site carriere\site\node_modules\@next\swc-win32-x64-msvc\next-swc.win32-x64-msvc.node n�est pas une application Win32 valide.
 \\?\D:\Site carriere\site\node_modules\@next\swc-win32-x64-msvc\next-swc.win32-x64-msvc.node
 ⚠ turbopack.root should be absolute, using: D:\Site carriere\site
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'D:\Site carriere\site\.next\dev\cache\webpack\server-development\9.pack.gz_' -> 'D:\Site carriere\site\.next\dev\cache\webpack\server-development\9.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'D:\Site carriere\site\.next\dev\cache\webpack\client-development\9.pack.gz_' -> 'D:\Site carriere\site\.next\dev\cache\webpack\client-development\9.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'D:\Site carriere\site\.next\dev\cache\webpack\client-development\0.pack.gz_' -> 'D:\Site carriere\site\.next\dev\cache\webpack\client-development\0.pack.gz'
+⚠ ./app/components/SiteHeader.tsx
+Attempted import error: 'Facebook' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Facebook').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+
+./app/components/SiteHeader.tsx
+Attempted import error: 'Linkedin' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Linkedin').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+
+./app/components/SiteHeader.tsx
+Attempted import error: 'Facebook' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Facebook').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+
+./app/components/SiteHeader.tsx
+Attempted import error: 'Linkedin' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Linkedin').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+⚠ ./app/components/SiteHeader.tsx
+Attempted import error: 'Facebook' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Facebook').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+
+./app/components/SiteHeader.tsx
+Attempted import error: 'Linkedin' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Linkedin').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+
+./app/components/SiteHeader.tsx
+Attempted import error: 'Facebook' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Facebook').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+
+./app/components/SiteHeader.tsx
+Attempted import error: 'Linkedin' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Linkedin').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+⚠ ./app/components/SiteHeader.tsx
+Attempted import error: 'Facebook' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Facebook').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+
+./app/components/SiteHeader.tsx
+Attempted import error: 'Linkedin' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Linkedin').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+
+./app/components/SiteHeader.tsx
+Attempted import error: 'Facebook' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Facebook').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx
+
+./app/components/SiteHeader.tsx
+Attempted import error: 'Linkedin' is not exported from '__barrel_optimize__?names=ArrowLeft,Facebook,Linkedin,Menu,X!=!lucide-react' (imported as 'Linkedin').
+
+Import trace for requested module:
+./app/components/SiteHeader.tsx

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Candidats, inscrivez-vous en 1 minute sur Carrières RDC.">
+  <title>Inscription Candidat — Carrières RDC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <!-- Header Carrières RDC -->
+  <header class="site-header public-header" id="site-header">
+    <div class="header-brand-row">
+      <a class="brand" href="index.html" aria-label="Carrières RDC, accueil">
+        <span class="brand-emblem"><img src="LOGO/Logo.png" alt="Logo Carrières RDC"></span>
+        <span class="brand-name">
+          <span class="brand-title">Carrières <strong>RDC</strong></span>
+          <span class="brand-tagline">Opportunités en RDC</span>
+        </span>
+      </a>
+    </div>
+    <div class="header-navigation-row">
+      <div class="social-links" aria-label="Réseaux sociaux">
+        <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M13.7 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.3-1.5 1.6-1.5h1.7V3.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.2v2.2H7.7V13h2.8v8h3.2Z"/></svg>
+        </a>
+        <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" aria-label="LinkedIn">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6.5 8.4A1.9 1.9 0 1 0 6.5 4.6a1.9 1.9 0 0 0 0 3.8ZM4.9 20h3.2v-10H4.9v10Zm5.2 0h3.2v-5.6c0-1.5.3-2.9 2.1-2.9 1.8 0 1.8 1.7 1.8 3V20h3.2v-6.2c0-3-.6-5.3-4.1-5.3-1.7 0-2.8.9-3.3 1.8h-.1V10h-3v10Z"/></svg>
+        </a>
+      </div>
+      <nav class="main-nav" aria-label="Navigation principale">
+        <a href="offres.html">Offres d’emploi</a>
+        <a href="annonces.html">Annonces</a>
+        <a href="appels-offres.html">Appels d’offres</a>
+        <a href="index.html#contact">Contact</a>
+      </nav>
+      <div class="account-actions">
+        <a class="login-link" href="connexion.html">Se connecter</a>
+        <a class="signup-link active" href="inscription.html">S’inscrire</a>
+      </div>
+      <button class="menu-toggle" type="button" id="menu-toggle-btn" aria-label="Ouvrir le menu">
+        <i data-lucide="menu"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="candidate-register-page">
+    <div class="candidate-top-nav">
+      <a href="inscription.html" class="back-link">
+        <i data-lucide="arrow-left"></i> Retour au choix du profil
+      </a>
+    </div>
+
+    <!-- Bandeau supérieur -->
+    <section class="candidate-register-banner" aria-label="En-tête">
+      <h1>Candidats, inscrivez-vous en 1 minute !</h1>
+    </section>
+
+    <!-- Carte principale Vos informations -->
+    <section class="candidate-register-container" aria-label="Formulaire d'inscription">
+      <article class="candidate-register-card">
+        <header class="candidate-card-header">
+          <h2>Vos informations</h2>
+        </header>
+
+        <div class="candidate-card-body">
+          <form id="candidate-reg-form" class="candidate-form">
+            <!-- Ligne des 3 champs de saisie -->
+            <div class="candidate-inputs-row">
+              <div class="candidate-field-col">
+                <input
+                  type="email"
+                  id="reg-email"
+                  placeholder="Votre email *"
+                  required
+                  class="access-input"
+                >
+              </div>
+
+              <div class="candidate-field-col">
+                <input
+                  type="email"
+                  id="reg-confirm-email"
+                  placeholder="Confirmez votre email *"
+                  required
+                  class="access-input"
+                >
+              </div>
+
+              <div class="candidate-field-col password-field-wrapper">
+                <input
+                  type="password"
+                  id="reg-password"
+                  placeholder="Choisissez un mot de passe *"
+                  required
+                  minlength="6"
+                  class="access-input"
+                >
+                <button
+                  type="button"
+                  class="password-toggle-button"
+                  id="toggle-reg-pass-btn"
+                  aria-label="Afficher le mot de passe"
+                >
+                  <i data-lucide="eye" id="reg-eye-icon"></i>
+                </button>
+              </div>
+            </div>
+
+            <p class="required-note">(*) champ obligatoire</p>
+
+            <!-- Case CGU -->
+            <label class="terms-checkbox-label">
+              <input type="checkbox" id="reg-terms" required class="custom-checkbox-input">
+              <span>
+                Je reconnais avoir lu et accepté les 
+                <a href="#cgu" class="cgu-link">Conditions Générales d’Utilisation *</a>
+              </span>
+            </label>
+
+            <!-- Widget reCAPTCHA interactif -->
+            <div class="recaptcha-wrapper">
+              <div class="recaptcha-box" id="recaptcha-box" role="button" tabindex="0">
+                <div class="recaptcha-left">
+                  <div class="recaptcha-checkbox" id="recaptcha-checkbox">
+                    <div class="recaptcha-square" id="recaptcha-square"></div>
+                  </div>
+                  <span class="recaptcha-label">Je ne suis pas un robot</span>
+                </div>
+
+                <div class="recaptcha-right">
+                  <div class="recaptcha-logo-icon">
+                    <svg viewBox="0 0 48 48" width="30" height="30">
+                      <path fill="#1a73e8" d="M24 6c-8.8 0-16 6.5-17.6 15h6.2C14 14.8 18.5 11 24 11c3.9 0 7.3 1.9 9.5 4.8L28 21h14V7l-5.3 5.3C33.7 8.7 29.1 6 24 6z"/>
+                      <path fill="#34a853" d="M41.6 27c-1.4 6.2-5.9 10-11.6 10-3.9 0-7.3-1.9-9.5-4.8L26 27H12v14l5.3-5.3C20.3 39.3 24.9 42 30 42c8.8 0 16-6.5 17.6-15h-6z"/>
+                    </svg>
+                  </div>
+                  <span class="recaptcha-brand">reCAPTCHA</span>
+                  <div class="recaptcha-links">
+                    <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Confidentialité</a> - 
+                    <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer">Conditions</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Message d'erreur -->
+            <div class="form-feedback-message error" id="candidate-error-msg" style="display: none; margin-bottom: 20px;"></div>
+
+            <!-- Bouton centré : Je m'inscris -->
+            <div class="candidate-submit-row">
+              <button type="submit" class="pill-button pill-button-primary candidate-submit-btn" id="reg-submit-btn">
+                Je m’inscris
+              </button>
+            </div>
+          </form>
+
+          <div class="candidate-success-box" id="candidate-success-box" style="display: none;">
+            <div style="color: #2e7d32; font-size: 46px; margin-bottom: 12px;">✓</div>
+            <h3>Bienvenue sur Carrières RDC !</h3>
+            <p>Félicitations ! Votre compte Candidat a été créé avec succès.</p>
+            <div style="margin-top: 24px;">
+              <a href="connexion.html" class="pill-button pill-button-primary">Se connecter à mon compte</a>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>Carrières <strong>RDC</strong></span>
+    <span>Plateforme locale des opportunités et carrières</span>
+    <span>© 2026 Carrières RDC. Tous droits réservés.</span>
+  </footer>
+
+  <script>
+    if (window.lucide) lucide.createIcons();
+
+    // Toggle mot de passe
+    const passInput = document.getElementById('reg-password');
+    const togglePassBtn = document.getElementById('toggle-reg-pass-btn');
+    let isPassVisible = false;
+
+    if (togglePassBtn && passInput) {
+      togglePassBtn.addEventListener('click', () => {
+        isPassVisible = !isPassVisible;
+        passInput.type = isPassVisible ? 'text' : 'password';
+        togglePassBtn.innerHTML = isPassVisible ? '<i data-lucide="eye-off"></i>' : '<i data-lucide="eye"></i>';
+        if (window.lucide) lucide.createIcons();
+      });
+    }
+
+    // reCAPTCHA interactif
+    const recaptchaBox = document.getElementById('recaptcha-box');
+    const recaptchaCheckbox = document.getElementById('recaptcha-checkbox');
+    let isRobotVerified = false;
+
+    if (recaptchaBox) {
+      recaptchaBox.addEventListener('click', () => {
+        if (isRobotVerified) return;
+        recaptchaCheckbox.innerHTML = '<div class="recaptcha-spinner"></div>';
+        setTimeout(() => {
+          isRobotVerified = true;
+          recaptchaBox.classList.add('verified');
+          recaptchaCheckbox.innerHTML = '<svg viewBox="0 0 24 24" class="recaptcha-check-icon" fill="none"><path d="M4 12.5L9.5 18L20 6" stroke="#2e7d32" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+          document.getElementById('candidate-error-msg').style.display = 'none';
+        }, 700);
+      });
+    }
+
+    // Soumission du formulaire
+    const form = document.getElementById('candidate-reg-form');
+    const errorMsg = document.getElementById('candidate-error-msg');
+    const successBox = document.getElementById('candidate-success-box');
+
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('reg-email').value;
+        const confirmEmail = document.getElementById('reg-confirm-email').value;
+        const pass = passInput.value;
+        const terms = document.getElementById('reg-terms').checked;
+
+        if (email.toLowerCase() !== confirmEmail.toLowerCase()) {
+          errorMsg.textContent = 'Les adresses e-mail ne correspondent pas.';
+          errorMsg.style.display = 'block';
+          return;
+        }
+
+        if (pass.length < 6) {
+          errorMsg.textContent = 'Le mot de passe doit comporter au moins 6 caractères.';
+          errorMsg.style.display = 'block';
+          return;
+        }
+
+        if (!terms) {
+          errorMsg.textContent = 'Veuillez accepter les Conditions Générales d’Utilisation.';
+          errorMsg.style.display = 'block';
+          return;
+        }
+
+        if (!isRobotVerified) {
+          errorMsg.textContent = 'Veuillez confirmer que vous n’êtes pas un robot.';
+          errorMsg.style.display = 'block';
+          return;
+        }
+
+        errorMsg.style.display = 'none';
+        form.style.display = 'none';
+        successBox.style.display = 'block';
+      });
+    }
+
+    // Menu mobile
+    const menuToggle = document.getElementById('menu-toggle-btn');
+    const header = document.getElementById('site-header');
+    if (menuToggle && header) {
+      menuToggle.addEventListener('click', () => header.classList.toggle('menu-open'));
+    }
+  </script>
+</body>
+</html>
+

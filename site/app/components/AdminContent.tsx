@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, LogOut, RefreshCw, Send, Trash2 } from "lucide-react";
+import { ArrowRight, FileUp, LogOut, RefreshCw, Send, Trash2 } from "lucide-react";
 import {
   Announcement,
+  AnnouncementMedia,
   ContactMessage,
   adminHeaders,
   apiRequest,
@@ -64,10 +65,13 @@ export default function AdminContent() {
     event.preventDefault();
     const form = event.currentTarget;
     try {
+      const mediaInput = form.elements.namedItem("media") as HTMLInputElement | null;
+      const media = await filesToMedia(mediaInput?.files || null);
+      const formValues = Object.fromEntries(new FormData(form));
       await apiRequest("/announcements", {
         method: "POST",
         headers: adminHeaders(),
-        body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        body: JSON.stringify({ ...formValues, description: formValues.description || "", media }),
       });
       form.reset();
       setAdminFeedback("Annonce publiée avec succès.");
@@ -202,13 +206,20 @@ export default function AdminContent() {
             <input name="company" type="text" placeholder="Ex. Atelier Nord" required />
           </label>
           <label>
-            Description
+            Description (facultative)
             <textarea
               name="description"
               rows={4}
               placeholder="Quelques mots sur l'opportunité..."
-              required
             ></textarea>
+          </label>
+          <label className="media-upload">
+            Document scanné ou image (facultatif si une description est ajoutée)
+            <span className="media-upload-control">
+              <FileUp size={17} />
+              <input name="media" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple />
+            </span>
+            <small>Nombre de fichiers illimité — JPG, PNG, WEBP ou PDF (20 Mo au total).</small>
           </label>
           <button className="button button-light" type="submit">
             Publier l’annonce <Send size={16} />
@@ -231,6 +242,7 @@ export default function AdminContent() {
                   <p>
                     {escapeHtml(item.company)} · {escapeHtml(item.location)}
                   </p>
+                  {item.media && item.media.length > 0 && <p className="media-status">Document{item.media.length > 1 ? "s" : ""} joint{item.media.length > 1 ? "s" : ""} : {item.media.length}</p>}
                 </div>
                 <button
                   className="delete-button"
@@ -288,4 +300,37 @@ export default function AdminContent() {
       </section>
     </section>
   );
+}
+
+const ALLOWED_MEDIA_TYPES = new Set<AnnouncementMedia["type"]>([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
+
+async function filesToMedia(files: FileList | null): Promise<AnnouncementMedia[]> {
+  const selectedFiles = Array.from(files || []);
+  const totalSize = selectedFiles.reduce((total, file) => total + file.size, 0);
+  if (totalSize > 20_000_000) throw new Error("La taille totale des fichiers ne doit pas dépasser 20 Mo.");
+  if (selectedFiles.some((file) => !ALLOWED_MEDIA_TYPES.has(file.type as AnnouncementMedia["type"]))) {
+    throw new Error("Utilisez uniquement des fichiers JPG, PNG, WEBP ou PDF.");
+  }
+
+  return Promise.all(
+    selectedFiles.map(async (file) => ({
+      name: file.name,
+      type: file.type as AnnouncementMedia["type"],
+      dataUrl: await readAsDataUrl(file),
+    }))
+  );
+}
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Impossible de lire le fichier sélectionné."));
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(file);
+  });
 }

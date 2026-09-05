@@ -14,6 +14,13 @@ export type Announcement = {
   type?: string;
   date?: string;
   created_at?: string;
+  media?: AnnouncementMedia[];
+};
+
+export type AnnouncementMedia = {
+  name: string;
+  type: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
+  dataUrl: string;
 };
 
 export type ContactMessage = {
