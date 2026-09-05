@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, CheckCircle, ArrowLeft } from "lucide-react";
+import { apiRequest, saveSession, dashboardHref } from "../lib/api";
 
 export default function CandidateRegister() {
   const [civilite, setCivilite] = useState("");
@@ -35,7 +36,7 @@ export default function CandidateRegister() {
     }, 750);
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setFeedback(null);
 
@@ -71,13 +72,34 @@ export default function CandidateRegister() {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const result = await apiRequest<{ token: string; user: { role: string; email: string } }>(
+        "/auth/register",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            role: "candidat",
+            email,
+            password,
+            data: { civilite, prenom, nom, telephone: `${indicatif} ${telephone}` },
+          }),
+        }
+      );
+      saveSession({ token: result.token, role: "candidat", email });
       setFeedback({
         type: "success",
-        message: "Félicitations ! Votre compte Candidat a été créé avec succès. Un e-mail de confirmation vous a été envoyé.",
+        message: "Félicitations ! Votre compte Candidat a été créé avec succès.",
       });
-    }, 900);
+      setTimeout(() => {
+        window.location.href = dashboardHref("candidat");
+      }, 1200);
+    } catch (error) {
+      setIsSubmitting(false);
+      setFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "L’inscription a échoué. Veuillez réessayer.",
+      });
+    }
   }
 
   return (

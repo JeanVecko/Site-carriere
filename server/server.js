@@ -36,6 +36,14 @@ const defaultAnnouncements = [
 
 async function initializeDatabase() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id BIGSERIAL PRIMARY KEY,
+      role TEXT NOT NULL CHECK (role IN ('candidat', 'recruteur')),
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      data JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS announcements (
       id BIGSERIAL PRIMARY KEY,
       title TEXT NOT NULL,
@@ -44,6 +52,7 @@ async function initializeDatabase() {
       location TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       media JSONB NOT NULL DEFAULT '[]'::jsonb,
+      owner_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS messages (
@@ -54,8 +63,17 @@ async function initializeDatabase() {
       message TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS applications (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      announcement_id BIGINT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+      cover_letter TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'En attente' CHECK (status IN ('En attente', 'Examinée', 'Acceptée', 'Refusée')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media JSONB NOT NULL DEFAULT '[]'::jsonb");
+  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
   const result = await pool.query('SELECT COUNT(*)::int AS count FROM announcements');
   if (result.rows[0].count === 0) {
     for (const item of defaultAnnouncements) {
@@ -106,12 +124,72 @@ app.get('/api/health', (_request, response) => response.json({ status: 'ok' }));
 app.get('/', (_request, response) => response.json({ name: 'Carrieres RDC API', status: 'ok', health: '/api/health' }));
 
 app.post('/api/auth/login', async (request, response) => {
-  const email = clean(request.body.email);
+  const email = clean(request.body.email).toLowerCase();
   const password = request.body.password || '';
-  const validEmail = email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+  if (!email || !password) return response.status(400).json({ error: 'Veuillez renseigner votre email et votre mot de passe.' });
+
+  // 1. Comptes utilisateurs (candidats / recruteurs)
+  try {
+    const result = await pool.query('SELECT id, role, email, password_hash FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
+    if (user && (await bcrypt.compare(password, user.password_hash))) {
+      return response.json({
+        token: jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret, { expiresIn: '7d' }),
+        role: user.role,
+        email: user.email,
+      });
+    }
+  } catch {
+    // La table users n'existe pas encore : on continue vers l'admin.
+  }
+
+  // 2. Administrateur
+  const validEmail = email === process.env.ADMIN_EMAIL.toLowerCase();
   const validPassword = await bcrypt.compare(password, await adminPasswordHashPromise);
   if (!validEmail || !validPassword) return response.status(401).json({ error: 'Identifiants incorrects.' });
-  response.json({ token: jwt.sign({ email, role: 'admin' }, jwtSecret, { expiresIn: '8h' }) });
+  response.json({ token: jwt.sign({ email, role: 'admin' }, jwtSecret, { expiresIn: '8h' }), role: 'admin', email });
+});
+
+function requireUser(request, response, next) {
+  const token = request.headers.authorization?.replace('Bearer ', '');
+  if (!token) return response.status(401).json({ error: 'Authentification requise.' });
+  try {
+    const payload = jwt.verify(token, jwtSecret);
+    if (payload.role !== 'candidat' && payload.role !== 'recruteur') return response.status(403).json({ error: 'Compte utilisateur requis.' });
+    request.user = payload;
+    next();
+  } catch {
+    response.status(401).json({ error: 'Session expirée ou invalide.' });
+  }
+}
+
+app.post('/api/auth/register', async (request, response) => {
+  const role = clean(request.body.role);
+  const email = clean(request.body.email).toLowerCase();
+  const password = request.body.password || '';
+  if (!['candidat', 'recruteur'].includes(role)) return response.status(400).json({ error: 'Type de compte invalide.' });
+  if (!email.includes('@') || password.length < 6) return response.status(400).json({ error: 'Email ou mot de passe invalide (6 caractères minimum).' });
+
+  const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+  if (existing.rows[0]) return response.status(409).json({ error: 'Un compte existe déjà avec cette adresse e-mail.' });
+
+  const hash = await bcrypt.hash(password, 10);
+  const data = typeof request.body.data === 'object' && request.body.data !== null ? request.body.data : {};
+  const result = await pool.query(
+    'INSERT INTO users (role, email, password_hash, data) VALUES ($1, $2, $3, $4) RETURNING id, role, email, created_at',
+    [role, email, hash, JSON.stringify(data)]
+  );
+  const user = result.rows[0];
+  response.status(201).json({
+    user,
+    token: jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret, { expiresIn: '7d' }),
+  });
+});
+
+app.get('/api/me', requireUser, async (request, response) => {
+  const result = await pool.query('SELECT id, role, email, data, created_at FROM users WHERE id = $1', [request.user.id]);
+  if (!result.rows[0]) return response.status(404).json({ error: 'Compte introuvable.' });
+  response.json(result.rows[0]);
 });
 
 app.get('/api/announcements', async (request, response) => {
@@ -154,6 +232,97 @@ app.get('/api/messages', requireAdmin, async (_request, response) => {
 app.delete('/api/messages/:id', requireAdmin, async (request, response) => {
   await pool.query('DELETE FROM messages WHERE id = $1', [request.params.id]);
   response.status(204).end();
+});
+
+// ============ OFFRES PUBLIÉES PAR LES RECRUTEURS ============
+app.post('/api/my/jobs', requireUser, async (request, response) => {
+  if (request.user.role !== 'recruteur') return response.status(403).json({ error: 'Réservé aux comptes recruteurs.' });
+  const title = clean(request.body.title);
+  const location = clean(request.body.location);
+  const description = clean(request.body.description);
+  if (!title || !location || !description) return response.status(400).json({ error: 'Tous les champs de l’offre sont obligatoires.' });
+  const me = await pool.query('SELECT data FROM users WHERE id = $1', [request.user.id]);
+  const company = clean(me.rows[0]?.data?.companyName) || 'Entreprise vérifiée';
+  const result = await pool.query(
+    "INSERT INTO announcements (title, category, company, location, description, owner_id) VALUES ($1, 'Offre d’emploi', $2, $3, $4, $5) RETURNING *",
+    [title, company, location, description, request.user.id]
+  );
+  response.status(201).json(result.rows[0]);
+});
+
+app.get('/api/my/jobs', requireUser, async (request, response) => {
+  if (request.user.role !== 'recruteur') return response.status(403).json({ error: 'Réservé aux comptes recruteurs.' });
+  const result = await pool.query('SELECT id, title, category, company, location, description, created_at FROM announcements WHERE owner_id = $1 ORDER BY created_at DESC', [request.user.id]);
+  response.json(result.rows);
+});
+
+app.delete('/api/my/jobs/:id', requireUser, async (request, response) => {
+  const result = await pool.query('DELETE FROM announcements WHERE id = $1 AND owner_id = $2 RETURNING id', [request.params.id, request.user.id]);
+  if (!result.rows[0]) return response.status(404).json({ error: 'Offre introuvable.' });
+  response.status(204).end();
+});
+
+// ============ CANDIDATURES (CANDIDATS) ============
+app.post('/api/my/applications', requireUser, async (request, response) => {
+  if (request.user.role !== 'candidat') return response.status(403).json({ error: 'Réservé aux comptes candidats.' });
+  const announcementId = Number(request.body.announcementId);
+  const coverLetter = clean(request.body.coverLetter);
+  if (!announcementId) return response.status(400).json({ error: 'Offre invalide.' });
+  const exists = await pool.query('SELECT id FROM announcements WHERE id = $1', [announcementId]);
+  if (!exists.rows[0]) return response.status(404).json({ error: 'Offre introuvable.' });
+  const duplicate = await pool.query('SELECT id FROM applications WHERE user_id = $1 AND announcement_id = $2', [request.user.id, announcementId]);
+  if (duplicate.rows[0]) return response.status(409).json({ error: 'Vous avez déjà postulé à cette offre.' });
+  const result = await pool.query(
+    'INSERT INTO applications (user_id, announcement_id, cover_letter) VALUES ($1, $2, $3) RETURNING id, status, created_at',
+    [request.user.id, announcementId, coverLetter]
+  );
+  response.status(201).json(result.rows[0]);
+});
+
+app.get('/api/my/applications', requireUser, async (request, response) => {
+  if (request.user.role !== 'candidat') return response.status(403).json({ error: 'Réservé aux comptes candidats.' });
+  const result = await pool.query(
+    `SELECT a.id, a.status, a.cover_letter, a.created_at, n.id AS announcement_id, n.title, n.company, n.location
+     FROM applications a JOIN announcements n ON n.id = a.announcement_id
+     WHERE a.user_id = $1 ORDER BY a.created_at DESC`,
+    [request.user.id]
+  );
+  response.json(result.rows);
+});
+
+app.delete('/api/my/applications/:id', requireUser, async (request, response) => {
+  const result = await pool.query('DELETE FROM applications WHERE id = $1 AND user_id = $2 RETURNING id', [request.params.id, request.user.id]);
+  if (!result.rows[0]) return response.status(404).json({ error: 'Candidature introuvable.' });
+  response.status(204).end();
+});
+
+// ============ SUIVI DES CANDIDATURES REÇUES (RECRUTEURS) ============
+app.get('/api/my/applications/received', requireUser, async (request, response) => {
+  if (request.user.role !== 'recruteur') return response.status(403).json({ error: 'Réservé aux comptes recruteurs.' });
+  const result = await pool.query(
+    `SELECT ap.id, ap.status, ap.cover_letter, ap.created_at, ap.announcement_id,
+            n.title, u.email AS candidat_email, u.data AS candidat_data
+     FROM applications ap
+     JOIN announcements n ON n.id = ap.announcement_id
+     JOIN users u ON u.id = ap.user_id
+     WHERE n.owner_id = $1
+     ORDER BY ap.created_at DESC`,
+    [request.user.id]
+  );
+  response.json(result.rows);
+});
+
+app.patch('/api/my/applications/received/:id', requireUser, async (request, response) => {
+  if (request.user.role !== 'recruteur') return response.status(403).json({ error: 'Réservé aux comptes recruteurs.' });
+  const status = clean(request.body.status);
+  if (!['En attente', 'Examinée', 'Acceptée', 'Refusée'].includes(status)) return response.status(400).json({ error: 'Statut invalide.' });
+  const result = await pool.query(
+    `UPDATE applications ap SET status = $1 FROM announcements n
+     WHERE ap.id = $2 AND ap.announcement_id = n.id AND n.owner_id = $3 RETURNING ap.id, ap.status`,
+    [status, request.params.id, request.user.id]
+  );
+  if (!result.rows[0]) return response.status(404).json({ error: 'Candidature introuvable.' });
+  response.json(result.rows[0]);
 });
 
 app.use((_error, _request, response, _next) => response.status(500).json({ error: 'Erreur interne du serveur.' }));

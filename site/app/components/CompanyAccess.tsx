@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, X } from "lucide-react";
+import { apiRequest, saveSession, dashboardHref } from "../lib/api";
 
 const advantages = [
   "Inscription rapide",
@@ -37,46 +38,42 @@ export default function CompanyAccess() {
     setFeedback(null);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      }).catch(() => null);
-
-      if (response && response.ok) {
-        const data = await response.json();
-        if (data.token) {
-          sessionStorage.setItem("carrieres-admin-token", data.token);
-          setFeedback({
-            type: "success",
-            message: "Connexion réussie ! Redirection en cours vers l’administration...",
-          });
-          setTimeout(() => {
-            window.location.href = "/admin";
-          }, 1000);
-          return;
+      const data = await apiRequest<{ token: string; role: "candidat" | "recruteur" | "admin"; email: string }>(
+        "/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
         }
-      }
-
-      if (email.includes("@") && password.length >= 4) {
+      );
+      if (data.role === "admin") {
+        sessionStorage.setItem("carrieres-admin-token", data.token);
         setFeedback({
           type: "success",
-          message: "Connexion réussie ! Bienvenue sur Carrières RDC.",
+          message: "Connexion réussie ! Redirection en cours vers l’administration...",
         });
-      } else {
-        setFeedback({
-          type: "error",
-          message: "Adresse e-mail ou mot de passe incorrect. Veuillez réessayer.",
-        });
+        setTimeout(() => {
+          window.location.href = "/admin";
+        }, 1000);
+        return;
       }
-    } catch {
+      saveSession(data);
       setFeedback({
-        type: "error",
-        message: "Erreur de connexion au serveur. Veuillez vérifier votre connexion.",
+        type: "success",
+        message: "Connexion réussie ! Redirection vers votre espace...",
       });
-    } finally {
-      setIsLoading(false);
+      setTimeout(() => {
+        window.location.href = dashboardHref(data.role);
+      }, 1000);
+      return;
+    } catch {
+      // Le serveur est injoignable ou identifiants refusés.
     }
+
+    setFeedback({
+      type: "error",
+      message: "Adresse e-mail ou mot de passe incorrect. Veuillez réessayer.",
+    });
+    setIsLoading(false);
   }
 
   function handleForgotSubmit(event: React.FormEvent<HTMLFormElement>) {

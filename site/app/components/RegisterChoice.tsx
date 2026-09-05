@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { X, CheckCircle, ArrowRight } from "lucide-react";
+import { apiRequest, saveSession, dashboardHref } from "../lib/api";
 
 export default function RegisterChoice() {
   const [selectedRole, setSelectedRole] = useState<"candidat" | "recruteur" | null>(null);
@@ -14,6 +15,8 @@ export default function RegisterChoice() {
   const [candidatJob, setCandidatJob] = useState("");
   const [candidatCity, setCandidatCity] = useState("Kinshasa");
   const [candidatSuccess, setCandidatSuccess] = useState(false);
+  const [candidatError, setCandidatError] = useState("");
+  const [candidatBusy, setCandidatBusy] = useState(false);
 
   // Formulaire Recruteur
   const [recruteurCompany, setRecruteurCompany] = useState("");
@@ -22,23 +25,59 @@ export default function RegisterChoice() {
   const [recruteurPassword, setRecruteurPassword] = useState("");
   const [recruteurCity, setRecruteurCity] = useState("Kinshasa");
   const [recruteurSuccess, setRecruteurSuccess] = useState(false);
+  const [recruteurError, setRecruteurError] = useState("");
+  const [recruteurBusy, setRecruteurBusy] = useState(false);
 
-  function handleCandidatSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleCandidatSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setCandidatSuccess(true);
-    setTimeout(() => {
-      setSelectedRole(null);
-      setCandidatSuccess(false);
-    }, 2800);
+    setCandidatBusy(true);
+    setCandidatError("");
+    try {
+      const result = await apiRequest<{ token: string }>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          role: "candidat",
+          email: candidatEmail,
+          password: candidatPassword,
+          data: { nom: candidatName, metier: candidatJob, ville: candidatCity },
+        }),
+      });
+      saveSession({ token: result.token, role: "candidat", email: candidatEmail });
+      setCandidatSuccess(true);
+      setTimeout(() => {
+        window.location.href = dashboardHref("candidat");
+      }, 1400);
+    } catch (error) {
+      setCandidatError(error instanceof Error ? error.message : "L’inscription a échoué.");
+    } finally {
+      setCandidatBusy(false);
+    }
   }
 
-  function handleRecruteurSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleRecruteurSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setRecruteurSuccess(true);
-    setTimeout(() => {
-      setSelectedRole(null);
-      setRecruteurSuccess(false);
-    }, 2800);
+    setRecruteurBusy(true);
+    setRecruteurError("");
+    try {
+      const result = await apiRequest<{ token: string }>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          role: "recruteur",
+          email: recruteurEmail,
+          password: recruteurPassword,
+          data: { companyName: recruteurCompany, contact: recruteurContact, ville: recruteurCity },
+        }),
+      });
+      saveSession({ token: result.token, role: "recruteur", email: recruteurEmail });
+      setRecruteurSuccess(true);
+      setTimeout(() => {
+        window.location.href = dashboardHref("recruteur");
+      }, 1400);
+    } catch (error) {
+      setRecruteurError(error instanceof Error ? error.message : "L’inscription a échoué.");
+    } finally {
+      setRecruteurBusy(false);
+    }
   }
 
   return (
@@ -212,13 +251,12 @@ export default function RegisterChoice() {
 
             {/* Bouton Cliquez ici */}
             <div className="express-action">
-              <button
-                type="button"
+              <Link
+                href="/inscription/recruteur"
                 className="pill-button pill-button-primary express-pill-btn"
-                onClick={() => setSelectedRole("recruteur")}
               >
                 Cliquez ici
-              </button>
+              </Link>
             </div>
           </article>
         </div>
@@ -309,8 +347,9 @@ export default function RegisterChoice() {
                   />
                 </div>
                 <div className="modal-actions">
-                  <button type="submit" className="pill-button pill-button-primary">
-                    Finaliser mon inscription Candidat <ArrowRight size={16} style={{ marginLeft: "8px" }} />
+                  {candidatError && <p className="form-feedback-message error">{candidatError}</p>}
+                  <button type="submit" className="pill-button pill-button-primary" disabled={candidatBusy}>
+                    {candidatBusy ? "Inscription en cours..." : "Finaliser mon inscription Candidat"} {!candidatBusy && <ArrowRight size={16} style={{ marginLeft: "8px" }} />}
                   </button>
                 </div>
               </form>
@@ -404,8 +443,9 @@ export default function RegisterChoice() {
                   />
                 </div>
                 <div className="modal-actions">
-                  <button type="submit" className="pill-button pill-button-primary">
-                    Finaliser mon inscription Recruteur <ArrowRight size={16} style={{ marginLeft: "8px" }} />
+                  {recruteurError && <p className="form-feedback-message error">{recruteurError}</p>}
+                  <button type="submit" className="pill-button pill-button-primary" disabled={recruteurBusy}>
+                    {recruteurBusy ? "Inscription en cours..." : "Finaliser mon inscription Recruteur"} {!recruteurBusy && <ArrowRight size={16} style={{ marginLeft: "8px" }} />}
                   </button>
                 </div>
               </form>

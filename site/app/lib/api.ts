@@ -84,3 +84,49 @@ export function paragraphs(value: string): string[] {
     .map((part) => part.trim())
     .filter(Boolean);
 }
+
+// ============ SESSION UTILISATEUR (candidat / recruteur) ============
+export type UserRole = "candidat" | "recruteur" | "admin";
+
+export type SessionUser = {
+  token: string;
+  role: UserRole;
+  email: string;
+};
+
+const TOKEN_KEY = "carrieres-token";
+const ROLE_KEY = "carrieres-role";
+const EMAIL_KEY = "carrieres-email";
+
+export function saveSession(session: SessionUser) {
+  localStorage.setItem(TOKEN_KEY, session.token);
+  localStorage.setItem(ROLE_KEY, session.role);
+  localStorage.setItem(EMAIL_KEY, session.email);
+}
+
+export function getSession(): SessionUser | null {
+  if (typeof window === "undefined") return null;
+  const token = localStorage.getItem(TOKEN_KEY);
+  const role = localStorage.getItem(ROLE_KEY) as UserRole | null;
+  const email = localStorage.getItem(EMAIL_KEY);
+  if (!token || !role || !email) return null;
+  return { token, role, email };
+}
+
+export function clearSession() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(ROLE_KEY);
+  localStorage.removeItem(EMAIL_KEY);
+}
+
+export function userHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const session = getSession();
+  return session ? { Authorization: `Bearer ${session.token}` } : {};
+}
+
+export function dashboardHref(role: UserRole | null | undefined): string {
+  if (role === "admin") return "/admin";
+  if (role === "recruteur") return "/dashboard/recruteur";
+  return "/dashboard/candidat";
+}
