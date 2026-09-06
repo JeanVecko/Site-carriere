@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Briefcase, LogOut, Send, Trash2, CheckCircle, Camera, FileText, User, Upload } from "lucide-react";
 import { apiRequest, getSession, clearSession, userHeaders } from "../lib/api";
 type Application = {
