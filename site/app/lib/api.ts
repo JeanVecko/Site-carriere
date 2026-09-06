@@ -1,6 +1,8 @@
 export const API_BASE = (
   process.env.NEXT_PUBLIC_CARRIERES_API_URL ||
-  "https://carrieres-rdc-api.onrender.com/api"
+  (process.env.NODE_ENV === "production"
+    ? "https://carrieres-rdc-api.onrender.com/api"
+    : "http://localhost:10000/api")
 ).replace(/\/$/, "");
 
 export type Announcement = {
@@ -43,13 +45,39 @@ export async function apiRequest<T = unknown>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-  });
-  const data = response.status === 204 ? null : await response.json();
-  if (!response.ok)
-    throw new Error((data as { error?: string } | null)?.error || "La requête a échoué.");
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    });
+  } catch {
+    throw new Error(
+      "Impossible de joindre le serveur. Veuillez vérifier que l’API Carrières RDC est démarrée."
+    );
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+  let data: unknown = null;
+  if (response.status !== 204 && isJson) {
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!response.ok) {
+    const serverError = (data as { error?: string } | null)?.error;
+    if (serverError) throw new Error(serverError);
+    // Réponse HTML (404 Next.js / Express) au lieu de JSON : API pas à jour ou mauvaise URL
+    if (!isJson)
+      throw new Error(
+        `L'API ne répond pas correctement (${response.status}). Vérifiez que la version déployée de l'API est à jour.`
+      );
+    throw new Error(`Erreur serveur (${response.status}). Veuillez réessayer plus tard.`);
+  }
   return data as T;
 }
 
