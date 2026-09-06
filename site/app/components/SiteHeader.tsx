@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Menu, X } from "lucide-react";
+import { ArrowLeft, LogOut, Menu, UserRound, X } from "lucide-react";
+import { clearSession, dashboardHref, getSession, type SessionUser } from "../lib/api";
 
 type Props = {
   active?: "accueil" | "offres" | "annonces" | "appels-offres" | "connexion" | "inscription";
@@ -11,7 +12,12 @@ type Props = {
 
 export default function SiteHeader({ active, adminButton = false }: Props) {
   const [open, setOpen] = useState(false);
+  const [session, setSession] = useState<SessionUser | null>(null);
   const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    setSession(getSession());
+  }, []);
 
   useEffect(() => {
     document.body.classList.toggle("menu-open", open);
@@ -98,8 +104,29 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
           {links}
         </nav>
         <div className="account-actions">
-          <Link className={`login-link${active === "connexion" ? " active" : ""}`} href="/connexion">Se connecter</Link>
-          <Link className={`signup-link${active === "inscription" ? " active" : ""}`} href="/inscription">S’inscrire</Link>
+          {session ? (
+            <>
+              <Link className="login-link header-account-link" href={dashboardHref(session.role)}>
+                <UserRound size={15} /> Mon espace
+              </Link>
+              <button
+                type="button"
+                className="signup-link header-logout-btn"
+                onClick={() => {
+                  clearSession();
+                  setSession(null);
+                  window.location.href = "/";
+                }}
+              >
+                <LogOut size={15} /> Déconnexion
+              </button>
+            </>
+          ) : (
+            <>
+              <Link className={`login-link${active === "connexion" ? " active" : ""}`} href="/connexion">Se connecter</Link>
+              <Link className={`signup-link${active === "inscription" ? " active" : ""}`} href="/inscription">S’inscrire</Link>
+            </>
+          )}
         </div>
         <button
           className="menu-toggle"
