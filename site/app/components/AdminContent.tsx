@@ -48,10 +48,6 @@ export default function AdminContent() {
     } catch (error) {
       setOverview(null);
       const message = error instanceof Error ? error.message : "Impossible de charger les comptes inscrits.";
-      if (message.includes("Accès superadmin") || message.includes("Session administrateur")) {
-        sessionStorage.removeItem("carrieres-admin-token");
-        setLoggedIn(false);
-      }
       setOverviewError(message);
     } finally {
       setOverviewLoading(false);
@@ -72,10 +68,14 @@ export default function AdminContent() {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
     try {
-      const result = await apiRequest<{ token: string }>("/auth/login", {
+      const result = await apiRequest<{ token: string; role?: string }>("/auth/login", {
         method: "POST",
         body: JSON.stringify(data),
       });
+      if (result.role !== "admin") {
+        setLoginFeedback("Ces identifiants correspondent à un compte utilisateur, pas au superadmin.");
+        return;
+      }
       sessionStorage.setItem("carrieres-admin-token", result.token);
       setLoggedIn(true);
       setLoginFeedback("");
