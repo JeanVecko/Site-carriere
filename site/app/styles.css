@@ -1503,6 +1503,14 @@ h1 { font-size: clamp(34px, 3.8vw, 52px); letter-spacing: -2px; }
   text-transform: capitalize;
 }
 
+.field-help-text {
+  color: #6a7c92;
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  margin-top: 5px;
+}
+
 .dashboard-team-invite {
   align-items: center;
   background: #f6f9fc;
@@ -1550,6 +1558,58 @@ h1 { font-size: clamp(34px, 3.8vw, 52px); letter-spacing: -2px; }
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 1px;
+}
+
+.dashboard-email-invite {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.dashboard-email-invite .access-input {
+  flex: 1;
+}
+
+.invitation-page {
+  align-items: center;
+  background: #f4f7fb;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.invitation-card {
+  background: #fff;
+  border: 1px solid #e1e8ef;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(9, 45, 99, 0.08);
+  max-width: 440px;
+  padding: 32px;
+  text-align: center;
+  width: 100%;
+}
+
+.invitation-card h1 {
+  color: #092d63;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 24px;
+  margin: 0 0 12px;
+}
+
+.invitation-card p {
+  color: #556570;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.invitation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .dashboard-empty {

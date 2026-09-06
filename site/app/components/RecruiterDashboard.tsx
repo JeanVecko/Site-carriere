@@ -65,6 +65,8 @@ export default function RecruiterDashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [received, setReceived] = useState<ReceivedApplication[]>([]);
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [sendingInvite, setSendingInvite] = useState(false);
 
   // Formulaire de publication
   const [title, setTitle] = useState("");
@@ -139,6 +141,25 @@ export default function RecruiterDashboard() {
     if (!organization) return;
     await navigator.clipboard.writeText(organization.organization.invite_code);
     setMessage({ type: "success", text: "Code d’invitation copié." });
+  }
+
+  async function sendInvitation(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSendingInvite(true);
+    setMessage(null);
+    try {
+      await apiRequest("/my/organization/invitations", {
+        method: "POST",
+        headers: userHeaders(),
+        body: JSON.stringify({ email: inviteEmail }),
+      });
+      setInviteEmail("");
+      setMessage({ type: "success", text: "Invitation envoyée par e-mail." });
+    } catch (error) {
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "L’invitation a échoué." });
+    } finally {
+      setSendingInvite(false);
+    }
   }
 
   async function regenerateInviteCode() {
@@ -239,6 +260,21 @@ export default function RecruiterDashboard() {
               )}
             </div>
           </div>
+          {isOrganizationOwner && (
+            <form className="dashboard-email-invite" onSubmit={sendInvitation}>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(event) => setInviteEmail(event.target.value)}
+                placeholder="Adresse e-mail du recruteur"
+                required
+                className="access-input"
+              />
+              <button type="submit" className="pill-button pill-button-primary" disabled={sendingInvite}>
+                {sendingInvite ? "Envoi..." : "Envoyer l’invitation"}
+              </button>
+            </form>
+          )}
           <ul className="dashboard-list">
             {organization.members.map((member) => (
               <li key={member.id} className="dashboard-item">

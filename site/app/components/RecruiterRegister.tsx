@@ -49,6 +49,7 @@ export default function RecruiterRegister() {
   const router = useRouter();
   // Section 1 : Informations de l'entreprise
   const [companyName, setCompanyName] = useState("");
+  const [organizationCode, setOrganizationCode] = useState("");
   const [adresse, setAdresse] = useState("");
   const [secteur, setSecteur] = useState("");
   const [description, setDescription] = useState("");
@@ -160,6 +161,7 @@ export default function RecruiterRegister() {
             email,
             password,
             organizationName: companyName,
+            organizationCode: organizationCode.trim().toUpperCase() || undefined,
             data: {
               companyName,
               adresse,
@@ -258,6 +260,18 @@ export default function RecruiterRegister() {
                       className="access-input"
                     />
                   </div>
+                </div>
+
+                <div className="candidate-field-col recruiter-field-block">
+                  <input
+                    type="text"
+                    value={organizationCode}
+                    onChange={(e) => setOrganizationCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
+                    placeholder="Code d’invitation (facultatif pour rejoindre une organisation)"
+                    className="access-input"
+                    autoComplete="off"
+                  />
+                  <small className="field-help-text">Laissez vide pour créer une nouvelle organisation.</small>
                 </div>
 
                 <div className="candidate-field-col recruiter-field-block">

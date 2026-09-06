@@ -94,6 +94,15 @@ async function initializeDatabase() {
       used_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS organization_invitations (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      invited_email TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      accepted_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media JSONB NOT NULL DEFAULT '[]'::jsonb");
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
@@ -421,6 +430,83 @@ app.get('/api/my/organization', requireUser, async (request, response) => {
     [request.user.organization_id]
   );
   response.json({ organization: organization.rows[0], members: members.rows });
+});
+
+app.post('/api/my/organization/invitations', requireUser, requireOrganizationOwner, async (request, response) => {
+  if (request.user.role !== 'recruteur' || !request.user.organization_id) {
+    return response.status(403).json({ error: 'Organisation recruteur requise.' });
+  }
+  const invitedEmail = clean(request.body.email).toLowerCase();
+  if (!invitedEmail || !invitedEmail.includes('@')) {
+    return response.status(400).json({ error: 'Adresse e-mail invalide.' });
+  }
+  const organization = await pool.query('SELECT name FROM organizations WHERE id = $1', [request.user.organization_id]);
+  if (!organization.rows[0]) return response.status(404).json({ error: 'Organisation introuvable.' });
+  const token = crypto.randomBytes(32).toString('hex');
+  await pool.query(
+    `INSERT INTO organization_invitations (organization_id, invited_email, token_hash, expires_at)
+     VALUES ($1, $2, $3, NOW() + INTERVAL '7 days')`,
+    [request.user.organization_id, invitedEmail, hashToken(token)]
+  );
+  const invitationUrl = `${process.env.FRONTEND_URL || `http://localhost:${port}`}/invitation?token=${token}`;
+  try {
+    await sendTransactionalEmail({
+      to: invitedEmail,
+      subject: `Invitation à rejoindre ${organization.rows[0].name}`,
+      text: `Vous êtes invité à rejoindre ${organization.rows[0].name} sur Carrières RDC. Ouvrez ce lien pour accepter l’invitation : ${invitationUrl}`,
+    });
+  } catch (error) {
+    await pool.query('DELETE FROM organization_invitations WHERE token_hash = $1', [hashToken(token)]);
+    return response.status(502).json({ error: 'L’invitation n’a pas pu être envoyée.' });
+  }
+  response.status(201).json({ message: 'Invitation envoyée.' });
+});
+
+app.post('/api/invitations/accept', async (request, response) => {
+  const token = clean(request.body.token);
+  const password = request.body.password || '';
+  const data = typeof request.body.data === 'object' && request.body.data !== null ? request.body.data : {};
+  if (!token) return response.status(400).json({ error: 'Lien d’invitation invalide.' });
+  const invitation = await pool.query(
+    `SELECT i.id, i.invited_email, i.organization_id, o.name AS organization_name
+     FROM organization_invitations i JOIN organizations o ON o.id = i.organization_id
+     WHERE i.token_hash = $1 AND i.accepted_at IS NULL AND i.expires_at > NOW()`,
+    [hashToken(token)]
+  );
+  if (!invitation.rows[0]) return response.status(400).json({ error: 'Invitation invalide ou expirée.' });
+  const invite = invitation.rows[0];
+  let user;
+  const existing = await pool.query('SELECT id, role, email FROM users WHERE email = $1', [invite.invited_email]);
+  if (existing.rows[0]) {
+    if (existing.rows[0].role !== 'recruteur') return response.status(409).json({ error: 'Cette adresse appartient déjà à un compte candidat.' });
+    if (request.body.password) {
+      const validPassword = await bcrypt.compare(password, (await pool.query('SELECT password_hash FROM users WHERE id = $1', [existing.rows[0].id])).rows[0].password_hash);
+      if (!validPassword) return response.status(401).json({ error: 'Mot de passe incorrect.' });
+    }
+    const updated = await pool.query(
+      `UPDATE users SET organization_id = $1, organization_role = 'member'
+       WHERE id = $2 RETURNING id, role, email, organization_id, organization_role`,
+      [invite.organization_id, existing.rows[0].id]
+    );
+    user = updated.rows[0];
+  } else {
+    if (password.length < 6) return response.status(400).json({ error: 'Un mot de passe de 6 caractères minimum est requis.' });
+    const passwordHash = await bcrypt.hash(password, 12);
+    const created = await pool.query(
+      `INSERT INTO users (role, email, password_hash, data, organization_id, organization_role)
+       VALUES ('recruteur', $1, $2, $3, $4, 'member')
+       RETURNING id, role, email, organization_id, organization_role`,
+      [invite.invited_email, passwordHash, JSON.stringify(data), invite.organization_id]
+    );
+    user = created.rows[0];
+  }
+  await pool.query('UPDATE organization_invitations SET accepted_at = NOW() WHERE id = $1', [invite.id]);
+  response.json({
+    message: `Vous avez rejoint ${invite.organization_name}.`,
+    token: jwt.sign({ id: user.id, email: user.email, role: user.role, organization_id: user.organization_id, organization_role: user.organization_role }, jwtSecret, { expiresIn: '7d' }),
+    role: user.role,
+    email: user.email,
+  });
 });
 
 app.post('/api/my/organization/invite-code', requireUser, requireOrganizationOwner, async (request, response) => {
