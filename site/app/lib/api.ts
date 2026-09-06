@@ -35,6 +35,34 @@ export type ContactMessage = {
   created_at?: string;
 };
 
+export type AdminOverview = {
+  users: Array<{
+    id: number;
+    email: string;
+    role: string;
+    organization_role?: string;
+    organization_name?: string;
+    email_verified_at?: string;
+    created_at: string;
+  }>;
+  organizations: Array<{
+    id: number;
+    name: string;
+    plan: string;
+    plan_status: string;
+    member_count: number;
+    created_at: string;
+  }>;
+  invitations: Array<{
+    id: number;
+    invited_email: string;
+    organization_name: string;
+    expires_at: string;
+    accepted_at?: string;
+    created_at: string;
+  }>;
+};
+
 export function adminHeaders(): Record<string, string> {
   if (typeof window === "undefined") return {};
   const token = sessionStorage.getItem("carrieres-admin-token");

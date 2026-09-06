@@ -1503,6 +1503,212 @@ h1 { font-size: clamp(34px, 3.8vw, 52px); letter-spacing: -2px; }
   text-transform: capitalize;
 }
 
+.admin-users-section {
+  background: #fff;
+  border: 1px solid #e1e8ef;
+  border-radius: 14px;
+  margin-top: 24px;
+  padding: 22px;
+}
+
+.admin-overview-grid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.admin-users-section h3 {
+  color: #092d63;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+
+.admin-table-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-table-row {
+  background: #f6f9fc;
+  border: 1px solid #e1e8ef;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+}
+
+.admin-table-row strong {
+  color: #16273a;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+}
+
+.admin-table-row span,
+.admin-table-row small {
+  color: #6a7c92;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+}
+
+.admin-invitations-list {
+  margin-top: 24px;
+}
+
+.admin-dashboard-subtitle {
+  color: #6a7c92;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  margin: 12px 0 0;
+}
+
+.admin-overview-status,
+.admin-overview-error {
+  align-items: center;
+  border-radius: 10px;
+  display: flex;
+  font-family: 'DM Sans', sans-serif;
+  gap: 12px;
+  margin: 22px 0;
+  padding: 13px 16px;
+}
+
+.admin-overview-status {
+  background: #eef4fb;
+  color: #31577f;
+}
+
+.admin-overview-error {
+  background: #fff1ef;
+  border: 1px solid #efc8c3;
+  color: #a3372d;
+  flex-wrap: wrap;
+}
+
+.admin-overview-error span {
+  flex: 1;
+  font-size: 13px;
+}
+
+.admin-command-center {
+  background: #fff;
+  border: 1px solid #dfe8f0;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(9, 45, 99, 0.07);
+  margin: 28px 0 36px;
+  padding: 24px;
+}
+
+.admin-command-heading,
+.admin-panel-title {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.admin-command-heading h2 {
+  color: #092d63;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  margin: 0;
+}
+
+.admin-stat-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 22px 0;
+}
+
+.admin-stat-card {
+  background: #f5f8fb;
+  border: 1px solid #e1e8ef;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 16px;
+}
+
+.admin-stat-card svg {
+  color: #d39e00;
+}
+
+.admin-stat-card strong {
+  color: #092d63;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 28px;
+}
+
+.admin-stat-card span,
+.admin-panel-title span {
+  color: #6a7c92;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+}
+
+.admin-command-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-data-panel {
+  border-top: 2px solid #d9a400;
+  padding-top: 14px;
+}
+
+.admin-panel-title h3 {
+  color: #092d63;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+
+.admin-table-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.admin-table-row > div:last-child {
+  align-items: flex-end;
+}
+
+.admin-table-row small.is-verified {
+  color: #2f7d50;
+}
+
+.admin-table-row small.is-pending {
+  color: #a16b00;
+}
+
+.admin-empty-state {
+  color: #6a7c92;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .admin-stat-grid,
+  .admin-command-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-command-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .admin-table-row > div:last-child {
+    align-items: flex-start;
+  }
+}
+
 .field-help-text {
   color: #6a7c92;
   display: block;

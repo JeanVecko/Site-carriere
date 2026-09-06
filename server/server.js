@@ -141,12 +141,38 @@ function requireAdmin(request, response, next) {
   const token = request.headers.authorization?.replace('Bearer ', '');
   if (!token) return response.status(401).json({ error: 'Authentification requise.' });
   try {
-    request.admin = jwt.verify(token, jwtSecret);
+    const payload = jwt.verify(token, jwtSecret);
+    if (payload.role !== 'admin') return response.status(403).json({ error: 'Accès superadmin requis.' });
+    request.admin = payload;
     next();
   } catch {
     response.status(401).json({ error: 'Session administrateur invalide.' });
   }
 }
+
+app.get('/api/admin/overview', requireAdmin, async (_request, response) => {
+  const [users, organizations, invitations] = await Promise.all([
+    pool.query(
+      `SELECT u.id, u.email, u.role, u.organization_role, u.email_verified_at, u.created_at,
+              o.name AS organization_name
+       FROM users u LEFT JOIN organizations o ON o.id = u.organization_id
+       ORDER BY u.created_at DESC`
+    ),
+    pool.query(
+      `SELECT o.id, o.name, o.slug, o.plan, o.plan_status, o.created_at,
+              COUNT(u.id)::int AS member_count
+       FROM organizations o LEFT JOIN users u ON u.organization_id = o.id
+       GROUP BY o.id ORDER BY o.created_at DESC`
+    ),
+    pool.query(
+      `SELECT i.id, i.invited_email, i.expires_at, i.accepted_at, i.created_at,
+              o.name AS organization_name
+       FROM organization_invitations i JOIN organizations o ON o.id = i.organization_id
+       ORDER BY i.created_at DESC`
+    ),
+  ]);
+  response.json({ users: users.rows, organizations: organizations.rows, invitations: invitations.rows });
+});
 
 function clean(value) { return typeof value === 'string' ? value.trim() : ''; }
 function hashToken(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
@@ -160,12 +186,18 @@ async function createAuthToken(userId, kind, lifetimeMs) {
 }
 async function sendTransactionalEmail({ to, subject, text }) {
   const gmailAddress = process.env.EMAIL_FROM_ADDRESS || process.env.GMAIL_USER;
-  const gmailAppPassword = process.env.EMAIL_APP_PASSWORD || process.env.GMAIL_APP_PASSWORD;
+  const gmailAppPassword = process.env.EMAIL_APP_PASSWORD || process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASSWORD;
   if (gmailAddress && gmailAppPassword) {
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: Number(process.env.SMTP_PORT || 465),
+      secure: String(process.env.SMTP_SECURE || 'true') === 'true',
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
       auth: { user: gmailAddress, pass: gmailAppPassword },
     });
+    await transporter.verify();
     await transporter.sendMail({
       from: `${process.env.EMAIL_FROM_NAME || 'Carrières RDC'} <${gmailAddress}>`,
       to,
@@ -332,21 +364,20 @@ app.post('/api/auth/register', async (request, response) => {
     [role, email, hash, JSON.stringify(data), organizationId, organizationRole]
   );
   const user = result.rows[0];
-  try {
-    const verificationToken = await createAuthToken(user.id, 'email_verification', 24 * 60 * 60 * 1000);
-    const verificationUrl = `${process.env.FRONTEND_URL || `http://localhost:${port}`}/api/auth/verify-email?token=${verificationToken}`;
-    await sendTransactionalEmail({
-      to: email,
-      subject: 'Vérifiez votre adresse e-mail - Carrières RDC',
-      text: `Confirmez votre adresse e-mail en ouvrant ce lien : ${verificationUrl}`,
-    });
-  } catch (error) {
-    console.error('Unable to send verification email:', error);
-  }
+  const verificationToken = await createAuthToken(user.id, 'email_verification', 24 * 60 * 60 * 1000);
+  const apiPublicUrl = process.env.API_PUBLIC_URL || `http://localhost:${port}`;
+  const verificationUrl = `${apiPublicUrl.replace(/\/$/, '')}/api/auth/verify-email?token=${verificationToken}`;
   response.status(201).json({
     user: { ...user, organization_id: organizationId, organization },
     token: jwt.sign({ id: user.id, email: user.email, role: user.role, organization_id: organizationId, organization_role: organizationRole }, jwtSecret, { expiresIn: '7d' }),
+    emailVerificationPending: true,
   });
+
+  sendTransactionalEmail({
+      to: email,
+      subject: 'Vérifiez votre adresse e-mail - Carrières RDC',
+      text: `Confirmez votre adresse e-mail en ouvrant ce lien : ${verificationUrl}`,
+  }).catch((error) => console.error('Unable to send verification email:', error));
 });
 
 app.get('/api/auth/verify-email', async (request, response) => {

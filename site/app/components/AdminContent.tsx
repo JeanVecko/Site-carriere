@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, FileUp, LogOut, RefreshCw, Send, Trash2 } from "lucide-react";
+import { ArrowRight, Building2, FileUp, LogOut, RefreshCw, Send, ShieldCheck, Trash2, Users } from "lucide-react";
 import {
   Announcement,
   AnnouncementMedia,
   ContactMessage,
+  AdminOverview,
   adminHeaders,
   apiRequest,
   escapeHtml,
@@ -17,6 +18,9 @@ export default function AdminContent() {
   );
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState("");
   const [loginFeedback, setLoginFeedback] = useState("");
   const [adminFeedback, setAdminFeedback] = useState("");
 
@@ -36,14 +40,28 @@ export default function AdminContent() {
     }
   }, []);
 
+  const loadOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    setOverviewError("");
+    try {
+      setOverview(await apiRequest<AdminOverview>("/admin/overview", { headers: adminHeaders() }));
+    } catch (error) {
+      setOverview(null);
+      setOverviewError(error instanceof Error ? error.message : "Impossible de charger les comptes inscrits.");
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!loggedIn) return;
     const loadTimer = window.setTimeout(() => {
       void loadAnnouncements();
       void loadMessages();
+      void loadOverview();
     }, 0);
     return () => window.clearTimeout(loadTimer);
-  }, [loggedIn, loadAnnouncements, loadMessages]);
+  }, [loggedIn, loadAnnouncements, loadMessages, loadOverview]);
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -161,9 +179,8 @@ export default function AdminContent() {
           <p className="eyebrow">
             <span className="eyebrow-line"></span> Tableau de bord
           </p>
-          <h1 id="dashboard-title">
-            Vos <em>annonces.</em>
-          </h1>
+          <h1 id="dashboard-title">Centre de <em>contrôle.</em></h1>
+          <p className="admin-dashboard-subtitle">Superadmin · comptes, organisations et activité de la plateforme</p>
         </div>
         <button
           className="text-button"
@@ -177,6 +194,52 @@ export default function AdminContent() {
           Se déconnecter <LogOut size={15} />
         </button>
       </div>
+      {overviewLoading && <p className="admin-overview-status">Chargement des comptes inscrits...</p>}
+      {overviewError && (
+        <div className="admin-overview-error" role="alert">
+          <strong>Les comptes inscrits ne sont pas disponibles.</strong>
+          <span>{overviewError}</span>
+          <button type="button" className="refresh-button" onClick={() => void loadOverview()}><RefreshCw size={13} /> Réessayer</button>
+        </div>
+      )}
+      {overview && (
+        <section className="admin-command-center" aria-labelledby="admin-overview-title">
+          <div className="admin-command-heading">
+            <div>
+              <p className="eyebrow"><span className="eyebrow-line"></span> Vue globale</p>
+              <h2 id="admin-overview-title">Les inscrits de la plateforme</h2>
+            </div>
+            <button type="button" className="refresh-button" onClick={() => void loadOverview()}><RefreshCw size={13} /> Actualiser</button>
+          </div>
+          <div className="admin-stat-grid">
+            <div className="admin-stat-card"><Users size={20} /><strong>{overview.users.length}</strong><span>Comptes inscrits</span></div>
+            <div className="admin-stat-card"><Building2 size={20} /><strong>{overview.organizations.length}</strong><span>Organisations</span></div>
+            <div className="admin-stat-card"><ShieldCheck size={20} /><strong>{overview.users.filter((user) => user.email_verified_at).length}</strong><span>E-mails vérifiés</span></div>
+            <div className="admin-stat-card"><Send size={20} /><strong>{overview.invitations.filter((invitation) => !invitation.accepted_at).length}</strong><span>Invitations en attente</span></div>
+          </div>
+          <div className="admin-command-grid">
+            <div className="admin-data-panel">
+              <div className="admin-panel-title"><h3>Comptes inscrits</h3><span>{overview.users.length}</span></div>
+              <div className="admin-table-list">
+                {overview.users.length === 0 ? <p className="admin-empty-state">Aucun compte inscrit.</p> : overview.users.map((user) => (
+                  <div className="admin-table-row" key={user.id}>
+                    <div><strong>{user.email}</strong><span>{user.role}{user.organization_role ? ` · ${user.organization_role}` : ""}</span></div>
+                    <div><span>{user.organization_name || "Sans organisation"}</span><small className={user.email_verified_at ? "is-verified" : "is-pending"}>{user.email_verified_at ? "Vérifié" : "Non vérifié"}</small></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="admin-data-panel">
+              <div className="admin-panel-title"><h3>Organisations</h3><span>{overview.organizations.length}</span></div>
+              <div className="admin-table-list">
+                {overview.organizations.length === 0 ? <p className="admin-empty-state">Aucune organisation.</p> : overview.organizations.map((organization) => (
+                  <div className="admin-table-row" key={organization.id}><div><strong>{organization.name}</strong><span>{organization.member_count} membre(s)</span></div><small>Plan {organization.plan} · {organization.plan_status}</small></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
       <div className="dashboard-grid">
         <form className="publish-form admin-publish-form" id="admin-form" onSubmit={handlePublish}>
           <div className="form-topline">
