@@ -95,13 +95,12 @@ export default function DetailContent() {
         {item.description && (
           <div className="detail-page-description">
             {paragraphs(item.description).map((paragraph, index) => (
-              <p key={index}>{escapeHtml(paragraph)}</p>
+              <p key={index}>{decodeDescription(paragraph)}</p>
             ))}
           </div>
         )}
         {item.media && item.media.length > 0 && (
-          <section className="announcement-media" aria-labelledby="announcement-media-title">
-            <h2 id="announcement-media-title">Document{item.media.length > 1 ? "s" : ""} joint{item.media.length > 1 ? "s" : ""}</h2>
+          <section className="announcement-media" aria-label="Documents de l’annonce">
             <div className="announcement-media-grid">
               {item.media.map((file, index) =>
                 file.type === "application/pdf" ? (
@@ -111,9 +110,9 @@ export default function DetailContent() {
                     <small>Télécharger le PDF</small>
                   </a>
                 ) : (
-                  <a href={file.dataUrl} target="_blank" rel="noreferrer" key={`${file.name}-${index}`}>
-                    <img className="announcement-image" src={file.dataUrl} alt={`Document scanné : ${file.name}`} />
-                  </a>
+                  <div className="announcement-image-frame" key={`${file.name}-${index}`}>
+                    <img className="announcement-image" src={file.dataUrl} alt={`Document : ${file.name}`} />
+                  </div>
                 )
               )}
             </div>
@@ -122,4 +121,14 @@ export default function DetailContent() {
       </article>
     </main>
   );
+}
+
+function decodeDescription(value: string): string {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#x27;/gi, "'");
 }
