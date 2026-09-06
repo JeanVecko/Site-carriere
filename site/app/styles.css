@@ -82,6 +82,9 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 @media (max-width: 700px) { .admin-main { padding-top: 50px; }.admin-entry { align-items: flex-start; flex-wrap: wrap; }.admin-entry .button { margin-left: 65px; }.dashboard-grid { gap: 55px; grid-template-columns: 1fr; }.dashboard-heading { align-items: flex-start; flex-direction: column; gap: 22px; }.dashboard-heading .text-button { margin: 0; } }
 
 /* Compact layout */
+.admin-page .dashboard h1 {
+  font-size: clamp(27px, 3.5vw, 45px);
+}
 .hero { min-height: 535px; padding-top: 48px; padding-bottom: 32px; }
 h1 { font-size: clamp(45px, 5.5vw, 76px); }
 .content-section { padding-top: 52px; padding-bottom: 55px; }
