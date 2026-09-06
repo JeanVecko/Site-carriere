@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, Building2, FileUp, LogOut, RefreshCw, Send, ShieldCheck, Trash2, Users } from "lucide-react";
+import { ArrowRight, Ban, Building2, CheckCircle2, FileUp, LogOut, RefreshCw, Send, ShieldCheck, Trash2, Users } from "lucide-react";
 import {
   Announcement,
   AnnouncementMedia,
@@ -126,6 +126,32 @@ export default function AdminContent() {
     loadMessages();
   }
 
+  async function updateUserStatus(id: number, status: "active" | "suspended") {
+    try {
+      const updated = await apiRequest<{ id: number; account_status: "active" | "suspended" }>(`/admin/users/${id}/status`, {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ status }),
+      });
+      setOverview((current) => current ? {
+        ...current,
+        users: current.users.map((user) => user.id === id ? { ...user, account_status: updated.account_status } : user),
+      } : current);
+    } catch (error) {
+      setOverviewError(error instanceof Error ? error.message : "Impossible de modifier le statut du compte.");
+    }
+  }
+
+  async function deleteUser(id: number, email: string) {
+    if (!window.confirm(`Supprimer définitivement le compte ${email} ? Cette action est irréversible.`)) return;
+    try {
+      await apiRequest(`/admin/users/${id}`, { method: "DELETE", headers: adminHeaders() });
+      setOverview((current) => current ? { ...current, users: current.users.filter((user) => user.id !== id) } : current);
+    } catch (error) {
+      setOverviewError(error instanceof Error ? error.message : "Impossible de supprimer le compte.");
+    }
+  }
+
   if (!loggedIn) {
     return (
       <section className="admin-login" id="login-view" aria-labelledby="login-title">
@@ -230,6 +256,13 @@ export default function AdminContent() {
                   <div className="admin-table-row" key={user.id}>
                     <div><strong>{user.email}</strong><span>{user.role}{user.organization_role ? ` · ${user.organization_role}` : ""}</span></div>
                     <div><span>{user.organization_name || "Sans organisation"}</span><small className={user.email_verified_at ? "is-verified" : "is-pending"}>{user.email_verified_at ? "Vérifié" : "Non vérifié"}</small></div>
+                    <div className="admin-user-actions">
+                      <button type="button" className={`admin-status-button ${user.account_status === "suspended" ? "is-suspended" : ""}`} onClick={() => void updateUserStatus(user.id, user.account_status === "active" ? "suspended" : "active")} title={user.account_status === "active" ? "Suspendre le compte" : "Réactiver le compte"}>
+                        {user.account_status === "active" ? <Ban size={14} /> : <CheckCircle2 size={14} />}
+                        {user.account_status === "active" ? "Suspendre" : "Réactiver"}
+                      </button>
+                      <button type="button" className="admin-delete-user" onClick={() => void deleteUser(user.id, user.email)} title="Supprimer définitivement le compte"><Trash2 size={14} /></button>
+                    </div>
                   </div>
                 ))}
               </div>

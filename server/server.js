@@ -56,6 +56,7 @@ async function initializeDatabase() {
       data JSONB NOT NULL DEFAULT '{}'::jsonb,
       organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL,
       organization_role TEXT NOT NULL DEFAULT 'member' CHECK (organization_role IN ('owner', 'member')),
+      account_status TEXT NOT NULL DEFAULT 'active' CHECK (account_status IN ('active', 'suspended')),
       email_verified_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -110,6 +111,7 @@ async function initializeDatabase() {
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'active'");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ");
   await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'");
   await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_status TEXT NOT NULL DEFAULT 'active'");
@@ -155,7 +157,7 @@ function requireAdmin(request, response, next) {
 app.get('/api/admin/overview', requireAdmin, async (_request, response) => {
   const [users, organizations, invitations] = await Promise.all([
     pool.query(
-      `SELECT u.id, u.email, u.role, u.organization_role, u.email_verified_at, u.created_at,
+      `SELECT u.id, u.email, u.role, u.organization_role, u.account_status, u.email_verified_at, u.created_at,
               o.name AS organization_name
        FROM users u LEFT JOIN organizations o ON o.id = u.organization_id
        ORDER BY u.created_at DESC`
@@ -174,6 +176,23 @@ app.get('/api/admin/overview', requireAdmin, async (_request, response) => {
     ),
   ]);
   response.json({ users: users.rows, organizations: organizations.rows, invitations: invitations.rows });
+});
+
+app.patch('/api/admin/users/:id/status', requireAdmin, async (request, response) => {
+  const status = clean(request.body.status);
+  if (!['active', 'suspended'].includes(status)) return response.status(400).json({ error: 'Statut de compte invalide.' });
+  const result = await pool.query(
+    'UPDATE users SET account_status = $1 WHERE id = $2 RETURNING id, email, account_status',
+    [status, request.params.id]
+  );
+  if (!result.rows[0]) return response.status(404).json({ error: 'Utilisateur introuvable.' });
+  response.json(result.rows[0]);
+});
+
+app.delete('/api/admin/users/:id', requireAdmin, async (request, response) => {
+  const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [request.params.id]);
+  if (!result.rows[0]) return response.status(404).json({ error: 'Utilisateur introuvable.' });
+  response.status(204).end();
 });
 
 function clean(value) { return typeof value === 'string' ? value.trim() : ''; }
@@ -295,9 +314,10 @@ app.post('/api/auth/login', async (request, response) => {
 
   // Comptes utilisateurs (candidats / recruteurs)
   try {
-    const result = await pool.query('SELECT id, role, email, password_hash, organization_id, organization_role FROM users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT id, role, email, password_hash, organization_id, organization_role, account_status FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
     if (user && (await bcrypt.compare(password, user.password_hash))) {
+      if (user.account_status !== 'active') return response.status(403).json({ error: 'Ce compte est suspendu. Contactez le support.' });
       return response.json({
         token: jwt.sign({ id: user.id, email: user.email, role: user.role, organization_id: user.organization_id, organization_role: user.organization_role }, jwtSecret, { expiresIn: '7d' }),
         role: user.role,
@@ -318,11 +338,12 @@ async function requireUser(request, response, next) {
     const payload = jwt.verify(token, jwtSecret);
     if (payload.role !== 'candidat' && payload.role !== 'recruteur') return response.status(403).json({ error: 'Compte utilisateur requis.' });
     const result = await pool.query(
-      'SELECT id, email, role, organization_id FROM users WHERE id = $1',
+      'SELECT id, email, role, organization_id, organization_role, account_status FROM users WHERE id = $1',
       [payload.id]
     );
     const user = result.rows[0];
     if (!user || user.role !== payload.role) return response.status(401).json({ error: 'Compte utilisateur invalide.' });
+    if (user.account_status !== 'active') return response.status(403).json({ error: 'Ce compte est suspendu. Contactez le support.' });
     request.user = {
       id: user.id,
       email: user.email,

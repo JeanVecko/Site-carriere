@@ -41,6 +41,7 @@ export type AdminOverview = {
     email: string;
     role: string;
     organization_role?: string;
+    account_status: "active" | "suspended";
     organization_name?: string;
     email_verified_at?: string;
     created_at: string;

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   data JSONB NOT NULL DEFAULT '{}'::jsonb,
   organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL,
   organization_role TEXT NOT NULL DEFAULT 'member' CHECK (organization_role IN ('owner', 'member')),
+  account_status TEXT NOT NULL DEFAULT 'active' CHECK (account_status IN ('active', 'suspended')),
   email_verified_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
