@@ -358,7 +358,7 @@ export default function AdminContent() {
               <FileUp size={17} />
               <input name="media" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple />
             </span>
-            <small>Nombre de fichiers illimité — JPG, PNG, WEBP ou PDF (20 Mo au total).</small>
+            <small>JPG, PNG, WEBP ou PDF — les images sont compressées automatiquement (9 Mo au total).</small>
           </label>
           <button className="button button-light" type="submit">
             Publier l’annonce <Send size={16} />
@@ -450,19 +450,40 @@ const ALLOWED_MEDIA_TYPES = new Set<AnnouncementMedia["type"]>([
 
 async function filesToMedia(files: FileList | null): Promise<AnnouncementMedia[]> {
   const selectedFiles = Array.from(files || []);
-  const totalSize = selectedFiles.reduce((total, file) => total + file.size, 0);
-  if (totalSize > 20_000_000) throw new Error("La taille totale des fichiers ne doit pas dépasser 20 Mo.");
   if (selectedFiles.some((file) => !ALLOWED_MEDIA_TYPES.has(file.type as AnnouncementMedia["type"]))) {
     throw new Error("Utilisez uniquement des fichiers JPG, PNG, WEBP ou PDF.");
   }
 
-  return Promise.all(
-    selectedFiles.map(async (file) => ({
-      name: file.name,
-      type: file.type as AnnouncementMedia["type"],
-      dataUrl: await readAsDataUrl(file),
-    }))
-  );
+  const media = await Promise.all(selectedFiles.map(async (file) => {
+    if (file.type.startsWith("image/")) return optimizeImage(file);
+    return { name: file.name, type: file.type as AnnouncementMedia["type"], dataUrl: await readAsDataUrl(file) };
+  }));
+  const encodedSize = media.reduce((total, file) => total + file.dataUrl.length, 0);
+  if (encodedSize > 12_000_000) throw new Error("La taille totale des images ne doit pas dépasser 9 Mo après compression.");
+  return media;
+}
+
+async function optimizeImage(file: File): Promise<AnnouncementMedia> {
+  const source = await loadImage(file);
+  const maxDimension = 1600;
+  const scale = Math.min(1, maxDimension / Math.max(source.width, source.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(source.width * scale));
+  canvas.height = Math.max(1, Math.round(source.height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Impossible de préparer l’image.");
+  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+  return { name: file.name.replace(/\.[^.]+$/, ".jpg"), type: "image/jpeg", dataUrl };
+}
+
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Impossible de lire l’image sélectionnée."));
+    image.src = URL.createObjectURL(file);
+  });
 }
 
 function readAsDataUrl(file: File): Promise<string> {
