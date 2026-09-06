@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Briefcase, LogOut, Send, Trash2, CheckCircle, Camera, FileText, User, Upload } from "lucide-react";
 import { apiRequest, getSession, clearSession, userHeaders } from "../lib/api";
-
 type Application = {
   id: number;
   status: string;
@@ -53,6 +52,7 @@ type Tab = "accueil" | "profil" | "offres";
 export default function CandidateDashboard() {
   const [checking, setChecking] = useState(true);
   const [tab, setTab] = useState<Tab>("accueil");
+  const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -68,6 +68,7 @@ export default function CandidateDashboard() {
   const [bio, setBio] = useState("");
   const [photoPreview, setPhotoPreview] = useState("");
   const [cvName, setCvName] = useState("");
+  const [hasNewCv, setHasNewCv] = useState(false);
   const photoFileRef = useRef<File | null>(null);
   const cvFileRef = useRef<File | null>(null);
 
@@ -96,7 +97,7 @@ export default function CandidateDashboard() {
   useEffect(() => {
     const session = getSession();
     if (!session || session.role !== "candidat") {
-      window.location.href = "/connexion";
+      router.push("/connexion");
       return;
     }
     (async () => {
@@ -112,19 +113,14 @@ export default function CandidateDashboard() {
         setBio(d.bio || "");
         setPhotoPreview(d.photoDataUrl || "");
         setCvName(d.cvName || "");
+        await Promise.all([loadApplications(), loadOffers()]);
       } catch {
         // silencieux
       } finally {
         setChecking(false);
       }
     })();
-  }, []);
-
-  useEffect(() => {
-    if (checking) return;
-    loadApplications();
-    loadOffers();
-  }, [checking, loadApplications, loadOffers]);
+  }, [loadApplications, loadOffers, router]);
 
   function readFileAsDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -164,6 +160,7 @@ export default function CandidateDashboard() {
       return;
     }
     cvFileRef.current = file;
+    setHasNewCv(true);
     setCvName(file.name);
   }
 
@@ -186,6 +183,7 @@ export default function CandidateDashboard() {
       setMe(updated);
       photoFileRef.current = null;
       cvFileRef.current = null;
+      setHasNewCv(false);
       setMessage({ type: "success", text: "Votre profil a été enregistré avec succès !" });
     } catch (error) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : "L’enregistrement a échoué." });
@@ -225,7 +223,7 @@ export default function CandidateDashboard() {
 
   function logout() {
     clearSession();
-    window.location.href = "/";
+    router.push("/");
   }
 
   if (checking) {
@@ -372,7 +370,7 @@ export default function CandidateDashboard() {
                 {cvName ? cvName : "Choisir mon CV"}
                 <input type="file" accept="application/pdf" onChange={onCvChange} className="recruiter-upload-input" />
               </label>
-              {d.cvDataUrl && !cvFileRef.current && (
+              {d.cvDataUrl && !hasNewCv && (
                 <a className="candidate-cv-link" href={d.cvDataUrl} target="_blank" rel="noreferrer">
                   <FileText size={14} /> Télécharger le CV actuel
                 </a>

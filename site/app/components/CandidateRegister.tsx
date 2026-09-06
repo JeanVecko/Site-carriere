@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, CheckCircle, ArrowLeft } from "lucide-react";
 import { apiRequest, saveSession, dashboardHref } from "../lib/api";
 
 export default function CandidateRegister() {
+  const router = useRouter();
   const [civilite, setCivilite] = useState("");
   const [prenom, setPrenom] = useState("");
   const [nom, setNom] = useState("");
@@ -91,7 +93,7 @@ export default function CandidateRegister() {
         message: "Félicitations ! Votre compte Candidat a été créé avec succès.",
       });
       setTimeout(() => {
-        window.location.href = dashboardHref("candidat");
+        router.push(dashboardHref("candidat"));
       }, 1200);
     } catch (error) {
       setIsSubmitting(false);

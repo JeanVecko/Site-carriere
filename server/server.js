@@ -2,6 +2,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import pg from 'pg';
 
@@ -36,12 +37,25 @@ const defaultAnnouncements = [
 
 async function initializeDatabase() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS organizations (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      invite_code TEXT NOT NULL UNIQUE,
+      plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'enterprise')),
+      plan_status TEXT NOT NULL DEFAULT 'active' CHECK (plan_status IN ('active', 'past_due', 'canceled')),
+      plan_limits JSONB NOT NULL DEFAULT '{"activeJobs": 3, "members": 2}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS users (
       id BIGSERIAL PRIMARY KEY,
       role TEXT NOT NULL CHECK (role IN ('candidat', 'recruteur')),
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       data JSONB NOT NULL DEFAULT '{}'::jsonb,
+      organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL,
+      organization_role TEXT NOT NULL DEFAULT 'member' CHECK (organization_role IN ('owner', 'member')),
+      email_verified_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS announcements (
@@ -71,9 +85,40 @@ async function initializeDatabase() {
       status TEXT NOT NULL DEFAULT 'En attente' CHECK (status IN ('En attente', 'Examinée', 'Acceptée', 'Refusée')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS auth_tokens (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      kind TEXT NOT NULL CHECK (kind IN ('email_verification', 'password_reset')),
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media JSONB NOT NULL DEFAULT '[]'::jsonb");
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
+  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ");
+  await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'");
+  await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_status TEXT NOT NULL DEFAULT 'active'");
+  await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_limits JSONB NOT NULL DEFAULT '{\"activeJobs\": 3, \"members\": 2}'::jsonb");
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'users_organization_role_check'
+      ) THEN
+        ALTER TABLE users ADD CONSTRAINT users_organization_role_check
+          CHECK (organization_role IN ('owner', 'member'));
+      END IF;
+    END
+    $$;
+  `);
+  // Index pour le cloisonnement multi-tenant
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_announcements_org ON announcements(organization_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_users_org ON users(organization_id)');
   const result = await pool.query('SELECT COUNT(*)::int AS count FROM announcements');
   if (result.rows[0].count === 0) {
     for (const item of defaultAnnouncements) {
@@ -94,6 +139,56 @@ function requireAdmin(request, response, next) {
 }
 
 function clean(value) { return typeof value === 'string' ? value.trim() : ''; }
+function hashToken(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
+async function createAuthToken(userId, kind, lifetimeMs) {
+  const token = crypto.randomBytes(32).toString('hex');
+  await pool.query(
+    'INSERT INTO auth_tokens (user_id, token_hash, kind, expires_at) VALUES ($1, $2, $3, NOW() + ($4 * INTERVAL \'1 millisecond\'))',
+    [userId, hashToken(token), kind, lifetimeMs]
+  );
+  return token;
+}
+async function sendTransactionalEmail({ to, subject, text }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM;
+  if (!apiKey || !from) {
+    if (process.env.NODE_ENV !== 'production') console.info(`[email preview] ${to}\n${text}`);
+    return;
+  }
+  const result = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: [to], subject, text }),
+  });
+  if (!result.ok) throw new Error('Echec de l’envoi de l’e-mail.');
+}
+function requireOrganizationOwner(request, response, next) {
+  if (request.user.organization_role !== 'owner') {
+    return response.status(403).json({ error: 'Action réservée au propriétaire de l’organisation.' });
+  }
+  next();
+}
+function slugify(value) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+}
+async function findOrCreateOrganization({ name, code }) {
+  if (code) {
+    const existing = await pool.query('SELECT id, name FROM organizations WHERE invite_code = $1', [clean(code).toUpperCase()]);
+    if (!existing.rows[0]) throw new Error('Code d’organisation invalide.');
+    return existing.rows[0];
+  }
+  const orgName = clean(name).slice(0, 120);
+  if (!orgName) throw new Error('Nom d’entreprise requis.');
+  let slug = slugify(orgName) || 'entreprise';
+  const clash = await pool.query('SELECT id FROM organizations WHERE slug = $1', [slug]);
+  if (clash.rows[0]) slug = `${slug}-${Date.now().toString(36)}`;
+  const inviteCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+  const created = await pool.query(
+    'INSERT INTO organizations (name, slug, invite_code) VALUES ($1, $2, $3) RETURNING id, name, invite_code',
+    [orgName, slug, inviteCode]
+  );
+  return created.rows[0];
+}
 function cleanMedia(media) {
   if (!Array.isArray(media)) return null;
   const supportedTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
@@ -130,11 +225,11 @@ app.post('/api/auth/login', async (request, response) => {
 
   // 1. Comptes utilisateurs (candidats / recruteurs)
   try {
-    const result = await pool.query('SELECT id, role, email, password_hash FROM users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT id, role, email, password_hash, organization_id, organization_role FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
     if (user && (await bcrypt.compare(password, user.password_hash))) {
       return response.json({
-        token: jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret, { expiresIn: '7d' }),
+        token: jwt.sign({ id: user.id, email: user.email, role: user.role, organization_id: user.organization_id, organization_role: user.organization_role }, jwtSecret, { expiresIn: '7d' }),
         role: user.role,
         email: user.email,
       });
@@ -150,16 +245,29 @@ app.post('/api/auth/login', async (request, response) => {
   response.json({ token: jwt.sign({ email, role: 'admin' }, jwtSecret, { expiresIn: '8h' }), role: 'admin', email });
 });
 
-function requireUser(request, response, next) {
+async function requireUser(request, response, next) {
   const token = request.headers.authorization?.replace('Bearer ', '');
   if (!token) return response.status(401).json({ error: 'Authentification requise.' });
   try {
     const payload = jwt.verify(token, jwtSecret);
     if (payload.role !== 'candidat' && payload.role !== 'recruteur') return response.status(403).json({ error: 'Compte utilisateur requis.' });
-    request.user = payload;
+    const result = await pool.query(
+      'SELECT id, email, role, organization_id FROM users WHERE id = $1',
+      [payload.id]
+    );
+    const user = result.rows[0];
+    if (!user || user.role !== payload.role) return response.status(401).json({ error: 'Compte utilisateur invalide.' });
+    request.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      organization_id: user.organization_id,
+      organization_role: user.organization_role,
+    };
     next();
-  } catch {
-    response.status(401).json({ error: 'Session expirée ou invalide.' });
+  } catch (error) {
+    if (error instanceof jwt.JsonWebTokenError) return response.status(401).json({ error: 'Session expirée ou invalide.' });
+    response.status(500).json({ error: 'Impossible de vérifier le compte utilisateur.' });
   }
 }
 
@@ -175,19 +283,103 @@ app.post('/api/auth/register', async (request, response) => {
 
   const hash = await bcrypt.hash(password, 10);
   const data = typeof request.body.data === 'object' && request.body.data !== null ? request.body.data : {};
+
+  // Multi-tenant : le recruteur crée son entreprise OU rejoint celle de son équipe via un code d'invitation
+  let organizationId = null;
+  let organization = null;
+  let organizationRole = 'member';
+  if (role === 'recruteur') {
+    try {
+      organization = await findOrCreateOrganization({ name: request.body.organizationName, code: request.body.organizationCode });
+    } catch (error) {
+      return response.status(400).json({ error: error instanceof Error ? error.message : 'Organisation invalide.' });
+    }
+    organizationId = organization.id;
+    organizationRole = clean(request.body.organizationCode) ? 'member' : 'owner';
+    data.companyName = data.companyName || organization.name;
+  }
+
   const result = await pool.query(
-    'INSERT INTO users (role, email, password_hash, data) VALUES ($1, $2, $3, $4) RETURNING id, role, email, created_at',
-    [role, email, hash, JSON.stringify(data)]
+    'INSERT INTO users (role, email, password_hash, data, organization_id, organization_role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, role, email, created_at',
+    [role, email, hash, JSON.stringify(data), organizationId, organizationRole]
   );
   const user = result.rows[0];
+  try {
+    const verificationToken = await createAuthToken(user.id, 'email_verification', 24 * 60 * 60 * 1000);
+    const verificationUrl = `${process.env.FRONTEND_URL || `http://localhost:${port}`}/api/auth/verify-email?token=${verificationToken}`;
+    await sendTransactionalEmail({
+      to: email,
+      subject: 'Vérifiez votre adresse e-mail - Carrières RDC',
+      text: `Confirmez votre adresse e-mail en ouvrant ce lien : ${verificationUrl}`,
+    });
+  } catch (error) {
+    console.error('Unable to send verification email:', error);
+  }
   response.status(201).json({
-    user,
-    token: jwt.sign({ id: user.id, email: user.email, role: user.role }, jwtSecret, { expiresIn: '7d' }),
+    user: { ...user, organization_id: organizationId, organization },
+    token: jwt.sign({ id: user.id, email: user.email, role: user.role, organization_id: organizationId, organization_role: organizationRole }, jwtSecret, { expiresIn: '7d' }),
   });
 });
 
+app.get('/api/auth/verify-email', async (request, response) => {
+  const token = clean(request.query.token);
+  if (!token) return response.status(400).json({ error: 'Jeton de vérification manquant.' });
+  const result = await pool.query(
+    `SELECT t.id, t.user_id FROM auth_tokens t
+     WHERE t.token_hash = $1 AND t.kind = 'email_verification'
+       AND t.used_at IS NULL AND t.expires_at > NOW()`,
+    [hashToken(token)]
+  );
+  if (!result.rows[0]) return response.status(400).json({ error: 'Lien de vérification invalide ou expiré.' });
+  await pool.query('UPDATE users SET email_verified_at = NOW() WHERE id = $1', [result.rows[0].user_id]);
+  await pool.query('UPDATE auth_tokens SET used_at = NOW() WHERE id = $1', [result.rows[0].id]);
+  response.json({ message: 'Adresse e-mail vérifiée.' });
+});
+
+app.post('/api/auth/password-reset/request', async (request, response) => {
+  const email = clean(request.body.email).toLowerCase();
+  const genericResponse = { message: 'Si cette adresse correspond à un compte, un lien de réinitialisation sera envoyé.' };
+  if (!email) return response.json(genericResponse);
+  const result = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+  if (!result.rows[0]) return response.json(genericResponse);
+  try {
+    const resetToken = await createAuthToken(result.rows[0].id, 'password_reset', 60 * 60 * 1000);
+    const resetUrl = `${process.env.FRONTEND_URL || `http://localhost:${port}`}/connexion?reset_token=${resetToken}`;
+    await sendTransactionalEmail({
+      to: email,
+      subject: 'Réinitialisation de votre mot de passe - Carrières RDC',
+      text: `Réinitialisez votre mot de passe en ouvrant ce lien : ${resetUrl}`,
+    });
+  } catch (error) {
+    console.error('Unable to send password reset email:', error);
+  }
+  response.json(genericResponse);
+});
+
+app.post('/api/auth/password-reset/confirm', async (request, response) => {
+  const token = clean(request.body.token);
+  const password = request.body.password || '';
+  if (!token || password.length < 6) return response.status(400).json({ error: 'Jeton ou mot de passe invalide.' });
+  const result = await pool.query(
+    `SELECT t.id, t.user_id FROM auth_tokens t
+     WHERE t.token_hash = $1 AND t.kind = 'password_reset'
+       AND t.used_at IS NULL AND t.expires_at > NOW()`,
+    [hashToken(token)]
+  );
+  if (!result.rows[0]) return response.status(400).json({ error: 'Lien de réinitialisation invalide ou expiré.' });
+  const passwordHash = await bcrypt.hash(password, 12);
+  await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, result.rows[0].user_id]);
+  await pool.query('UPDATE auth_tokens SET used_at = NOW() WHERE id = $1', [result.rows[0].id]);
+  response.json({ message: 'Mot de passe modifié. Vous pouvez vous connecter.' });
+});
+
 app.get('/api/me', requireUser, async (request, response) => {
-  const result = await pool.query('SELECT id, role, email, data, created_at FROM users WHERE id = $1', [request.user.id]);
+  const result = await pool.query(
+    `SELECT u.id, u.role, u.email, u.data, u.created_at, u.organization_id, o.name AS organization_name, o.invite_code
+     FROM users u LEFT JOIN organizations o ON o.id = u.organization_id
+     WHERE u.id = $1`,
+    [request.user.id]
+  );
   if (!result.rows[0]) return response.status(404).json({ error: 'Compte introuvable.' });
   response.json(result.rows[0]);
 });
@@ -209,6 +401,50 @@ app.patch('/api/me', requireUser, async (request, response) => {
     [JSON.stringify(merged), request.user.id]
   );
   response.json(result.rows[0]);
+});
+
+app.get('/api/my/organization', requireUser, async (request, response) => {
+  if (request.user.role !== 'recruteur' || !request.user.organization_id) {
+    return response.status(403).json({ error: 'Organisation recruteur requise.' });
+  }
+  const organization = await pool.query(
+    'SELECT id, name, slug, invite_code, plan, plan_status, plan_limits, created_at FROM organizations WHERE id = $1',
+    [request.user.organization_id]
+  );
+  if (!organization.rows[0]) return response.status(404).json({ error: 'Organisation introuvable.' });
+  const members = await pool.query(
+    `SELECT id, email, organization_role, created_at
+     FROM users WHERE organization_id = $1 ORDER BY created_at ASC`,
+    [request.user.organization_id]
+  );
+  response.json({ organization: organization.rows[0], members: members.rows });
+});
+
+app.post('/api/my/organization/invite-code', requireUser, requireOrganizationOwner, async (request, response) => {
+  if (request.user.role !== 'recruteur' || !request.user.organization_id) {
+    return response.status(403).json({ error: 'Organisation recruteur requise.' });
+  }
+  const inviteCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+  const result = await pool.query(
+    'UPDATE organizations SET invite_code = $1 WHERE id = $2 RETURNING invite_code',
+    [inviteCode, request.user.organization_id]
+  );
+  if (!result.rows[0]) return response.status(404).json({ error: 'Organisation introuvable.' });
+  response.json(result.rows[0]);
+});
+
+app.delete('/api/my/organization/members/:id', requireUser, requireOrganizationOwner, async (request, response) => {
+  if (request.user.role !== 'recruteur' || !request.user.organization_id) {
+    return response.status(403).json({ error: 'Organisation recruteur requise.' });
+  }
+  const result = await pool.query(
+    `UPDATE users SET organization_id = NULL, organization_role = 'member'
+     WHERE id = $1 AND organization_id = $2 AND role = 'recruteur' AND organization_role = 'member'
+     RETURNING id`,
+    [request.params.id, request.user.organization_id]
+  );
+  if (!result.rows[0]) return response.status(404).json({ error: 'Membre introuvable ou non amovible.' });
+  response.status(204).end();
 });
 
 app.get('/api/announcements', async (request, response) => {
@@ -263,20 +499,26 @@ app.post('/api/my/jobs', requireUser, async (request, response) => {
   const me = await pool.query('SELECT data FROM users WHERE id = $1', [request.user.id]);
   const company = clean(me.rows[0]?.data?.companyName) || 'Entreprise vérifiée';
   const result = await pool.query(
-    "INSERT INTO announcements (title, category, company, location, description, owner_id) VALUES ($1, 'Offre d’emploi', $2, $3, $4, $5) RETURNING *",
-    [title, company, location, description, request.user.id]
+    "INSERT INTO announcements (title, category, company, location, description, owner_id, organization_id) VALUES ($1, 'Offre d’emploi', $2, $3, $4, $5, $6) RETURNING *",
+    [title, company, location, description, request.user.id, request.user.organization_id || null]
   );
   response.status(201).json(result.rows[0]);
 });
 
 app.get('/api/my/jobs', requireUser, async (request, response) => {
   if (request.user.role !== 'recruteur') return response.status(403).json({ error: 'Réservé aux comptes recruteurs.' });
-  const result = await pool.query('SELECT id, title, category, company, location, description, created_at FROM announcements WHERE owner_id = $1 ORDER BY created_at DESC', [request.user.id]);
+  const result = await pool.query(
+    'SELECT id, title, category, company, location, description, created_at FROM announcements WHERE owner_id = $1 OR organization_id = $2 ORDER BY created_at DESC',
+    [request.user.id, request.user.organization_id || 0]
+  );
   response.json(result.rows);
 });
 
-app.delete('/api/my/jobs/:id', requireUser, async (request, response) => {
-  const result = await pool.query('DELETE FROM announcements WHERE id = $1 AND owner_id = $2 RETURNING id', [request.params.id, request.user.id]);
+app.delete('/api/my/jobs/:id', requireUser, requireOrganizationOwner, async (request, response) => {
+  const result = await pool.query(
+    'DELETE FROM announcements WHERE id = $1 AND (owner_id = $2 OR organization_id = $3) RETURNING id',
+    [request.params.id, request.user.id, request.user.organization_id || 0]
+  );
   if (!result.rows[0]) return response.status(404).json({ error: 'Offre introuvable.' });
   response.status(204).end();
 });
@@ -324,21 +566,21 @@ app.get('/api/my/applications/received', requireUser, async (request, response) 
      FROM applications ap
      JOIN announcements n ON n.id = ap.announcement_id
      JOIN users u ON u.id = ap.user_id
-     WHERE n.owner_id = $1
+     WHERE n.owner_id = $1 OR n.organization_id = $2
      ORDER BY ap.created_at DESC`,
-    [request.user.id]
+    [request.user.id, request.user.organization_id || 0]
   );
   response.json(result.rows);
 });
 
-app.patch('/api/my/applications/received/:id', requireUser, async (request, response) => {
+app.patch('/api/my/applications/received/:id', requireUser, requireOrganizationOwner, async (request, response) => {
   if (request.user.role !== 'recruteur') return response.status(403).json({ error: 'Réservé aux comptes recruteurs.' });
   const status = clean(request.body.status);
   if (!['En attente', 'Examinée', 'Acceptée', 'Refusée'].includes(status)) return response.status(400).json({ error: 'Statut invalide.' });
   const result = await pool.query(
     `UPDATE applications ap SET status = $1 FROM announcements n
-     WHERE ap.id = $2 AND ap.announcement_id = n.id AND n.owner_id = $3 RETURNING ap.id, ap.status`,
-    [status, request.params.id, request.user.id]
+     WHERE ap.id = $2 AND ap.announcement_id = n.id AND (n.owner_id = $3 OR n.organization_id = $4) RETURNING ap.id, ap.status`,
+    [status, request.params.id, request.user.id, request.user.organization_id || 0]
   );
   if (!result.rows[0]) return response.status(404).json({ error: 'Candidature introuvable.' });
   response.json(result.rows[0]);
@@ -346,4 +588,8 @@ app.patch('/api/my/applications/received/:id', requireUser, async (request, resp
 
 app.use((_error, _request, response, _next) => response.status(500).json({ error: 'Erreur interne du serveur.' }));
 
-initializeDatabase().then(() => app.listen(port, () => console.log(`API listening on port ${port}`))).catch((error) => { console.error(error); process.exit(1); });
+export { app, pool, initializeDatabase };
+
+if (process.env.NODE_ENV !== 'test') {
+  initializeDatabase().then(() => app.listen(port, () => console.log(`API listening on port ${port}`))).catch((error) => { console.error(error); process.exit(1); });
+}

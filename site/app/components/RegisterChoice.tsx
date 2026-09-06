@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { X, CheckCircle, ArrowRight } from "lucide-react";
 import { apiRequest, saveSession, dashboardHref } from "../lib/api";
 
 export default function RegisterChoice() {
+  const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<"candidat" | "recruteur" | null>(null);
 
   // Formulaire Candidat
@@ -45,7 +47,7 @@ export default function RegisterChoice() {
       saveSession({ token: result.token, role: "candidat", email: candidatEmail });
       setCandidatSuccess(true);
       setTimeout(() => {
-        window.location.href = dashboardHref("candidat");
+        router.push(dashboardHref("candidat"));
       }, 1400);
     } catch (error) {
       setCandidatError(error instanceof Error ? error.message : "L’inscription a échoué.");
@@ -71,7 +73,7 @@ export default function RegisterChoice() {
       saveSession({ token: result.token, role: "recruteur", email: recruteurEmail });
       setRecruteurSuccess(true);
       setTimeout(() => {
-        window.location.href = dashboardHref("recruteur");
+        router.push(dashboardHref("recruteur"));
       }, 1400);
     } catch (error) {
       setRecruteurError(error instanceof Error ? error.message : "L’inscription a échoué.");

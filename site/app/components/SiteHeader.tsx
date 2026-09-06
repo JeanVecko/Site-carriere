@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, LogOut, Menu, UserRound, X } from "lucide-react";
 import { clearSession, dashboardHref, getSession, type SessionUser } from "../lib/api";
 
@@ -11,12 +12,13 @@ type Props = {
 };
 
 export default function SiteHeader({ active, adminButton = false }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState<SessionUser | null>(null);
   const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    setSession(getSession());
+    startTransition(() => setSession(getSession()));
   }, []);
 
   useEffect(() => {
@@ -115,7 +117,7 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
                 onClick={() => {
                   clearSession();
                   setSession(null);
-                  window.location.href = "/";
+                  router.push("/");
                 }}
               >
                 <LogOut size={15} /> Déconnexion

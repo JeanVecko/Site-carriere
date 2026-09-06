@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { LogOut, Plus, Trash2, Users } from "lucide-react";
+import { Building2, Copy, LogOut, Plus, RefreshCw, Trash2, UserMinus, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { apiRequest, getSession, clearSession, userHeaders } from "../lib/api";
 
 type Job = {
@@ -31,6 +32,23 @@ type ReceivedApplication = {
   };
 };
 
+type Organization = {
+  organization: {
+    id: number;
+    name: string;
+    invite_code: string;
+    plan: "free" | "pro" | "enterprise";
+    plan_status: "active" | "past_due" | "canceled";
+    plan_limits: { activeJobs: number; members: number };
+  };
+  members: Array<{
+    id: number;
+    email: string;
+    organization_role: "owner" | "member";
+    created_at: string;
+  }>;
+};
+
 const STATUSES = ["En attente", "Examinée", "Acceptée", "Refusée"];
 
 const STATUS_CLASS: Record<string, string> = {
@@ -43,8 +61,10 @@ const STATUS_CLASS: Record<string, string> = {
 export default function RecruiterDashboard() {
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState("");
+  const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [received, setReceived] = useState<ReceivedApplication[]>([]);
+  const [organization, setOrganization] = useState<Organization | null>(null);
 
   // Formulaire de publication
   const [title, setTitle] = useState("");
@@ -55,12 +75,14 @@ export default function RecruiterDashboard() {
 
   const loadData = useCallback(async () => {
     try {
-      const [myJobs, apps] = await Promise.all([
+      const [myJobs, apps, organizationData] = await Promise.all([
         apiRequest<Job[]>("/my/jobs", { headers: userHeaders() }),
         apiRequest<ReceivedApplication[]>("/my/applications/received", { headers: userHeaders() }),
+        apiRequest<Organization>("/my/organization", { headers: userHeaders() }),
       ]);
       setJobs(Array.isArray(myJobs) ? myJobs : []);
       setReceived(Array.isArray(apps) ? apps : []);
+      setOrganization(organizationData);
     } catch {
       // silencieux
     }
@@ -69,17 +91,15 @@ export default function RecruiterDashboard() {
   useEffect(() => {
     const session = getSession();
     if (!session || session.role !== "recruteur") {
-      window.location.href = "/connexion";
+      router.push("/connexion");
       return;
     }
-    setEmail(session.email);
-    setChecking(false);
-  }, []);
-
-  useEffect(() => {
-    if (checking) return;
-    loadData();
-  }, [checking, loadData]);
+    (async () => {
+      setEmail(session.email);
+      await loadData();
+      setChecking(false);
+    })();
+  }, [loadData, router]);
 
   async function publish(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -115,6 +135,44 @@ export default function RecruiterDashboard() {
     }
   }
 
+  async function copyInviteCode() {
+    if (!organization) return;
+    await navigator.clipboard.writeText(organization.organization.invite_code);
+    setMessage({ type: "success", text: "Code d’invitation copié." });
+  }
+
+  async function regenerateInviteCode() {
+    try {
+      const result = await apiRequest<{ invite_code: string }>("/my/organization/invite-code", {
+        method: "POST",
+        headers: userHeaders(),
+      });
+      setOrganization((current) => current ? {
+        ...current,
+        organization: { ...current.organization, invite_code: result.invite_code },
+      } : current);
+      setMessage({ type: "success", text: "Nouveau code d’invitation généré." });
+    } catch (error) {
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "La régénération a échoué." });
+    }
+  }
+
+  async function removeMember(memberId: number) {
+    try {
+      await apiRequest(`/my/organization/members/${memberId}`, {
+        method: "DELETE",
+        headers: userHeaders(),
+      });
+      setOrganization((current) => current ? {
+        ...current,
+        members: current.members.filter((member) => member.id !== memberId),
+      } : current);
+      setMessage({ type: "success", text: "Le membre a été retiré de l’organisation." });
+    } catch (error) {
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "Le retrait a échoué." });
+    }
+  }
+
   async function setStatus(id: number, status: string) {
     try {
       await apiRequest(`/my/applications/received/${id}`, {
@@ -130,12 +188,16 @@ export default function RecruiterDashboard() {
 
   function logout() {
     clearSession();
-    window.location.href = "/";
+    router.push("/");
   }
 
   if (checking) {
     return <main className="dashboard-page"><p className="dashboard-loading">Chargement de votre espace...</p></main>;
   }
+
+  const isOrganizationOwner = organization?.members.some(
+    (member) => member.email === email && member.organization_role === "owner"
+  ) || false;
 
   return (
     <main className="dashboard-page">
@@ -154,6 +216,45 @@ export default function RecruiterDashboard() {
 
       {message && (
         <div className={`form-feedback-message ${message.type}`} role="alert">{message.text}</div>
+      )}
+
+      {organization && (
+        <section className="dashboard-section">
+          <h2><Building2 size={18} /> {organization.organization.name}</h2>
+          <p className="dashboard-plan-label">Plan {organization.organization.plan} · {organization.organization.plan_status === "active" ? "Actif" : "À vérifier"}</p>
+          <div className="dashboard-team-invite">
+            <div>
+              <strong>Inviter un recruteur</strong>
+              <p>Partagez ce code pour rejoindre l’espace de votre organisation.</p>
+            </div>
+            <div className="dashboard-team-actions">
+              <button type="button" className="dashboard-code-button" onClick={copyInviteCode} title="Copier le code d’invitation">
+                <code>{organization.organization.invite_code}</code>
+                <Copy size={15} />
+              </button>
+              {isOrganizationOwner && (
+                <button type="button" className="dashboard-icon-btn" onClick={regenerateInviteCode} title="Régénérer le code d’invitation">
+                  <RefreshCw size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+          <ul className="dashboard-list">
+            {organization.members.map((member) => (
+              <li key={member.id} className="dashboard-item">
+                <div className="dashboard-item-main">
+                  <strong>{member.email}</strong>
+                  <span>{member.organization_role === "owner" ? "Propriétaire" : "Membre"}</span>
+                </div>
+                {isOrganizationOwner && member.organization_role === "member" && (
+                  <button type="button" className="dashboard-icon-btn" onClick={() => removeMember(member.id)} title="Retirer ce membre">
+                    <UserMinus size={15} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {/* Publier une offre */}

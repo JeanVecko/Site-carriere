@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, CheckCircle, ArrowLeft, Download } from "lucide-react";
 import { apiRequest, saveSession, dashboardHref } from "../lib/api";
 
@@ -45,6 +46,7 @@ const tranches = [
 ];
 
 export default function RecruiterRegister() {
+  const router = useRouter();
   // Section 1 : Informations de l'entreprise
   const [companyName, setCompanyName] = useState("");
   const [adresse, setAdresse] = useState("");
@@ -157,6 +159,7 @@ export default function RecruiterRegister() {
             role: "recruteur",
             email,
             password,
+            organizationName: companyName,
             data: {
               companyName,
               adresse,
@@ -186,7 +189,7 @@ export default function RecruiterRegister() {
         message: "Félicitations ! Votre compte Recruteur a été créé avec succès.",
       });
       setTimeout(() => {
-        window.location.href = dashboardHref("recruteur");
+        router.push(dashboardHref("recruteur"));
       }, 1200);
     } catch (error) {
       setIsSubmitting(false);

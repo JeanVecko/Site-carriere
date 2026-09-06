@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, X } from "lucide-react";
 import { apiRequest, saveSession, dashboardHref } from "../lib/api";
 
@@ -13,6 +14,7 @@ const advantages = [
 ];
 
 export default function CompanyAccess() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,6 +26,8 @@ export default function CompanyAccess() {
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotFeedback, setForgotFeedback] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
 
   // Inscription
   const [registerType, setRegisterType] = useState<"candidat" | "recruteur">("recruteur");
@@ -31,6 +35,16 @@ export default function CompanyAccess() {
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerFeedback, setRegisterFeedback] = useState("");
+
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("reset_token");
+    if (token) {
+      startTransition(() => {
+        setResetToken(token);
+        setShowForgotModal(true);
+      });
+    }
+  }, []);
 
   async function handleLoginSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -52,7 +66,7 @@ export default function CompanyAccess() {
           message: "Connexion réussie ! Redirection en cours vers l’administration...",
         });
         setTimeout(() => {
-          window.location.href = "/admin";
+          router.push("/admin");
         }, 1000);
         return;
       }
@@ -62,7 +76,7 @@ export default function CompanyAccess() {
         message: "Connexion réussie ! Redirection vers votre espace...",
       });
       setTimeout(() => {
-        window.location.href = dashboardHref(data.role);
+        router.push(dashboardHref(data.role));
       }, 1000);
       return;
     } catch {
@@ -76,15 +90,42 @@ export default function CompanyAccess() {
     setIsLoading(false);
   }
 
-  function handleForgotSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleForgotSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!forgotEmail) return;
-    setForgotFeedback("Un lien de réinitialisation a été envoyé à votre adresse e-mail si elle correspond à un compte actif.");
+    try {
+      const result = await apiRequest<{ message: string }>("/auth/password-reset/request", {
+        method: "POST",
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      setForgotFeedback(result.message);
+    } catch {
+      setForgotFeedback("Impossible d’envoyer le lien pour le moment. Veuillez réessayer.");
+    }
     setTimeout(() => {
       setShowForgotModal(false);
       setForgotFeedback("");
       setForgotEmail("");
     }, 2800);
+  }
+
+  async function handleResetSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      const result = await apiRequest<{ message: string }>("/auth/password-reset/confirm", {
+        method: "POST",
+        body: JSON.stringify({ token: resetToken, password: resetPassword }),
+      });
+      setForgotFeedback(result.message);
+      setTimeout(() => {
+        setShowForgotModal(false);
+        setResetToken("");
+        setResetPassword("");
+        setForgotFeedback("");
+      }, 2200);
+    } catch (error) {
+      setForgotFeedback(error instanceof Error ? error.message : "Le lien est invalide ou expiré.");
+    }
   }
 
   function handleRegisterSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -217,11 +258,11 @@ export default function CompanyAccess() {
       </section>
 
       {/* MODALE INTERACTIVE : MOT DE PASSE OUBLIÉ */}
-      {showForgotModal && (
+      {(showForgotModal || resetToken) && (
         <div className="modal-overlay" onClick={() => setShowForgotModal(false)} role="dialog" aria-modal="true">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Mot de passe oublié</h3>
+              <h3>{resetToken ? "Nouveau mot de passe" : "Mot de passe oublié"}</h3>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -232,26 +273,39 @@ export default function CompanyAccess() {
               </button>
             </div>
             <p className="modal-description">
-              Saisissez votre adresse e-mail pour recevoir un lien de réinitialisation de votre mot de passe.
+              {resetToken ? "Choisissez un nouveau mot de passe pour votre compte." : "Saisissez votre adresse e-mail pour recevoir un lien de réinitialisation de votre mot de passe."}
             </p>
-            <form onSubmit={handleForgotSubmit}>
+            <form onSubmit={resetToken ? handleResetSubmit : handleForgotSubmit}>
               <div className="input-field-wrapper">
-                <input
-                  type="email"
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="Votre email *"
-                  required
-                  className="access-input"
-                  autoFocus
-                />
+                {resetToken ? (
+                  <input
+                    type="password"
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                    placeholder="Nouveau mot de passe *"
+                    minLength={6}
+                    required
+                    className="access-input"
+                    autoFocus
+                  />
+                ) : (
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="Votre email *"
+                    required
+                    className="access-input"
+                    autoFocus
+                  />
+                )}
               </div>
               {forgotFeedback ? (
                 <p className="form-feedback-message success">{forgotFeedback}</p>
               ) : (
                 <div className="modal-actions">
                   <button type="submit" className="pill-button pill-button-primary">
-                    Envoyer le lien
+                    {resetToken ? "Modifier le mot de passe" : "Envoyer le lien"}
                   </button>
                 </div>
               )}
