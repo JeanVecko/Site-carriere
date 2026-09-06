@@ -706,12 +706,13 @@ app.post('/api/my/jobs', requireUser, async (request, response) => {
   const title = clean(request.body.title);
   const location = clean(request.body.location);
   const description = clean(request.body.description);
-  if (!title || !location || !description) return response.status(400).json({ error: 'Tous les champs de l’offre sont obligatoires.' });
+  const media = cleanMedia(request.body.media || []);
+  if (!title || !location || !media || (!description && media.length === 0)) return response.status(400).json({ error: 'Ajoutez une description ou un document à votre offre.' });
   const me = await pool.query('SELECT data FROM users WHERE id = $1', [request.user.id]);
   const company = clean(me.rows[0]?.data?.companyName) || 'Entreprise vérifiée';
   const result = await pool.query(
-    "INSERT INTO announcements (title, category, company, location, description, owner_id, organization_id) VALUES ($1, 'Offre d’emploi', $2, $3, $4, $5, $6) RETURNING *",
-    [title, company, location, description, request.user.id, request.user.organization_id || null]
+    "INSERT INTO announcements (title, category, company, location, description, media, owner_id, organization_id) VALUES ($1, 'Offre d’emploi', $2, $3, $4, $5, $6, $7) RETURNING *",
+    [title, company, location, description, JSON.stringify(media), request.user.id, request.user.organization_id || null]
   );
   response.status(201).json(result.rows[0]);
 });
@@ -719,7 +720,7 @@ app.post('/api/my/jobs', requireUser, async (request, response) => {
 app.get('/api/my/jobs', requireUser, async (request, response) => {
   if (request.user.role !== 'recruteur') return response.status(403).json({ error: 'Réservé aux comptes recruteurs.' });
   const result = await pool.query(
-    'SELECT id, title, category, company, location, description, created_at FROM announcements WHERE owner_id = $1 OR organization_id = $2 ORDER BY created_at DESC',
+    'SELECT id, title, category, company, location, description, media, created_at FROM announcements WHERE owner_id = $1 OR organization_id = $2 ORDER BY created_at DESC',
     [request.user.id, request.user.organization_id || 0]
   );
   response.json(result.rows);

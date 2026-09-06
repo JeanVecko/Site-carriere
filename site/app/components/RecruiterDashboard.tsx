@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Building2, Copy, LogOut, Plus, RefreshCw, Trash2, UserMinus, Users } from "lucide-react";
+import { Building2, CheckCircle2, Copy, FileImage, LogOut, Plus, RefreshCw, Send, Trash2, UserMinus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiRequest, getSession, clearSession, userHeaders } from "../lib/api";
 
@@ -12,6 +12,7 @@ type Job = {
   company: string;
   location: string;
   description: string;
+  media?: Array<{ name: string; type: string; dataUrl: string }>;
   created_at: string;
 };
 
@@ -72,6 +73,7 @@ export default function RecruiterDashboard() {
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
+  const [media, setMedia] = useState<Array<{ name: string; type: string; dataUrl: string }>>([]);
   const [publishing, setPublishing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -111,12 +113,15 @@ export default function RecruiterDashboard() {
       await apiRequest("/my/jobs", {
         method: "POST",
         headers: userHeaders(),
-        body: JSON.stringify({ title, location, description }),
+        body: JSON.stringify({ title, location, description, media }),
       });
       setMessage({ type: "success", text: `L’offre « ${title} » a été publiée !` });
       setTitle("");
       setLocation("");
       setDescription("");
+      setMedia([]);
+      const fileInput = e.currentTarget.elements.namedItem("media") as HTMLInputElement | null;
+      if (fileInput) fileInput.value = "";
       loadData();
     } catch (error) {
       setMessage({
@@ -125,6 +130,16 @@ export default function RecruiterDashboard() {
       });
     } finally {
       setPublishing(false);
+    }
+  }
+
+  async function handleMediaChange(event: React.ChangeEvent<HTMLInputElement>) {
+    try {
+      setMedia(await filesToMedia(event.target.files));
+      setMessage(null);
+    } catch (error) {
+      setMedia([]);
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "Fichier invalide." });
     }
   }
 
@@ -221,10 +236,11 @@ export default function RecruiterDashboard() {
   ) || false;
 
   return (
-    <main className="dashboard-page">
+    <main className="dashboard-page recruiter-dashboard">
       <header className="dashboard-header">
         <div>
-          <h1>Espace Recruteur</h1>
+          <p className="dashboard-kicker">Espace de travail</p>
+          <h1>Pilotez vos recrutements.</h1>
           <p className="dashboard-email">{email}</p>
         </div>
         <div className="dashboard-header-actions">
@@ -239,8 +255,15 @@ export default function RecruiterDashboard() {
         <div className={`form-feedback-message ${message.type}`} role="alert">{message.text}</div>
       )}
 
+      <section className="recruiter-metrics" aria-label="Résumé de l’activité">
+        <div><span>Offres actives</span><strong>{jobs.length}</strong><small>dans votre organisation</small></div>
+        <div><span>Candidatures reçues</span><strong>{received.length}</strong><small>à traiter</small></div>
+        <div><span>Équipe</span><strong>{organization?.members.length || 0}</strong><small>membre(s)</small></div>
+        <div><span>Plan actuel</span><strong className="metric-plan">{organization?.organization.plan || "free"}</strong><small>{organization?.organization.plan_status === "active" ? "Abonnement actif" : "Statut à vérifier"}</small></div>
+      </section>
+
       {organization && (
-        <section className="dashboard-section">
+        <section className="dashboard-section recruiter-organization-panel">
           <h2><Building2 size={18} /> {organization.organization.name}</h2>
           <p className="dashboard-plan-label">Plan {organization.organization.plan} · {organization.organization.plan_status === "active" ? "Actif" : "À vérifier"}</p>
           <div className="dashboard-team-invite">
@@ -294,8 +317,11 @@ export default function RecruiterDashboard() {
       )}
 
       {/* Publier une offre */}
-      <section className="dashboard-section">
-        <h2><Plus size={18} /> Publier une nouvelle offre</h2>
+      <section className="dashboard-section recruiter-publish-section">
+        <div className="section-heading-row">
+          <div><p className="dashboard-kicker">Nouvelle publication</p><h2><Plus size={18} /> Publier une offre</h2></div>
+          <span className="section-hint">Visible immédiatement sur le site</span>
+        </div>
         <form className="dashboard-publish-form" onSubmit={publish}>
           <div className="dashboard-form-grid">
             <input
@@ -318,20 +344,25 @@ export default function RecruiterDashboard() {
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description du poste, missions et profil recherché... *"
+              placeholder="Description du poste, missions et profil recherché..."
             rows={4}
             required
             className="access-input recruiter-textarea"
           />
+          <div className="recruiter-media-field">
+            <div className="recruiter-media-copy"><FileImage size={19} /><div><strong>Ajouter une image ou un document</strong><span>JPG, PNG, WEBP ou PDF. Les images sont compressées automatiquement.</span></div></div>
+            <label className="recruiter-media-button">Choisir un fichier<input name="media" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={handleMediaChange} /></label>
+            {media.length > 0 && <div className="recruiter-media-list">{media.map((file) => <span key={file.name}><CheckCircle2 size={13} /> {file.name}</span>)}</div>}
+          </div>
           <button type="submit" className="pill-button pill-button-primary" disabled={publishing}>
-            {publishing ? "Publication..." : "Publier l’offre"}
+            <Send size={15} /> {publishing ? "Publication..." : "Publier l’offre"}
           </button>
         </form>
       </section>
 
       {/* Mes offres */}
-      <section className="dashboard-section">
-        <h2><BriefcaseIcon /> Mes offres publiées ({jobs.length})</h2>
+      <section className="dashboard-section recruiter-list-section">
+        <div className="section-heading-row"><div><p className="dashboard-kicker">Bibliothèque</p><h2><BriefcaseIcon /> Mes offres publiées</h2></div><span className="section-count">{jobs.length}</span></div>
         {jobs.length === 0 ? (
           <p className="dashboard-empty">Vous n’avez publié aucune offre pour le moment.</p>
         ) : (
@@ -342,6 +373,7 @@ export default function RecruiterDashboard() {
                   <strong>{job.title}</strong>
                   <span>{job.company} · {job.location}</span>
                   <small>Publiée le {new Date(job.created_at).toLocaleDateString("fr-FR")}</small>
+                  {job.media && job.media.length > 0 && <small className="media-attached"><FileImage size={12} /> {job.media.length} fichier(s) joint(s)</small>}
                 </div>
                 <div className="dashboard-item-actions">
                   <span className="status-badge status-review">
@@ -358,8 +390,8 @@ export default function RecruiterDashboard() {
       </section>
 
       {/* Candidatures reçues */}
-      <section className="dashboard-section">
-        <h2><Users size={18} /> Candidatures reçues ({received.length})</h2>
+      <section className="dashboard-section recruiter-list-section">
+        <div className="section-heading-row"><div><p className="dashboard-kicker">Suivi des talents</p><h2><Users size={18} /> Candidatures reçues</h2></div><span className="section-count">{received.length}</span></div>
         {received.length === 0 ? (
           <p className="dashboard-empty">Aucune candidature reçue pour le moment.</p>
         ) : (
@@ -393,6 +425,51 @@ export default function RecruiterDashboard() {
       </section>
     </main>
   );
+}
+
+const RECRUITER_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+
+async function filesToMedia(files: FileList | null): Promise<Array<{ name: string; type: string; dataUrl: string }>> {
+  const selected = Array.from(files || []);
+  if (selected.some((file) => !RECRUITER_MEDIA_TYPES.has(file.type))) {
+    throw new Error("Utilisez uniquement des fichiers JPG, PNG, WEBP ou PDF.");
+  }
+  const result = await Promise.all(selected.map(async (file) => {
+    if (file.type.startsWith("image/")) {
+      const image = await loadRecruiterImage(file);
+      const scale = Math.min(1, 1200 / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Impossible de préparer l’image.");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return { name: file.name.replace(/\.[^.]+$/, ".jpg"), type: "image/jpeg", dataUrl: canvas.toDataURL("image/jpeg", 0.7) };
+    }
+    return { name: file.name, type: file.type, dataUrl: await readRecruiterFile(file) };
+  }));
+  if (result.reduce((total, file) => total + file.dataUrl.length, 0) > 5_500_000) {
+    throw new Error("La taille totale des fichiers ne doit pas dépasser 4 Mo après compression.");
+  }
+  return result;
+}
+
+function loadRecruiterImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Impossible de lire l’image sélectionnée."));
+    image.src = URL.createObjectURL(file);
+  });
+}
+
+function readRecruiterFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Impossible de lire le fichier sélectionné."));
+    reader.readAsDataURL(file);
+  });
 }
 
 function BriefcaseIcon() {
