@@ -1941,12 +1941,17 @@ h1 { font-size: clamp(34px, 3.8vw, 52px); letter-spacing: -2px; }
 }
 
 .dashboard-icon-btn {
+  align-items: center;
   background: none;
   border: 1px solid #e1c8c5;
   border-radius: 8px;
   color: #c0392b;
   cursor: pointer;
-  padding: 7px;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 9px;
 }
 
 .dashboard-icon-btn:hover {
@@ -2220,6 +2225,47 @@ h1 { font-size: clamp(34px, 3.8vw, 52px); letter-spacing: -2px; }
 
   .recruiter-media-button {
     justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .recruiter-dashboard {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .recruiter-dashboard .dashboard-header-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .recruiter-dashboard .dashboard-header-actions > * {
+    flex: 1;
+    text-align: center;
+  }
+
+  .recruiter-dashboard .dashboard-team-invite,
+  .recruiter-dashboard .dashboard-email-invite {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .recruiter-dashboard .dashboard-team-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .recruiter-dashboard .dashboard-code-button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .recruiter-dashboard .dashboard-item {
+    align-items: flex-start;
+  }
+
+  .recruiter-dashboard .dashboard-item-actions {
+    margin-left: auto;
   }
 }
 
