@@ -290,7 +290,10 @@ app.post('/api/auth/register', async (request, response) => {
   let organizationRole = 'member';
   if (role === 'recruteur') {
     try {
-      organization = await findOrCreateOrganization({ name: request.body.organizationName, code: request.body.organizationCode });
+      organization = await findOrCreateOrganization({
+        name: request.body.organizationName || request.body.data?.companyName,
+        code: request.body.organizationCode,
+      });
     } catch (error) {
       return response.status(400).json({ error: error instanceof Error ? error.message : 'Organisation invalide.' });
     }

@@ -67,6 +67,7 @@ export default function RegisterChoice() {
           role: "recruteur",
           email: recruteurEmail,
           password: recruteurPassword,
+          organizationName: recruteurCompany,
           data: { companyName: recruteurCompany, contact: recruteurContact, ville: recruteurCity },
         }),
       });
