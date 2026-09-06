@@ -192,6 +192,25 @@ app.get('/api/me', requireUser, async (request, response) => {
   response.json(result.rows[0]);
 });
 
+app.patch('/api/me', requireUser, async (request, response) => {
+  const patch = typeof request.body.data === 'object' && request.body.data !== null ? request.body.data : null;
+  if (!patch) return response.status(400).json({ error: 'Données de profil invalides.' });
+
+  // Limites de taille pour les fichiers encodés en base64 (photo, CV)
+  const totalSize = Object.values(patch).reduce((total, value) => total + (typeof value === 'string' ? value.length : 0), 0);
+  if (totalSize > 8_000_000) return response.status(413).json({ error: 'Fichiers trop volumineux (photo max 2 Mo, CV max 4 Mo).' });
+
+  const current = await pool.query('SELECT data FROM users WHERE id = $1', [request.user.id]);
+  if (!current.rows[0]) return response.status(404).json({ error: 'Compte introuvable.' });
+
+  const merged = { ...current.rows[0].data, ...patch };
+  const result = await pool.query(
+    'UPDATE users SET data = $1 WHERE id = $2 RETURNING id, role, email, data, created_at',
+    [JSON.stringify(merged), request.user.id]
+  );
+  response.json(result.rows[0]);
+});
+
 app.get('/api/announcements', async (request, response) => {
   const category = clean(request.query.category);
   const values = category ? [category] : [];

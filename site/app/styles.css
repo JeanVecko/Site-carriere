@@ -1639,3 +1639,190 @@ h1 { font-size: clamp(34px, 3.8vw, 52px); letter-spacing: -2px; }
     grid-template-columns: 1fr;
   }
 }
+
+/* ==================== POLICE UNIFIÉE DU SITE (DM Sans) ==================== */
+h1,
+h2,
+.site-header .brand,
+.footer-message h2,
+.footer-contact-link,
+.detail-title,
+.detail-page-title,
+.publish-intro h2,
+.announcement-card h3,
+.manage-item h3,
+.side-stat strong {
+  font-family: 'DM Sans', sans-serif;
+}
+
+h1,
+h2 {
+  letter-spacing: -1.5px;
+}
+
+/* ==================== ONGLETS DASHBOARD ==================== */
+.dashboard-tabs {
+  border-bottom: 2px solid #e1e8ef;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 26px;
+}
+
+.dashboard-tabs button {
+  align-items: center;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #6a7c92;
+  cursor: pointer;
+  display: flex;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 7px;
+  margin-bottom: -2px;
+  padding: 12px 18px;
+  transition: color .15s;
+}
+
+.dashboard-tabs button:hover {
+  color: #092d63;
+}
+
+.dashboard-tabs button.active {
+  border-bottom-color: #092d63;
+  color: #092d63;
+}
+
+/* ==================== CARTE ACCUEIL CANDIDAT ==================== */
+.candidate-hero-card {
+  background: #fff;
+  border: 1px solid #e1e8ef;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(9, 45, 99, 0.06);
+  padding: 26px;
+}
+
+.candidate-hero {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.candidate-hero-info {
+  flex: 1;
+  min-width: 220px;
+}
+
+.candidate-hero-info h2 {
+  color: #092d63;
+  font-size: 22px !important;
+  letter-spacing: -0.5px !important;
+  margin: 0 0 4px;
+}
+
+.candidate-hero-metier {
+  color: #d9a400;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.candidate-hero-meta {
+  color: #556570;
+  display: flex;
+  flex-wrap: wrap;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  gap: 16px;
+  margin: 0 0 10px;
+}
+
+.candidate-hero-bio {
+  color: #556570;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+
+.candidate-cv-link {
+  align-items: center;
+  color: #092d63;
+  display: inline-flex;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.candidate-cv-link:hover {
+  text-decoration: underline;
+}
+
+.candidate-cv-attached {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.candidate-cv-warning {
+  color: #9c7a00 !important;
+}
+
+/* ==================== PHOTO DE PROFIL ==================== */
+.candidate-photo {
+  border: 3px solid #d9a400;
+  border-radius: 50%;
+  flex-shrink: 0;
+  height: 96px;
+  object-fit: cover;
+  width: 96px;
+}
+
+.candidate-photo-large {
+  height: 110px;
+  width: 110px;
+}
+
+.candidate-photo-placeholder {
+  align-items: center;
+  background: #092d63;
+  color: #fff;
+  display: flex;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  justify-content: center;
+}
+
+.candidate-photo-editor {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+}
+
+.candidate-photo-upload {
+  max-width: 300px;
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  .dashboard-tabs {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .dashboard-tabs button {
+    border-bottom: 1px solid #e1e8ef;
+    margin-bottom: 0;
+    width: 100%;
+  }
+
+  .dashboard-tabs button.active {
+    border-bottom: 3px solid #092d63;
+  }
+}
