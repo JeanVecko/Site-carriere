@@ -152,6 +152,34 @@ export default function AdminContent() {
     }
   }
 
+  async function updateOrganizationStatus(id: number, status: "active" | "suspended") {
+    try {
+      const updated = await apiRequest<{ id: number; account_status: "active" | "suspended" }>(`/admin/organizations/${id}/status`, {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ status }),
+      });
+      setOverview((current) => current ? {
+        ...current,
+        organizations: current.organizations.map((organization) => organization.id === id ? { ...organization, account_status: updated.account_status } : organization),
+      } : current);
+    } catch (error) {
+      setOverviewError(error instanceof Error ? error.message : "Impossible de modifier l’accès de la société.");
+    }
+  }
+
+  async function sendPaymentReminder(id: number) {
+    try {
+      const result = await apiRequest<{ message: string }>(`/admin/organizations/${id}/payment-reminder`, {
+        method: "POST",
+        headers: adminHeaders(),
+      });
+      setAdminFeedback(result.message);
+    } catch (error) {
+      setAdminFeedback(error instanceof Error ? error.message : "Impossible d’envoyer le rappel de paiement.");
+    }
+  }
+
   if (!loggedIn) {
     return (
       <section className="admin-login" id="login-view" aria-labelledby="login-title">
@@ -271,7 +299,17 @@ export default function AdminContent() {
               <div className="admin-panel-title"><h3>Organisations</h3><span>{overview.organizations.length}</span></div>
               <div className="admin-table-list">
                 {overview.organizations.length === 0 ? <p className="admin-empty-state">Aucune organisation.</p> : overview.organizations.map((organization) => (
-                  <div className="admin-table-row" key={organization.id}><div><strong>{organization.name}</strong><span>{organization.member_count} membre(s)</span></div><small>Plan {organization.plan} · {organization.plan_status}</small></div>
+                  <div className="admin-table-row" key={organization.id}>
+                    <div><strong>{organization.name}</strong><span>{organization.member_count} membre(s) · {organization.owner_email || "Propriétaire inconnu"}</span></div>
+                    <div><small>Plan {organization.plan} · {organization.plan_status}</small><small className={organization.account_status === "active" ? "is-verified" : "is-pending"}>{organization.account_status === "active" ? "Accès actif" : "Accès suspendu"}</small></div>
+                    <div className="admin-user-actions">
+                      <button type="button" className={`admin-status-button ${organization.account_status === "suspended" ? "is-suspended" : ""}`} onClick={() => void updateOrganizationStatus(organization.id, organization.account_status === "active" ? "suspended" : "active")} title={organization.account_status === "active" ? "Suspendre l’accès de la société" : "Réactiver la société"}>
+                        {organization.account_status === "active" ? <Ban size={14} /> : <CheckCircle2 size={14} />}
+                        {organization.account_status === "active" ? "Suspendre accès" : "Réactiver"}
+                      </button>
+                      <button type="button" className="admin-payment-button" onClick={() => void sendPaymentReminder(organization.id)} title="Envoyer un rappel de paiement"><Send size={14} /> Rappeler paiement</button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

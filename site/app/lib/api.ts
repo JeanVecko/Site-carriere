@@ -51,6 +51,8 @@ export type AdminOverview = {
     name: string;
     plan: string;
     plan_status: string;
+    account_status: "active" | "suspended";
+    owner_email?: string;
     member_count: number;
     created_at: string;
   }>;

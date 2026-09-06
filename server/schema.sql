@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS organizations (
   plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'enterprise')),
   plan_status TEXT NOT NULL DEFAULT 'active' CHECK (plan_status IN ('active', 'past_due', 'canceled')),
   plan_limits JSONB NOT NULL DEFAULT '{"activeJobs": 3, "members": 2}'::jsonb,
+  account_status TEXT NOT NULL DEFAULT 'active' CHECK (account_status IN ('active', 'suspended')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

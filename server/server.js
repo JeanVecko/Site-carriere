@@ -46,6 +46,7 @@ async function initializeDatabase() {
       plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'enterprise')),
       plan_status TEXT NOT NULL DEFAULT 'active' CHECK (plan_status IN ('active', 'past_due', 'canceled')),
       plan_limits JSONB NOT NULL DEFAULT '{"activeJobs": 3, "members": 2}'::jsonb,
+      account_status TEXT NOT NULL DEFAULT 'active' CHECK (account_status IN ('active', 'suspended')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS users (
@@ -116,6 +117,7 @@ async function initializeDatabase() {
   await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'");
   await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_status TEXT NOT NULL DEFAULT 'active'");
   await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_limits JSONB NOT NULL DEFAULT '{\"activeJobs\": 3, \"members\": 2}'::jsonb");
+  await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'active'");
   await pool.query(`
     DO $$
     BEGIN
@@ -163,10 +165,12 @@ app.get('/api/admin/overview', requireAdmin, async (_request, response) => {
        ORDER BY u.created_at DESC`
     ),
     pool.query(
-      `SELECT o.id, o.name, o.slug, o.plan, o.plan_status, o.created_at,
-              COUNT(u.id)::int AS member_count
-       FROM organizations o LEFT JOIN users u ON u.organization_id = o.id
-       GROUP BY o.id ORDER BY o.created_at DESC`
+            `SELECT o.id, o.name, o.slug, o.plan, o.plan_status, o.account_status, o.created_at,
+              owner.email AS owner_email, COUNT(u.id)::int AS member_count
+             FROM organizations o
+             LEFT JOIN users u ON u.organization_id = o.id
+             LEFT JOIN users owner ON owner.organization_id = o.id AND owner.organization_role = 'owner'
+             GROUP BY o.id, owner.email ORDER BY o.created_at DESC`
     ),
     pool.query(
       `SELECT i.id, i.invited_email, i.expires_at, i.accepted_at, i.created_at,
@@ -193,6 +197,36 @@ app.delete('/api/admin/users/:id', requireAdmin, async (request, response) => {
   const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Utilisateur introuvable.' });
   response.status(204).end();
+});
+
+app.patch('/api/admin/organizations/:id/status', requireAdmin, async (request, response) => {
+  const status = clean(request.body.status);
+  if (!['active', 'suspended'].includes(status)) return response.status(400).json({ error: 'Statut de société invalide.' });
+  const result = await pool.query(
+    'UPDATE organizations SET account_status = $1 WHERE id = $2 RETURNING id, name, account_status',
+    [status, request.params.id]
+  );
+  if (!result.rows[0]) return response.status(404).json({ error: 'Société introuvable.' });
+  response.json(result.rows[0]);
+});
+
+app.post('/api/admin/organizations/:id/payment-reminder', requireAdmin, async (request, response) => {
+  const result = await pool.query(
+    `SELECT o.name, owner.email AS owner_email
+     FROM organizations o LEFT JOIN users owner
+       ON owner.organization_id = o.id AND owner.organization_role = 'owner'
+     WHERE o.id = $1`,
+    [request.params.id]
+  );
+  const organization = result.rows[0];
+  if (!organization) return response.status(404).json({ error: 'Société introuvable.' });
+  if (!organization.owner_email) return response.status(409).json({ error: 'Aucun propriétaire avec une adresse e-mail.' });
+  await sendTransactionalEmail({
+    to: organization.owner_email,
+    subject: `Rappel de paiement - ${organization.name}`,
+    text: `Bonjour,\n\nNous vous rappelons que le paiement de l’abonnement de ${organization.name} est attendu. Veuillez contacter l’administration pour régulariser l’accès à votre espace.\n\nCarrières RDC`,
+  });
+  response.json({ message: 'Rappel de paiement envoyé.', email: organization.owner_email });
 });
 
 function clean(value) { return typeof value === 'string' ? value.trim() : ''; }
@@ -314,10 +348,17 @@ app.post('/api/auth/login', async (request, response) => {
 
   // Comptes utilisateurs (candidats / recruteurs)
   try {
-    const result = await pool.query('SELECT id, role, email, password_hash, organization_id, organization_role, account_status FROM users WHERE email = $1', [email]);
+    const result = await pool.query(
+      `SELECT u.id, u.role, u.email, u.password_hash, u.organization_id, u.organization_role,
+              u.account_status, o.account_status AS organization_status
+       FROM users u LEFT JOIN organizations o ON o.id = u.organization_id
+       WHERE u.email = $1`,
+      [email]
+    );
     const user = result.rows[0];
     if (user && (await bcrypt.compare(password, user.password_hash))) {
       if (user.account_status !== 'active') return response.status(403).json({ error: 'Ce compte est suspendu. Contactez le support.' });
+      if (user.organization_status !== 'active') return response.status(403).json({ error: 'L’accès de cette société est suspendu pour paiement en attente.' });
       return response.json({
         token: jwt.sign({ id: user.id, email: user.email, role: user.role, organization_id: user.organization_id, organization_role: user.organization_role }, jwtSecret, { expiresIn: '7d' }),
         role: user.role,
@@ -338,12 +379,16 @@ async function requireUser(request, response, next) {
     const payload = jwt.verify(token, jwtSecret);
     if (payload.role !== 'candidat' && payload.role !== 'recruteur') return response.status(403).json({ error: 'Compte utilisateur requis.' });
     const result = await pool.query(
-      'SELECT id, email, role, organization_id, organization_role, account_status FROM users WHERE id = $1',
+      `SELECT u.id, u.email, u.role, u.organization_id, u.organization_role, u.account_status,
+          o.account_status AS organization_status
+       FROM users u LEFT JOIN organizations o ON o.id = u.organization_id
+       WHERE u.id = $1`,
       [payload.id]
     );
     const user = result.rows[0];
     if (!user || user.role !== payload.role) return response.status(401).json({ error: 'Compte utilisateur invalide.' });
     if (user.account_status !== 'active') return response.status(403).json({ error: 'Ce compte est suspendu. Contactez le support.' });
+    if (user.organization_status !== 'active') return response.status(403).json({ error: 'L’accès de cette société est suspendu pour paiement en attente.' });
     request.user = {
       id: user.id,
       email: user.email,
