@@ -4,6 +4,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
 import pg from 'pg';
 
 const { Pool } = pg;
@@ -158,6 +159,21 @@ async function createAuthToken(userId, kind, lifetimeMs) {
   return token;
 }
 async function sendTransactionalEmail({ to, subject, text }) {
+  const gmailAddress = process.env.EMAIL_FROM_ADDRESS || process.env.GMAIL_USER;
+  const gmailAppPassword = process.env.EMAIL_APP_PASSWORD || process.env.GMAIL_APP_PASSWORD;
+  if (gmailAddress && gmailAppPassword) {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailAddress, pass: gmailAppPassword },
+    });
+    await transporter.sendMail({
+      from: `${process.env.EMAIL_FROM_NAME || 'Carrières RDC'} <${gmailAddress}>`,
+      to,
+      subject,
+      text,
+    });
+    return;
+  }
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   if (!apiKey || !from) {
