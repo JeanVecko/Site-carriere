@@ -336,11 +336,11 @@ h1 { font-size: clamp(34px, 3.8vw, 52px); letter-spacing: -2px; }
 .media-upload small { color: var(--muted); display: block; font-size: 10px; line-height: 1.4; margin-top: 8px; }
 .announcement-media { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 18px; }
 .announcement-media-grid { display: flex; flex-direction: column; gap: 18px; }
-.announcement-image-frame { background: #f7f9fb; border: 1px solid var(--line); overflow: hidden; width: 100%; }
-.announcement-image { display: block; height: auto; max-width: 100%; object-fit: contain; width: 100%; }
+.announcement-image-frame { align-items: flex-start; background: #f7f9fb; border: 1px solid var(--line); display: flex; justify-content: flex-start; overflow: hidden; width: 100%; }
+.announcement-image { display: block; height: auto; max-width: min(100%, 620px); object-fit: contain; width: auto; }
 .announcement-pdf { align-items: flex-start; background: var(--cream); color: var(--ink); display: flex !important; flex-direction: column; gap: 8px; min-height: 145px; padding: 18px; }
 .announcement-pdf svg { color: #d84f33; }.announcement-pdf span { font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }.announcement-pdf small { color: var(--muted); font-size: 10px; margin-top: auto; }
-@media (max-width: 560px) { .announcement-image-frame { width: 100%; }.announcement-image { height: auto; } }
+@media (max-width: 560px) { .announcement-image-frame { width: 100%; }.announcement-image { height: auto; max-width: 100%; } }
 .media-status { align-items: center; color: var(--muted); display: flex; font-size: 10px !important; gap: 5px; margin: 7px 0 0 !important; }.media-status svg { color: var(--orange); flex: 0 0 auto; }
 
 /* Two-level public header */
