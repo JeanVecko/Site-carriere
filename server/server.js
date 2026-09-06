@@ -142,7 +142,9 @@ function requireAdmin(request, response, next) {
   if (!token) return response.status(401).json({ error: 'Authentification requise.' });
   try {
     const payload = jwt.verify(token, jwtSecret);
-    if (payload.role !== 'admin') return response.status(403).json({ error: 'Accès superadmin requis.' });
+    if (payload.role !== 'admin' || payload.email?.toLowerCase() !== process.env.ADMIN_EMAIL.toLowerCase()) {
+      return response.status(403).json({ error: 'Accès superadmin requis.' });
+    }
     request.admin = payload;
     next();
   } catch {
@@ -280,7 +282,18 @@ app.post('/api/auth/login', async (request, response) => {
   const password = request.body.password || '';
   if (!email || !password) return response.status(400).json({ error: 'Veuillez renseigner votre email et votre mot de passe.' });
 
-  // 1. Comptes utilisateurs (candidats / recruteurs)
+  // Le compte superadmin doit être prioritaire, même si son adresse existe aussi dans users.
+  const validAdminEmail = email === process.env.ADMIN_EMAIL.toLowerCase();
+  const validAdminPassword = validAdminEmail && await bcrypt.compare(password, await adminPasswordHashPromise);
+  if (validAdminPassword) {
+    return response.json({
+      token: jwt.sign({ email, role: 'admin' }, jwtSecret, { expiresIn: '8h' }),
+      role: 'admin',
+      email,
+    });
+  }
+
+  // Comptes utilisateurs (candidats / recruteurs)
   try {
     const result = await pool.query('SELECT id, role, email, password_hash, organization_id, organization_role FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
@@ -295,11 +308,7 @@ app.post('/api/auth/login', async (request, response) => {
     // La table users n'existe pas encore : on continue vers l'admin.
   }
 
-  // 2. Administrateur
-  const validEmail = email === process.env.ADMIN_EMAIL.toLowerCase();
-  const validPassword = await bcrypt.compare(password, await adminPasswordHashPromise);
-  if (!validEmail || !validPassword) return response.status(401).json({ error: 'Identifiants incorrects.' });
-  response.json({ token: jwt.sign({ email, role: 'admin' }, jwtSecret, { expiresIn: '8h' }), role: 'admin', email });
+  return response.status(401).json({ error: 'Identifiants incorrects.' });
 });
 
 async function requireUser(request, response, next) {

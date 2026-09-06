@@ -47,7 +47,12 @@ export default function AdminContent() {
       setOverview(await apiRequest<AdminOverview>("/admin/overview", { headers: adminHeaders() }));
     } catch (error) {
       setOverview(null);
-      setOverviewError(error instanceof Error ? error.message : "Impossible de charger les comptes inscrits.");
+      const message = error instanceof Error ? error.message : "Impossible de charger les comptes inscrits.";
+      if (message.includes("Accès superadmin") || message.includes("Session administrateur")) {
+        sessionStorage.removeItem("carrieres-admin-token");
+        setLoggedIn(false);
+      }
+      setOverviewError(message);
     } finally {
       setOverviewLoading(false);
     }
