@@ -2547,3 +2547,31 @@ h2 {
     margin-bottom: 12px;
   }
 }
+
+/* Balanced superadmin typography */
+.admin-page .dashboard h1 {
+  font-size: clamp(27px, 3vw, 34px) !important;
+  letter-spacing: -0.8px;
+}
+
+.admin-page .admin-dashboard-subtitle {
+  font-size: 12px;
+  margin-top: 7px;
+}
+
+.admin-page .admin-command-heading h2 {
+  font-size: 18px;
+  letter-spacing: -0.5px;
+}
+
+.admin-page .admin-stat-card {
+  padding: 12px;
+}
+
+.admin-page .admin-stat-card strong {
+  font-size: 22px;
+}
+
+.admin-page .admin-stat-card span {
+  font-size: 11px;
+}
