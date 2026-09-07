@@ -66,7 +66,7 @@ export default function SiteFooter() {
               Votre message
               <textarea
                 name="message"
-                rows={4}
+                rows={2}
                 placeholder="Écrivez votre message ici..."
                 required
               ></textarea>
