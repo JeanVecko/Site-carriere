@@ -15,10 +15,14 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState<SessionUser | null>(null);
+  const [adminConnected, setAdminConnected] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    startTransition(() => setSession(getSession()));
+    startTransition(() => {
+      setSession(getSession());
+      setAdminConnected(Boolean(sessionStorage.getItem("carrieres-admin-token")));
+    });
   }, []);
 
   useEffect(() => {
@@ -106,17 +110,19 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
           {links}
         </nav>
         <div className="account-actions">
-          {session ? (
+          {session || adminConnected ? (
             <>
-              <Link className="login-link header-account-link" href={dashboardHref(session.role)}>
-                <UserRound size={15} /> Mon espace
+              <Link className="login-link header-account-link" href={adminConnected ? "/admin" : dashboardHref(session?.role)}>
+                <UserRound size={15} /> {adminConnected ? "Superadmin" : "Mon espace"}
               </Link>
               <button
                 type="button"
                 className="signup-link header-logout-btn"
                 onClick={() => {
                   clearSession();
+                  sessionStorage.removeItem("carrieres-admin-token");
                   setSession(null);
+                  setAdminConnected(false);
                   router.push("/");
                 }}
               >
