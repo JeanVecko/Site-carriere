@@ -671,6 +671,18 @@ app.get('/api/announcements/:id', async (request, response) => {
   response.json(result.rows[0]);
 });
 
+app.get('/api/admin/announcements', requireAdmin, async (_request, response) => {
+  const result = await pool.query(
+    `SELECT a.id, a.title, a.category, a.company, a.location, a.description, a.media, a.created_at,
+            u.email AS author_email, o.name AS organization_name
+     FROM announcements a
+     LEFT JOIN users u ON u.id = a.owner_id
+     LEFT JOIN organizations o ON o.id = a.organization_id
+     ORDER BY a.created_at DESC`
+  );
+  response.json(result.rows);
+});
+
 app.post('/api/announcements', requireAdmin, async (request, response) => {
   const values = validateAnnouncementWithMedia(request.body);
   if (!values) return response.status(400).json({ error: 'Tous les champs de l’annonce sont obligatoires.' });

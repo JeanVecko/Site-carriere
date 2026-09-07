@@ -17,6 +17,8 @@ export type Announcement = {
   date?: string;
   created_at?: string;
   media?: AnnouncementMedia[];
+  author_email?: string;
+  organization_name?: string;
 };
 
 export type AnnouncementMedia = {

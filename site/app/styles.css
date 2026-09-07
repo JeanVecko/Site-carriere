@@ -1739,6 +1739,14 @@ h1 { font-size: clamp(34px, 3.8vw, 52px); letter-spacing: -2px; }
   padding: 6px 8px;
 }
 
+.admin-announcement-source {
+  color: #8a97a5;
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  margin-top: 6px;
+}
+
 .admin-empty-state {
   color: #6a7c92;
   font-family: 'DM Sans', sans-serif;

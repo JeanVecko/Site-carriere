@@ -26,7 +26,7 @@ export default function AdminContent() {
 
   const loadAnnouncements = useCallback(async () => {
     try {
-      setAnnouncements(await apiRequest<Announcement[]>("/announcements", { headers: adminHeaders() }));
+      setAnnouncements(await apiRequest<Announcement[]>("/admin/announcements", { headers: adminHeaders() }));
     } catch {
       setAnnouncements(JSON.parse(localStorage.getItem("carrieres-rdc-announcements") || "[]"));
     }
@@ -381,6 +381,11 @@ export default function AdminContent() {
                   <p>
                     {escapeHtml(item.company)} · {escapeHtml(item.location)}
                   </p>
+                  {(item.organization_name || item.author_email) && (
+                    <small className="admin-announcement-source">
+                      {escapeHtml(item.organization_name || "Publication admin")}{item.author_email ? ` · ${escapeHtml(item.author_email)}` : ""}
+                    </small>
+                  )}
                   {item.media && item.media.length > 0 && <p className="media-status">Document{item.media.length > 1 ? "s" : ""} joint{item.media.length > 1 ? "s" : ""} : {item.media.length}</p>}
                 </div>
                 <button
