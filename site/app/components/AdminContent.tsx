@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { ArrowRight, Ban, Building2, CheckCircle2, FileUp, LogOut, RefreshCw, Send, ShieldCheck, Trash2, Users } from "lucide-react";
 import {
   Announcement,
@@ -9,6 +10,7 @@ import {
   AdminOverview,
   adminHeaders,
   apiRequest,
+  detailHref,
   escapeHtml,
 } from "../lib/api";
 
@@ -375,7 +377,8 @@ export default function AdminContent() {
           <div id="admin-list">
             {announcements.map((item) => (
               <article className="manage-item" key={String(item.id ?? item.title)}>
-                <div>
+                <Link className="admin-announcement-link" href={detailHref(item)}>
+                  <div>
                   <span className="tag">{escapeHtml(item.category || item.type || "")}</span>
                   <h3>{escapeHtml(item.title)}</h3>
                   <p>
@@ -387,7 +390,9 @@ export default function AdminContent() {
                     </small>
                   )}
                   {item.media && item.media.length > 0 && <p className="media-status">Document{item.media.length > 1 ? "s" : ""} joint{item.media.length > 1 ? "s" : ""} : {item.media.length}</p>}
-                </div>
+                  <small className="admin-announcement-detail-hint">Voir le détail</small>
+                  </div>
+                </Link>
                 <button
                   className="delete-button"
                   type="button"
