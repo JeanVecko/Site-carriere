@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Building2, CheckCircle2, Copy, FileImage, LogOut, Plus, RefreshCw, Send, Trash2, UserMinus, Users } from "lucide-react";
+import { Building2, CheckCircle2, Copy, FileImage, LogOut, MessageCircle, Plus, RefreshCw, Send, Trash2, UserMinus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { apiRequest, getSession, clearSession, userHeaders } from "../lib/api";
+import { apiRequest, getSession, clearSession, userHeaders, type DirectMessage } from "../lib/api";
 
 type Job = {
   id: number;
@@ -31,6 +31,14 @@ type ReceivedApplication = {
     civilite?: string;
     fonction?: string;
   };
+};
+
+type CandidateMatch = {
+  id: number;
+  email: string;
+  data: { prenom?: string; nom?: string; metier?: string; ville?: string; bio?: string };
+  score: number;
+  matches: Array<{ id: number; title: string; score: number }>;
 };
 
 type Organization = {
@@ -65,6 +73,8 @@ export default function RecruiterDashboard() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [received, setReceived] = useState<ReceivedApplication[]>([]);
+  const [matches, setMatches] = useState<CandidateMatch[]>([]);
+  const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [sendingInvite, setSendingInvite] = useState(false);
@@ -76,17 +86,25 @@ export default function RecruiterDashboard() {
   const [media, setMedia] = useState<Array<{ name: string; type: string; dataUrl: string }>>([]);
   const [publishing, setPublishing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [contactCandidate, setContactCandidate] = useState<CandidateMatch | null>(null);
+  const [contactSubject, setContactSubject] = useState("");
+  const [contactBody, setContactBody] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const [myJobs, apps, organizationData] = await Promise.all([
+      const [myJobs, apps, organizationData, candidateMatches, directMessages] = await Promise.all([
         apiRequest<Job[]>("/my/jobs", { headers: userHeaders() }),
         apiRequest<ReceivedApplication[]>("/my/applications/received", { headers: userHeaders() }),
         apiRequest<Organization>("/my/organization", { headers: userHeaders() }),
+        apiRequest<CandidateMatch[]>("/my/matches", { headers: userHeaders() }),
+        apiRequest<DirectMessage[]>("/my/messages", { headers: userHeaders() }),
       ]);
       setJobs(Array.isArray(myJobs) ? myJobs : []);
       setReceived(Array.isArray(apps) ? apps : []);
       setOrganization(organizationData);
+      setMatches(Array.isArray(candidateMatches) ? candidateMatches : []);
+      setMessages(Array.isArray(directMessages) ? directMessages : []);
     } catch {
       // silencieux
     }
@@ -219,6 +237,29 @@ export default function RecruiterDashboard() {
       setReceived((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
     } catch {
       // silencieux
+    }
+  }
+
+  async function sendCandidateMessage(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!contactCandidate) return;
+    setSendingMessage(true);
+    try {
+      await apiRequest("/my/messages", {
+        method: "POST",
+        headers: userHeaders(),
+        body: JSON.stringify({ recipientId: contactCandidate.id, subject: contactSubject, body: contactBody, announcementId: contactCandidate.matches[0]?.id }),
+      });
+      setMessages((current) => current);
+      setContactCandidate(null);
+      setContactSubject("");
+      setContactBody("");
+      setMessage({ type: "success", text: "Message envoyé au candidat." });
+      await loadData();
+    } catch (error) {
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "Le message n’a pas pu être envoyé." });
+    } finally {
+      setSendingMessage(false);
     }
   }
 
@@ -358,6 +399,50 @@ export default function RecruiterDashboard() {
             <Send size={15} /> {publishing ? "Publication..." : "Publier l’offre"}
           </button>
         </form>
+      </section>
+
+      <section className="dashboard-section recruiter-list-section">
+        <div className="section-heading-row"><div><p className="dashboard-kicker">Matching intelligent</p><h2><Users size={18} /> Profils correspondants</h2></div><span className="section-count">{matches.length}</span></div>
+        {matches.length === 0 ? <p className="dashboard-empty">Aucun profil ne correspond encore à vos offres.</p> : (
+          <ul className="dashboard-list">
+            {matches.map((candidate) => (
+              <li key={candidate.id} className="dashboard-item">
+                <div className="dashboard-item-main">
+                  <strong>{[candidate.data.prenom, candidate.data.nom].filter(Boolean).join(" ") || candidate.email}</strong>
+                  <span>{candidate.data.metier || "Profil candidat"}{candidate.data.ville ? ` · ${candidate.data.ville}` : ""}</span>
+                  <small>{candidate.score}% de correspondance · {candidate.matches[0]?.title}</small>
+                  {candidate.data.bio && <em className="dashboard-cover">{candidate.data.bio.slice(0, 180)}{candidate.data.bio.length > 180 ? "…" : ""}</em>}
+                </div>
+                <button type="button" className="dashboard-contact-btn" onClick={() => { setContactCandidate(candidate); setContactSubject(`Votre profil pour ${candidate.matches[0]?.title || "notre offre"}`); }}>
+                  <MessageCircle size={15} /> Contacter
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {contactCandidate && (
+        <div className="dashboard-message-overlay" role="dialog" aria-modal="true">
+          <form className="dashboard-message-modal" onSubmit={sendCandidateMessage}>
+            <div className="section-heading-row"><div><p className="dashboard-kicker">Nouveau message</p><h2>Contacter le candidat</h2></div><button type="button" className="dashboard-modal-close" onClick={() => setContactCandidate(null)} aria-label="Fermer">×</button></div>
+            <p className="dashboard-message-recipient">{contactCandidate.email}</p>
+            <input className="access-input" value={contactSubject} onChange={(event) => setContactSubject(event.target.value)} placeholder="Objet" required />
+            <textarea className="access-input recruiter-textarea" value={contactBody} onChange={(event) => setContactBody(event.target.value)} placeholder="Votre message au candidat..." rows={6} required />
+            <button type="submit" className="pill-button pill-button-primary" disabled={sendingMessage}><Send size={15} /> {sendingMessage ? "Envoi..." : "Envoyer le message"}</button>
+          </form>
+        </div>
+      )}
+
+      <section className="dashboard-section recruiter-list-section">
+        <div className="section-heading-row"><div><p className="dashboard-kicker">Échanges</p><h2><MessageCircle size={18} /> Messages envoyés</h2></div><span className="section-count">{messages.filter((item) => item.sender_email === email).length}</span></div>
+        {messages.filter((item) => item.sender_email === email).length === 0 ? <p className="dashboard-empty">Aucun message envoyé pour le moment.</p> : (
+          <ul className="dashboard-list">
+            {messages.filter((item) => item.sender_email === email).map((item) => (
+              <li key={item.id} className="dashboard-item"><div className="dashboard-item-main"><strong>{item.subject || "Message"}</strong><span>À : {item.recipient_email}{item.announcement_title ? ` · ${item.announcement_title}` : ""}</span><small>{new Date(item.created_at).toLocaleDateString("fr-FR")}</small><p className="dashboard-cover">{item.body}</p></div></li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* Mes offres */}

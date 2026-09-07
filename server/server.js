@@ -106,6 +106,16 @@ async function initializeDatabase() {
       accepted_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS direct_messages (
+      id BIGSERIAL PRIMARY KEY,
+      sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      announcement_id BIGINT REFERENCES announcements(id) ON DELETE SET NULL,
+      subject TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL,
+      read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media JSONB NOT NULL DEFAULT '[]'::jsonb");
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
@@ -779,6 +789,77 @@ app.delete('/api/my/applications/:id', requireUser, async (request, response) =>
   const result = await pool.query('DELETE FROM applications WHERE id = $1 AND user_id = $2 RETURNING id', [request.params.id, request.user.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Candidature introuvable.' });
   response.status(204).end();
+});
+
+// ============ MATCHING ET MESSAGERIE PRIVEE ============
+app.get('/api/my/matches', requireUser, async (request, response) => {
+  if (request.user.role !== 'recruteur') return response.status(403).json({ error: 'Réservé aux comptes recruteurs.' });
+  const jobs = await pool.query(
+    `SELECT id, title, description FROM announcements
+     WHERE (owner_id = $1 OR organization_id = $2) AND category = 'Offre d’emploi'`,
+    [request.user.id, request.user.organization_id || 0]
+  );
+  const candidates = await pool.query(
+    `SELECT id, email, data, created_at FROM users
+     WHERE role = 'candidat' AND account_status = 'active'
+     ORDER BY created_at DESC`
+  );
+  const normalize = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const stopWords = new Set(['avec', 'pour', 'dans', 'une', 'des', 'les', 'sur', 'poste', 'profil', 'recherche', 'mission', 'offre']);
+  const terms = (value) => normalize(value).split(/[^a-z0-9]+/).filter((term) => term.length > 3 && !stopWords.has(term));
+  const matches = candidates.rows.map((candidate) => {
+    const profile = candidate.data || {};
+    const profileText = normalize([profile.metier, profile.bio, profile.ville, profile.fonction].join(' '));
+    const matchedJobs = jobs.rows.map((job) => {
+      const jobTerms = terms(`${job.title} ${job.description}`);
+      const matchedTerms = jobTerms.filter((term) => profileText.includes(term));
+      return { id: job.id, title: job.title, score: Math.min(100, Math.round((matchedTerms.length / Math.max(1, jobTerms.length)) * 100)), matchedTerms };
+    }).filter((job) => job.score > 0).sort((a, b) => b.score - a.score);
+    return { id: candidate.id, email: candidate.email, data: profile, created_at: candidate.created_at, matches: matchedJobs, score: matchedJobs[0]?.score || 0 };
+  }).filter((candidate) => candidate.matches.length > 0).sort((a, b) => b.score - a.score);
+  response.json(matches);
+});
+
+app.post('/api/my/messages', requireUser, async (request, response) => {
+  const recipientId = Number(request.body.recipientId);
+  const announcementId = request.body.announcementId ? Number(request.body.announcementId) : null;
+  const subject = clean(request.body.subject).slice(0, 160);
+  const body = clean(request.body.body).slice(0, 5000);
+  if (!recipientId || !body) return response.status(400).json({ error: 'Destinataire et message obligatoires.' });
+  const recipient = await pool.query('SELECT id, role FROM users WHERE id = $1 AND account_status = \'active\'', [recipientId]);
+  if (!recipient.rows[0]) return response.status(404).json({ error: 'Candidat introuvable.' });
+  if (request.user.role !== 'recruteur' || recipient.rows[0].role !== 'candidat') return response.status(403).json({ error: 'Messagerie recruteur-candidat uniquement.' });
+  if (announcementId) {
+    const job = await pool.query('SELECT id FROM announcements WHERE id = $1 AND (owner_id = $2 OR organization_id = $3)', [announcementId, request.user.id, request.user.organization_id || 0]);
+    if (!job.rows[0]) return response.status(403).json({ error: 'Offre non autorisée.' });
+  }
+  const result = await pool.query(
+    'INSERT INTO direct_messages (sender_id, recipient_id, announcement_id, subject, body) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at',
+    [request.user.id, recipientId, announcementId, subject, body]
+  );
+  response.status(201).json(result.rows[0]);
+});
+
+app.get('/api/my/messages', requireUser, async (request, response) => {
+  const result = await pool.query(
+    `SELECT m.id, m.subject, m.body, m.read_at, m.created_at, m.announcement_id,
+            sender.id AS sender_id, sender.email AS sender_email,
+            recipient.id AS recipient_id, recipient.email AS recipient_email,
+            a.title AS announcement_title
+     FROM direct_messages m
+     JOIN users sender ON sender.id = m.sender_id
+     JOIN users recipient ON recipient.id = m.recipient_id
+     LEFT JOIN announcements a ON a.id = m.announcement_id
+     WHERE m.sender_id = $1 OR m.recipient_id = $1 ORDER BY m.created_at DESC`,
+    [request.user.id]
+  );
+  response.json(result.rows);
+});
+
+app.patch('/api/my/messages/:id/read', requireUser, async (request, response) => {
+  const result = await pool.query('UPDATE direct_messages SET read_at = NOW() WHERE id = $1 AND recipient_id = $2 RETURNING id, read_at', [request.params.id, request.user.id]);
+  if (!result.rows[0]) return response.status(404).json({ error: 'Message introuvable.' });
+  response.json(result.rows[0]);
 });
 
 // ============ SUIVI DES CANDIDATURES REÇUES (RECRUTEURS) ============

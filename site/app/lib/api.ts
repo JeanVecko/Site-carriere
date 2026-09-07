@@ -68,6 +68,20 @@ export type AdminOverview = {
   }>;
 };
 
+export type DirectMessage = {
+  id: number;
+  subject: string;
+  body: string;
+  read_at?: string;
+  created_at: string;
+  announcement_id?: number;
+  announcement_title?: string;
+  sender_id: number;
+  sender_email: string;
+  recipient_id: number;
+  recipient_email: string;
+};
+
 export function adminHeaders(): Record<string, string> {
   if (typeof window === "undefined") return {};
   const token = sessionStorage.getItem("carrieres-admin-token");

@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, LogOut, Send, Trash2, CheckCircle, Camera, FileText, User, Upload } from "lucide-react";
-import { apiRequest, getSession, clearSession, userHeaders } from "../lib/api";
+import { Briefcase, LogOut, Send, Trash2, CheckCircle, Camera, FileText, User, Upload, MessageCircle } from "lucide-react";
+import { apiRequest, getSession, clearSession, userHeaders, type DirectMessage } from "../lib/api";
 type Application = {
   id: number;
   status: string;
@@ -57,6 +57,7 @@ export default function CandidateDashboard() {
   const [me, setMe] = useState<Me | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -95,6 +96,15 @@ export default function CandidateDashboard() {
     }
   }, []);
 
+  const loadMessages = useCallback(async () => {
+    try {
+      const rows = await apiRequest<DirectMessage[]>("/my/messages", { headers: userHeaders() });
+      setMessages(Array.isArray(rows) ? rows : []);
+    } catch {
+      // silencieux
+    }
+  }, []);
+
   useEffect(() => {
     const session = getSession();
     if (!session || session.role !== "candidat") {
@@ -114,14 +124,14 @@ export default function CandidateDashboard() {
         setBio(d.bio || "");
         setPhotoPreview(d.photoDataUrl || "");
         setCvName(d.cvName || "");
-        await Promise.all([loadApplications(), loadOffers()]);
+        await Promise.all([loadApplications(), loadOffers(), loadMessages()]);
       } catch {
         // silencieux
       } finally {
         setChecking(false);
       }
     })();
-  }, [loadApplications, loadOffers, router]);
+  }, [loadApplications, loadOffers, loadMessages, router]);
 
   function readFileAsDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -316,6 +326,27 @@ export default function CandidateDashboard() {
                         <Trash2 size={15} />
                       </button>
                     </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="dashboard-section">
+            <h2><MessageCircle size={18} /> Boîte de messages ({messages.filter((item) => item.recipient_id === me?.id).length})</h2>
+            {messages.filter((item) => item.recipient_id === me?.id).length === 0 ? (
+              <p className="dashboard-empty">Aucun message de recruteur pour le moment.</p>
+            ) : (
+              <ul className="dashboard-list">
+                {messages.filter((item) => item.recipient_id === me?.id).map((item) => (
+                  <li key={item.id} className={`dashboard-item ${item.read_at ? "" : "message-unread"}`}>
+                    <div className="dashboard-item-main">
+                      <strong>{item.subject || "Message de recruteur"}</strong>
+                      <span>De : {item.sender_email}{item.announcement_title ? ` · ${item.announcement_title}` : ""}</span>
+                      <small>{new Date(item.created_at).toLocaleDateString("fr-FR")}</small>
+                      <p className="dashboard-cover">{item.body}</p>
+                    </div>
+                    {!item.read_at && <button type="button" className="dashboard-small-btn" onClick={async () => { await apiRequest(`/my/messages/${item.id}/read`, { method: "PATCH", headers: userHeaders() }); setMessages((current) => current.map((message) => message.id === item.id ? { ...message, read_at: new Date().toISOString() } : message)); }}>Marquer lu</button>}
                   </li>
                 ))}
               </ul>
