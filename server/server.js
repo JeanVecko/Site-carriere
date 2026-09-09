@@ -5,9 +5,10 @@ import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
-import pg from 'pg';
+import { neonConfig, Pool } from '@neondatabase/serverless';
+import ws from 'ws';
 
-const { Pool } = pg;
+neonConfig.webSocketConstructor = ws;
 const app = express();
 const port = Number(process.env.PORT || 10000);
 const jwtSecret = process.env.JWT_SECRET;
@@ -21,7 +22,6 @@ if (!databaseUrl || !jwtSecret || !process.env.ADMIN_EMAIL || !process.env.ADMIN
 
 const pool = new Pool({
   connectionString: databaseUrl,
-  ssl: databaseUrl.includes('localhost') ? false : { rejectUnauthorized: false }
 });
 
 app.use(cors({ origin: true }));

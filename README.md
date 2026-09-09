@@ -6,13 +6,13 @@ API : `server/`, Express + PostgreSQL, à déployer sur Render.
 
 ## Déploiement de l’API sur Render
 
-1. Créer une base **PostgreSQL** sur Render et copier son `Internal Database URL`.
+1. Créer une base **PostgreSQL** sur Neon et copier la chaîne `Pooled connection` depuis la page `Connect`. Conserver `sslmode=require`.
 2. Créer un **Web Service** depuis ce dépôt GitHub.
 3. Renseigner `server` comme **Root Directory**.
 4. Build command : `npm install`.
 5. Start command : `npm start`.
 6. Ajouter les variables :
-   - `DATABASE_URL` : URL PostgreSQL Render.
+   - `DATABASE_URL` : chaîne de connexion PostgreSQL Neon.
    - `JWT_SECRET` : une longue chaîne aléatoire.
    - `ADMIN_EMAIL` : votre adresse admin.
    - `ADMIN_PASSWORD` : votre mot de passe admin.
@@ -43,4 +43,4 @@ Copy-Item .env.example .env
 npm start
 ```
 
-La base PostgreSQL doit être accessible via `DATABASE_URL`. Les tables sont créées automatiquement au premier démarrage.
+La base PostgreSQL doit être accessible via `DATABASE_URL`. Les tables sont créées automatiquement au premier démarrage. Pour vérifier Neon avant de lancer l'API, exécuter `node check-db.mjs` depuis `server`.
