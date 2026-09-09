@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS applications (
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   announcement_id BIGINT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
   cover_letter TEXT NOT NULL DEFAULT '',
+  cv_data_url TEXT,
+  cv_name TEXT,
   status TEXT NOT NULL DEFAULT 'En attente' CHECK (status IN ('En attente', 'Examinée', 'Acceptée', 'Refusée')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

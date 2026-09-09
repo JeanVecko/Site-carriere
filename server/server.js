@@ -85,6 +85,8 @@ async function initializeDatabase() {
       user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       announcement_id BIGINT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
       cover_letter TEXT NOT NULL DEFAULT '',
+      cv_data_url TEXT,
+      cv_name TEXT,
       status TEXT NOT NULL DEFAULT 'En attente' CHECK (status IN ('En attente', 'Examinée', 'Acceptée', 'Refusée')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -118,6 +120,8 @@ async function initializeDatabase() {
     );
   `);
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media JSONB NOT NULL DEFAULT '[]'::jsonb");
+  await pool.query('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_data_url TEXT');
+  await pool.query('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_name TEXT');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
@@ -675,6 +679,27 @@ app.get('/api/announcements', async (request, response) => {
   response.json(result.rows);
 });
 
+app.get('/api/my/recommended-offers', requireUser, async (request, response) => {
+  if (request.user.role !== 'candidat') return response.status(403).json({ error: 'Réservé aux comptes candidats.' });
+  const profileResult = await pool.query('SELECT data FROM users WHERE id = $1', [request.user.id]);
+  const profile = profileResult.rows[0]?.data || {};
+  const result = await pool.query(
+    `SELECT id, title, category, company, location, description, media, created_at
+     FROM announcements WHERE category = 'Offre d’emploi' ORDER BY created_at DESC`
+  );
+  const normalize = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const stopWords = new Set(['avec', 'pour', 'dans', 'une', 'des', 'les', 'sur', 'poste', 'profil', 'recherche', 'mission', 'offre']);
+  const terms = (value) => normalize(value).split(/[^a-z0-9]+/).filter((term) => term.length > 3 && !stopWords.has(term));
+  const profileText = normalize([profile.metier, profile.bio, profile.ville, profile.fonction].join(' '));
+  const offers = result.rows.map((offer) => {
+    const offerTerms = terms(`${offer.title} ${offer.description} ${offer.location}`);
+    const matchedTerms = [...new Set(offerTerms.filter((term) => profileText.includes(term)))];
+    const score = Math.min(100, Math.round((matchedTerms.length / Math.max(1, new Set(offerTerms).size)) * 100));
+    return { ...offer, match_score: score, matched_terms: matchedTerms };
+  }).sort((a, b) => b.match_score - a.match_score || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  response.json(offers);
+});
+
 app.get('/api/announcements/:id', async (request, response) => {
   const result = await pool.query('SELECT id, title, category, company, location, description, media, created_at FROM announcements WHERE id = $1', [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
@@ -762,14 +787,23 @@ app.post('/api/my/applications', requireUser, async (request, response) => {
   if (request.user.role !== 'candidat') return response.status(403).json({ error: 'Réservé aux comptes candidats.' });
   const announcementId = Number(request.body.announcementId);
   const coverLetter = clean(request.body.coverLetter);
+  const cvDataUrl = typeof request.body.cvDataUrl === 'string' ? request.body.cvDataUrl : '';
+  const cvName = clean(request.body.cvName).slice(0, 180);
   if (!announcementId) return response.status(400).json({ error: 'Offre invalide.' });
+  if (cvDataUrl && (!cvDataUrl.startsWith('data:application/pdf;base64,') || cvDataUrl.length > 6 * 1024 * 1024)) {
+    return response.status(400).json({ error: 'Le CV doit être un PDF de 4 Mo maximum.' });
+  }
   const exists = await pool.query('SELECT id FROM announcements WHERE id = $1', [announcementId]);
   if (!exists.rows[0]) return response.status(404).json({ error: 'Offre introuvable.' });
   const duplicate = await pool.query('SELECT id FROM applications WHERE user_id = $1 AND announcement_id = $2', [request.user.id, announcementId]);
   if (duplicate.rows[0]) return response.status(409).json({ error: 'Vous avez déjà postulé à cette offre.' });
+  const profileResult = await pool.query('SELECT data FROM users WHERE id = $1', [request.user.id]);
+  const profileCv = profileResult.rows[0]?.data || {};
+  const selectedCvDataUrl = cvDataUrl || profileCv.cvDataUrl || null;
+  const selectedCvName = cvName || profileCv.cvName || null;
   const result = await pool.query(
-    'INSERT INTO applications (user_id, announcement_id, cover_letter) VALUES ($1, $2, $3) RETURNING id, status, created_at',
-    [request.user.id, announcementId, coverLetter]
+    'INSERT INTO applications (user_id, announcement_id, cover_letter, cv_data_url, cv_name) VALUES ($1, $2, $3, $4, $5) RETURNING id, status, created_at',
+    [request.user.id, announcementId, coverLetter, selectedCvDataUrl, selectedCvName]
   );
   response.status(201).json(result.rows[0]);
 });
@@ -777,7 +811,7 @@ app.post('/api/my/applications', requireUser, async (request, response) => {
 app.get('/api/my/applications', requireUser, async (request, response) => {
   if (request.user.role !== 'candidat') return response.status(403).json({ error: 'Réservé aux comptes candidats.' });
   const result = await pool.query(
-    `SELECT a.id, a.status, a.cover_letter, a.created_at, n.id AS announcement_id, n.title, n.company, n.location
+    `SELECT a.id, a.status, a.cover_letter, a.cv_name, a.created_at, n.id AS announcement_id, n.title, n.company, n.location
      FROM applications a JOIN announcements n ON n.id = a.announcement_id
      WHERE a.user_id = $1 ORDER BY a.created_at DESC`,
     [request.user.id]
@@ -866,7 +900,7 @@ app.patch('/api/my/messages/:id/read', requireUser, async (request, response) =>
 app.get('/api/my/applications/received', requireUser, async (request, response) => {
   if (request.user.role !== 'recruteur') return response.status(403).json({ error: 'Réservé aux comptes recruteurs.' });
   const result = await pool.query(
-    `SELECT ap.id, ap.status, ap.cover_letter, ap.created_at, ap.announcement_id,
+    `SELECT ap.id, ap.status, ap.cover_letter, ap.cv_name, ap.cv_data_url, ap.created_at, ap.announcement_id,
             n.title, u.email AS candidat_email, u.data AS candidat_data
      FROM applications ap
      JOIN announcements n ON n.id = ap.announcement_id

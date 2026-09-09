@@ -13,6 +13,7 @@ type Application = {
   title: string;
   company: string;
   location: string;
+  cv_name?: string;
 };
 
 type Offer = {
@@ -21,6 +22,8 @@ type Offer = {
   company: string;
   location: string;
   description: string;
+  match_score?: number;
+  matched_terms?: string[];
 };
 
 type Me = {
@@ -77,6 +80,8 @@ export default function CandidateDashboard() {
   // Postuler
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [coverLetter, setCoverLetter] = useState("");
+  const [applicationCv, setApplicationCv] = useState<File | null>(null);
+  const [applicationCvName, setApplicationCvName] = useState("");
 
   const loadApplications = useCallback(async () => {
     try {
@@ -89,7 +94,7 @@ export default function CandidateDashboard() {
 
   const loadOffers = useCallback(async () => {
     try {
-      const rows = await apiRequest<Offer[]>("/announcements?category=" + encodeURIComponent("Offre d’emploi"));
+      const rows = await apiRequest<Offer[]>("/my/recommended-offers", { headers: userHeaders() });
       setOffers(Array.isArray(rows) ? rows : []);
     } catch {
       // silencieux
@@ -175,6 +180,21 @@ export default function CandidateDashboard() {
     setCvName(file.name);
   }
 
+  function onApplicationCvChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setMessage({ type: "error", text: "Le CV doit être un fichier PDF." });
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      setMessage({ type: "error", text: "Le CV ne doit pas dépasser 4 Mo." });
+      return;
+    }
+    setApplicationCv(file);
+    setApplicationCvName(file.name);
+  }
+
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -207,14 +227,17 @@ export default function CandidateDashboard() {
     setBusy(true);
     setMessage(null);
     try {
+      const cvDataUrl = applicationCv ? await readFileAsDataUrl(applicationCv) : undefined;
       await apiRequest("/my/applications", {
         method: "POST",
         headers: userHeaders(),
-        body: JSON.stringify({ announcementId: offer.id, coverLetter }),
+        body: JSON.stringify({ announcementId: offer.id, coverLetter, cvDataUrl, cvName: applicationCvName }),
       });
       setMessage({ type: "success", text: `Candidature envoyée pour « ${offer.title} » !` });
       setSelectedOffer(null);
       setCoverLetter("");
+      setApplicationCv(null);
+      setApplicationCvName("");
       loadApplications();
     } catch (error) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : "L’envoi a échoué." });
@@ -267,7 +290,7 @@ export default function CandidateDashboard() {
           <Camera size={15} /> Mon profil
         </button>
         <button type="button" className={tab === "offres" ? "active" : ""} onClick={() => setTab("offres")}>
-          <Briefcase size={15} /> Offres & candidatures
+          <Briefcase size={15} /> Offres correspondant au profil
         </button>
       </nav>
 
@@ -310,7 +333,7 @@ export default function CandidateDashboard() {
           <section className="dashboard-section">
             <h2><CheckCircle size={18} /> Suivi de mes candidatures ({applications.length})</h2>
             {applications.length === 0 ? (
-              <p className="dashboard-empty">Vous n’avez pas encore de candidature. Rendez-vous dans l’onglet « Offres & candidatures » !</p>
+              <p className="dashboard-empty">Vous n’avez pas encore de candidature. Rendez-vous dans l’onglet « Offres correspondant au profil » !</p>
             ) : (
               <ul className="dashboard-list">
                 {applications.map((app) => (
@@ -419,9 +442,9 @@ export default function CandidateDashboard() {
       {/* ============ ONGLET OFFRES ============ */}
       {tab === "offres" && (
         <section className="dashboard-section">
-          <h2><Briefcase size={18} /> Offres d’emploi disponibles</h2>
+          <h2><Briefcase size={18} /> Offres correspondant à votre profil</h2>
           {offers.length === 0 ? (
-            <p className="dashboard-empty">Aucune offre disponible pour le moment.</p>
+            <p className="dashboard-empty">Aucune correspondance pour le moment. Complétez votre profil pour recevoir des recommandations.</p>
           ) : (
             <ul className="dashboard-list">
               {offers.map((offer) => {
@@ -431,6 +454,9 @@ export default function CandidateDashboard() {
                     <div className="dashboard-item-main">
                       <strong>{offer.title}</strong>
                       <span>{offer.company} · {offer.location}</span>
+                      {typeof offer.match_score === "number" && offer.match_score > 0 && (
+                        <small className="offer-match-score">{offer.match_score}% correspondant à votre profil</small>
+                      )}
                     </div>
                     <div className="dashboard-item-actions">
                       {alreadyApplied ? (
@@ -439,7 +465,7 @@ export default function CandidateDashboard() {
                         <button
                           type="button"
                           className="pill-button pill-button-primary dashboard-small-btn"
-                          onClick={() => { setSelectedOffer(offer); setCoverLetter(""); }}
+                          onClick={() => { setSelectedOffer(offer); setCoverLetter(""); setApplicationCv(null); setApplicationCvName(""); }}
                         >
                           <Send size={14} /> Postuler
                         </button>
@@ -471,15 +497,17 @@ export default function CandidateDashboard() {
               value={coverLetter}
               onChange={(e) => setCoverLetter(e.target.value)}
             />
-            {d.cvDataUrl ? (
+            <div className="recruiter-upload-box">
+              <span className="recruiter-upload-title">CV à joindre à cette candidature</span>
+              <label className="recruiter-upload-label">
+                <FileText size={15} />
+                {applicationCvName || (d.cvName ? `Utiliser mon CV du profil (${d.cvName})` : "Choisir un autre CV (PDF — 4 Mo max)")}
+                <input type="file" accept="application/pdf" onChange={onApplicationCvChange} className="recruiter-upload-input" />
+              </label>
               <p className="modal-description candidate-cv-attached">
-                <FileText size={14} /> Votre CV enregistré sera joint à cette candidature.
+                {applicationCvName ? "Ce CV adapté au poste sera envoyé uniquement avec cette candidature." : d.cvDataUrl ? "Votre CV du profil sera utilisé. Choisissez un autre PDF pour adapter votre candidature à ce poste." : "Ajoutez un CV PDF pour joindre un document à votre candidature."}
               </p>
-            ) : (
-              <p className="modal-description candidate-cv-attached candidate-cv-warning">
-                <FileText size={14} /> Astuce : ajoutez votre CV dans l’onglet « Mon profil » pour renforcer vos candidatures.
-              </p>
-            )}
+            </div>
             <div className="modal-actions">
               <button
                 type="button"
