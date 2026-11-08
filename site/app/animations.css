@@ -1,0 +1,195 @@
+/* =====================================================================
+   Carrières RDC — animations
+   Discrètes et rapides ; toutes désactivées si l'utilisateur demande moins d'animations.
+   ===================================================================== */
+
+:root {
+  --ease-out: cubic-bezier(.2, .7, .2, 1);
+  --ease-spring: cubic-bezier(.34, 1.4, .64, 1);
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes fade-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+@keyframes pop-in { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes glow-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: .9; }
+  50% { transform: translate(-6%, 8%) scale(1.15); opacity: 1; }
+}
+@keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+
+/* ----- Entrée de page (opacité seule : n'altère pas les éléments fixés à l'écran) ----- */
+.page-enter { animation: fade-in .45s ease-out both; }
+
+/* ----- En-tête ----- */
+.pub-header { animation: fade-down .5s var(--ease-out) both; transition: box-shadow .25s ease, background-color .25s ease; }
+html.is-scrolled .pub-header { background: rgba(255, 255, 255, .97); box-shadow: 0 6px 24px rgba(9, 45, 99, .08); }
+.pub-nav a { position: relative; }
+.pub-nav a::after { background: var(--pub-gold); border-radius: 2px; bottom: 3px; content: ""; height: 2px; left: 12px; position: absolute; right: 12px; transform: scaleX(0); transform-origin: left; transition: transform .25s var(--ease-out); }
+.pub-nav a:hover::after, .pub-nav a.is-active::after { transform: scaleX(1); }
+.pub-header.is-open .pub-mobile-panel { animation: fade-down .25s var(--ease-out) both; }
+
+/* ----- Bandeaux : contenu en cascade ----- */
+/* Halo doré qui dérive lentement derrière le titre de l'accueil */
+.pub-hero::before { animation: glow-drift 12s ease-in-out infinite; background: radial-gradient(closest-side, rgba(240, 185, 11, .22), transparent); content: ""; height: 420px; pointer-events: none; position: absolute; right: -80px; top: -160px; width: 520px; }
+.pub-hero h1, .pub-hero .pub-lead, .pub-hero .pub-search, .pub-hero .pub-chips > *,
+.pub-list-hero .pub-breadcrumb, .pub-list-hero h1, .pub-list-hero p, .pub-list-hero .pub-list-search,
+.pub-offer-hero .pub-breadcrumb, .pub-offer-hero-main > * { animation: fade-up .7s var(--ease-out) both; }
+.pub-hero h1 { animation-delay: .05s; }
+.pub-hero .pub-lead { animation-delay: .15s; }
+.pub-hero .pub-search { animation-delay: .25s; }
+.pub-hero .pub-chips > :nth-child(1) { animation-delay: .35s; }
+.pub-hero .pub-chips > :nth-child(2) { animation-delay: .42s; }
+.pub-hero .pub-chips > :nth-child(3) { animation-delay: .49s; }
+.pub-list-hero h1, .pub-offer-hero-main > :nth-child(1) { animation-delay: .08s; }
+.pub-list-hero p, .pub-offer-hero-main > :nth-child(2) { animation-delay: .16s; }
+.pub-list-hero .pub-list-search, .pub-offer-hero-main > :nth-child(3) { animation-delay: .24s; }
+.pub-avatar-lg { animation-name: pop-in !important; }
+
+/* Apparition au défilement : pilotée en JavaScript par RevealOnScroll (API d'animation du navigateur). */
+
+/* ----- Squelettes de chargement : reflet animé ----- */
+.pub-skeleton { animation: shimmer 1.4s linear infinite; background: linear-gradient(90deg, #eef2f8 25%, #f8fafd 50%, #eef2f8 75%); background-size: 200% 100%; }
+
+/* ----- Boutons ----- */
+.pub-btn { transition: background .2s ease, box-shadow .2s ease, transform .2s var(--ease-spring), border-color .2s ease; }
+.pub-btn:active { transform: translateY(0) scale(.98); }
+.pub-btn svg { transition: transform .25s var(--ease-out); }
+.pub-btn:hover .lucide-arrow-right, .pub-btn:hover .lucide-send { transform: translateX(3px); }
+.pub-btn:hover .lucide-megaphone { transform: rotate(-10deg) scale(1.08); }
+
+/* ----- Recherche : halo à la saisie ----- */
+.pub-search, .pub-list-search, .pub-filter-search { transition: box-shadow .25s ease, transform .25s var(--ease-out); }
+.pub-search:focus-within { box-shadow: 0 0 0 4px rgba(240, 185, 11, .35), 0 18px 40px rgba(0, 0, 0, .25); transform: translateY(-1px); }
+.pub-list-search:focus-within { box-shadow: 0 0 0 4px rgba(240, 185, 11, .3), 0 10px 24px rgba(0, 0, 0, .2); }
+.pub-filter-search:focus-within { border-color: var(--pub-navy-2); box-shadow: 0 0 0 3px rgba(15, 61, 128, .12); }
+
+/* ----- Puces de catégorie ----- */
+.pub-chips a { transition: background .2s ease, border-color .2s ease, transform .2s var(--ease-spring); }
+.pub-chips a:hover { transform: translateY(-2px); }
+.pub-chips b { transition: transform .25s var(--ease-spring); }
+.pub-chips a:hover b { transform: scale(1.12); }
+
+/* ----- Fiches d'offres ----- */
+.pub-job { transition: border-color .2s ease, box-shadow .25s ease, transform .25s var(--ease-out); }
+.pub-job:hover { transform: translateY(-3px); }
+.pub-avatar { transition: transform .3s var(--ease-spring); }
+.pub-job:hover .pub-avatar { transform: scale(1.06) rotate(-3deg); }
+.pub-job-arrow { transition: background .2s ease, color .2s ease, border-color .2s ease, transform .25s var(--ease-out); }
+.pub-job:hover .pub-job-arrow { transform: translateX(3px); }
+.pub-tile { transition: border-color .2s ease, box-shadow .25s ease, transform .25s var(--ease-out); }
+.pub-tile:hover { transform: translateY(-4px); }
+.pub-tile-cover img { transition: transform .5s var(--ease-out); }
+.pub-tile:hover .pub-tile-cover img { transform: scale(1.06); }
+.pub-tile-placeholder svg { transition: transform .4s var(--ease-spring); }
+.pub-tile:hover .pub-tile-placeholder svg { transform: rotate(-12deg) scale(1.1); }
+
+/* ----- Filtres et pastilles actives ----- */
+.pub-active-filters button { animation: pop-in .25s var(--ease-spring) both; }
+.pub-check { transition: background .15s ease, color .15s ease; }
+.pub-filters-backdrop { animation: fade-in .2s ease both; }
+
+/* ----- Page d'une offre ----- */
+.pub-countdown { animation: fade-in .5s ease .3s both; }
+.pub-countdown.is-soon svg, .pub-countdown.is-closed svg { animation: hourglass 2.4s ease-in-out infinite; }
+@keyframes hourglass { 0%, 70% { transform: rotate(0); } 85%, 100% { transform: rotate(180deg); } }
+.pub-share-buttons a, .pub-share-buttons button { transition: border-color .2s ease, color .2s ease, transform .2s var(--ease-spring); }
+.pub-share-buttons a:hover, .pub-share-buttons button:hover { transform: translateY(-2px); }
+.pub-apply-bar { animation: fade-up .4s var(--ease-out) .4s both; }
+
+/* Barre de progression de lecture */
+.reading-progress { height: 3px; left: 0; pointer-events: none; position: fixed; right: 0; top: 0; z-index: 60; }
+.reading-progress span { background: linear-gradient(90deg, var(--pub-gold), var(--pub-gold-2)); box-shadow: 0 0 8px rgba(240, 185, 11, .6); display: block; height: 100%; transform: scaleX(0); transform-origin: left; transition: transform .1s linear; }
+
+/* ----- Bouton « retour en haut » ----- */
+.back-to-top { align-items: center; background: var(--pub-navy); border: 0; border-radius: 50%; bottom: 22px; box-shadow: 0 10px 24px rgba(9, 45, 99, .3); color: #fff; cursor: pointer; display: flex; height: 44px; justify-content: center; opacity: 0; pointer-events: none; position: fixed; right: 22px; transform: translateY(12px) scale(.9); transition: opacity .3s ease, transform .3s var(--ease-spring), background .2s ease; width: 44px; z-index: 35; }
+.back-to-top.is-shown { opacity: 1; pointer-events: auto; transform: none; }
+.back-to-top:hover { background: var(--pub-navy-2); transform: translateY(-2px); }
+@media (max-width: 960px) { body:has(.pub-apply-bar) .back-to-top { bottom: 84px; } }
+
+/* ----- Pied de page ----- */
+.pub-social a { transition: background .2s ease, color .2s ease, border-color .2s ease, transform .25s var(--ease-spring); }
+.pub-social a:hover { transform: translateY(-3px); }
+.pub-footer-links a, .pub-footer-coords a { transition: color .2s ease, transform .2s var(--ease-out); }
+.pub-footer-links a:hover, .pub-footer-coords a:hover { transform: translateX(3px); }
+
+/* ----- Moins d'animations demandées par l'utilisateur ----- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* =====================================================================
+   Écran d'accueil (SplashScreen) : 8 s de chargement, puis fondu de sortie
+   ===================================================================== */
+@keyframes splash-spin { to { transform: rotate(360deg); } }
+@keyframes splash-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes splash-out { to { opacity: 0; visibility: hidden; } }
+@keyframes splash-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+.splash {
+  align-items: center;
+  animation: splash-out .6s ease 8s forwards; /* disparaît seul après 8 s, même sans JavaScript */
+  background:
+    radial-gradient(600px 400px at 50% 40%, rgba(240, 185, 11, .14), transparent 70%),
+    linear-gradient(160deg, var(--pub-navy-2), var(--pub-navy) 55%, var(--pub-navy-3));
+  color: #fff;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 1000;
+}
+html.splash-seen .splash { display: none; }
+html.is-splashing { overflow: hidden; }
+/* La page d'accueil attend derrière l'écran : ses animations d'entrée démarrent à la sortie. */
+html.is-splashing .pub-header, html.is-splashing .pub-hero * { animation-play-state: paused !important; }
+
+.splash-center { align-items: center; display: flex; flex-direction: column; text-align: center; animation: fade-up .7s var(--ease-out) both; }
+.splash-logo { height: 132px; position: relative; width: 132px; }
+.splash-logo img {
+  animation: splash-spin 2s linear infinite; /* quatre tours complets pendant les 8 secondes */
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .35);
+  height: 100%;
+  object-fit: contain;
+  padding: 10px;
+  width: 100%;
+}
+.splash-ring {
+  animation: splash-spin 1.2s linear infinite reverse;
+  border: 3px solid transparent;
+  border-radius: 50%;
+  border-top-color: var(--pub-gold-2);
+  border-right-color: rgba(240, 185, 11, .35);
+  inset: -12px;
+  position: absolute;
+}
+.splash-name { font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin: 26px 0 4px; }
+.splash-name em { color: var(--pub-gold-2); font-style: normal; }
+.splash-tagline { animation: splash-pulse 2s ease-in-out infinite; color: #c3d1e6; font-size: 14px; margin: 0; }
+
+/* Barre de chargement sous le texte, avec pourcentage */
+.splash-loader { margin-top: 30px; width: min(300px, 72vw); animation: fade-up .7s var(--ease-out) .35s both; }
+.splash-bar { background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; height: 8px; overflow: hidden; padding: 1px; }
+.splash-bar-fill {
+  animation: splash-fill 8s cubic-bezier(.33, .9, .55, 1) forwards;
+  background: linear-gradient(90deg, #c99400, var(--pub-gold-2) 60%, #ffe08a);
+  border-radius: 999px;
+  box-shadow: 0 0 14px rgba(240, 185, 11, .65);
+  display: block;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+/* Reflet qui balaie la barre */
+.splash-bar-fill::after { animation: splash-sheen 1.4s ease-in-out infinite; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); content: ""; inset: 0; position: absolute; transform: translateX(-100%); }
+@keyframes splash-sheen { to { transform: translateX(100%); } }
+.splash-loader-text { align-items: center; color: #a9bbd6; display: flex; font-size: 12px; justify-content: space-between; letter-spacing: .04em; margin-top: 10px; text-transform: uppercase; }
+.splash-percent { color: var(--pub-gold-2); font-family: "Space Grotesk", sans-serif; font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: 0; text-transform: none; }
+@media (max-width: 620px) {
+  .splash-logo { height: 104px; width: 104px; }
+  .splash-name { font-size: 22px; }
+}

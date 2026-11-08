@@ -3,6 +3,7 @@ import { ArrowRight, CircleCheck, Megaphone, Search } from "lucide-react";
 import SiteHeader from "./components/SiteHeader";
 import SiteFooter from "./components/SiteFooter";
 import OfferRow from "./components/OfferRow";
+import SplashScreen from "./components/SplashScreen";
 import { ACTIVE_SOCIAL_NETWORKS } from "./components/SocialLinks";
 import { isExpired } from "./lib/api";
 import { fetchAnnouncements } from "./lib/server";
@@ -22,6 +23,7 @@ export default async function Home() {
 
   return (
     <>
+      <SplashScreen />
       <SiteHeader />
       <main>
         <section className="pub-hero">

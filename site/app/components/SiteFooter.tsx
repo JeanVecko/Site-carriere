@@ -6,6 +6,8 @@ import { Mail, Megaphone, Phone, Send } from "lucide-react";
 import { apiRequest, CONTACT_EMAIL, CONTACT_PHONE } from "../lib/api";
 import SocialLinks from "./SocialLinks";
 import { Brand } from "./SiteHeader";
+import RevealOnScroll from "./RevealOnScroll";
+import ScrollEffects from "./ScrollEffects";
 
 // Pied de page commun. Le formulaire de contact n'est affiché que sur l'accueil (withContact).
 export default function SiteFooter({ withContact = false }: { withContact?: boolean }) {
@@ -29,6 +31,9 @@ export default function SiteFooter({ withContact = false }: { withContact?: bool
 
   return (
     <footer className="pub-footer">
+      {/* Animations des pages publiques (apparition au défilement, en-tête, lecture, retour en haut). */}
+      <RevealOnScroll />
+      <ScrollEffects />
       <div className="pub-container pub-footer-grid">
         <div>
           <Brand />

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./public.css";
 import "./admin.css";
+import "./animations.css";
 
 export const metadata: Metadata = {
   title: "Carrières RDC — Offres et annonces",
@@ -11,7 +12,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="fr">
+    // suppressHydrationWarning : l'écran d'accueil et les effets de défilement ajoutent des classes sur <html> avant React.
+    <html lang="fr" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
