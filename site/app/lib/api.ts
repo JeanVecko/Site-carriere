@@ -121,7 +121,7 @@ export const CONTACT_PHONE = process.env.NEXT_PUBLIC_CONTACT_PHONE || "+243 898 
 // Réseaux où les offres sont aussi publiées (à renseigner dans les variables d'environnement).
 // Un réseau sans lien (chaîne vide) n'est pas affiché.
 export const TIKTOK_URL = process.env.NEXT_PUBLIC_TIKTOK_URL || "https://www.tiktok.com/@carrieresrdc";
-export const FACEBOOK_URL = process.env.NEXT_PUBLIC_FACEBOOK_URL || "https://www.facebook.com/CarrieresRDC";
+export const FACEBOOK_URL = process.env.NEXT_PUBLIC_FACEBOOK_URL || "https://www.facebook.com/profile.php?id=61595124292252";
 export const WHATSAPP_CHANNEL_URL =
   process.env.NEXT_PUBLIC_WHATSAPP_CHANNEL_URL || "https://whatsapp.com/channel/0029VbC3FGn7z4kbQ6ZEck0Q";
 
