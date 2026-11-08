@@ -40,7 +40,8 @@ export function Brand() {
   );
 }
 
-export default function SiteHeader() {
+// `active` : rubrique à mettre en évidence quand l'adresse ne suffit pas (page d'une offre → sa catégorie).
+export default function SiteHeader({ active }: { active?: string } = {}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const isAdmin = useSyncExternalStore(subscribe, adminConnected, () => false);
@@ -52,7 +53,7 @@ export default function SiteHeader() {
     return () => window.removeEventListener("keydown", close);
   }, [open]);
 
-  const isActive = (href: string) => pathname === href || (href === "/offres" && pathname.startsWith("/offre/"));
+  const isActive = (href: string) => (active ? active === href : pathname === href);
   const navLinks = LINKS.map((link) => (
     <Link
       key={link.href}
@@ -79,7 +80,7 @@ export default function SiteHeader() {
             </Link>
           )}
           <SocialLinks />
-          <Link className="pub-btn pub-btn-gold" href="/#recruteurs">
+          <Link className="pub-btn pub-btn-gold" href="/#contact">
             <Megaphone size={16} /> Publier une offre
           </Link>
           <button
@@ -103,7 +104,7 @@ export default function SiteHeader() {
           )}
         </nav>
         <SocialLinks />
-        <Link className="pub-btn pub-btn-gold pub-btn-block" href="/#recruteurs" onClick={() => setOpen(false)}>
+        <Link className="pub-btn pub-btn-gold pub-btn-block" href="/#contact" onClick={() => setOpen(false)}>
           <Megaphone size={16} /> Publier une offre
         </Link>
       </div>

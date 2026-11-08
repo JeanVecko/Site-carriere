@@ -694,11 +694,32 @@ app.delete('/api/my/organization/members/:id', requireUser, requireOrganizationO
 // Heure de référence : Kinshasa. Fin de visibilité = (date limite + 2 jours) à 00:00.
 const PUBLIC_UNTIL_SQL = "((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')";
 const PUBLICLY_VISIBLE_SQL = `(deadline IS NULL OR NOW() < ${PUBLIC_UNTIL_SQL})`;
+// Une publication a une vignette si au moins une image est jointe.
+const HAS_COVER_SQL = "EXISTS (SELECT 1 FROM jsonb_array_elements(media) AS m WHERE m->>'type' LIKE 'image/%')";
+
+// Vignette d'une publication : première image jointe, renvoyée comme un vrai fichier image
+// (mise en cache par le navigateur) pour ne pas alourdir les listes.
+app.get('/api/announcements/:id/cover', async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).end();
+  const result = await pool.query(
+    `SELECT m->>'type' AS type, m->>'dataUrl' AS data_url
+     FROM announcements, jsonb_array_elements(media) AS m
+     WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL} AND m->>'type' LIKE 'image/%'
+     LIMIT 1`,
+    [request.params.id]
+  );
+  const cover = result.rows[0];
+  const match = cover && /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(cover.data_url || '');
+  if (!match) return response.status(404).end();
+  response.set('Content-Type', match[1]);
+  response.set('Cache-Control', 'public, max-age=86400');
+  response.send(Buffer.from(match[2], 'base64'));
+});
 
 app.get('/api/announcements', async (request, response) => {
   const category = clean(request.query.category);
   const values = category ? [category] : [];
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY created_at DESC`, values);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY created_at DESC`, values);
   response.json(result.rows);
 });
 

@@ -18,6 +18,7 @@ import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 import ViewTracker from "../../components/ViewTracker";
 import ShareButtons from "../../components/ShareButtons";
+import OfferRow from "../../components/OfferRow";
 import {
   applyLink,
   companyAvatar,
@@ -29,7 +30,7 @@ import {
   paragraphs,
   type Announcement,
 } from "../../lib/api";
-import { fetchAnnouncement, SITE_URL } from "../../lib/server";
+import { fetchAnnouncement, fetchAnnouncements, SITE_URL } from "../../lib/server";
 
 export const revalidate = 60;
 
@@ -127,126 +128,151 @@ export default async function OfferPage({ params }: Props) {
     { icon: CalendarClock, label: "Date d’expiration", value: item.deadline ? formatDate(item.deadline) : "Non précisée" },
   ].filter((fact) => fact.value);
 
+  const similar = (await fetchAnnouncements())
+    .filter((entry) => entry.category === item.category && String(entry.id) !== String(item.id) && !isExpired(entry))
+    .slice(0, 3);
+  const countdown =
+    remaining === null
+      ? null
+      : expired
+        ? { tone: "is-closed", text: "La date limite est dépassée" }
+        : remaining === 0
+          ? { tone: "is-soon", text: "Dernier jour pour postuler" }
+          : { tone: remaining <= 7 ? "is-soon" : "is-open", text: `Plus que ${remaining} jour${remaining > 1 ? "s" : ""} pour postuler` };
+  const applyLabel = isTender ? "Soumissionner" : "Postuler";
+  const canApply = !expired && Boolean(item.apply_contact);
+
   return (
     <>
-      <SiteHeader />
+      <SiteHeader active={categoryPage.href} />
       <ViewTracker id={String(item.id)} />
       {isJob && !expired && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jobPostingJsonLd(item) }} />
       )}
-      <main className="pub-container">
-        <nav className="pub-breadcrumb" aria-label="Fil d’Ariane" style={{ marginTop: 22 }}>
-          <Link href="/">Accueil</Link> <span aria-hidden="true">/</span>{" "}
-          <Link href={categoryPage.href}>{categoryPage.label}</Link> <span aria-hidden="true">/</span>{" "}
-          <span>{title}</span>
-        </nav>
 
-        <div className="pub-offer" style={{ paddingTop: 8 }}>
-          <article className="pub-offer-card">
-            <header className="pub-offer-head">
-              <span className={`pub-avatar tone-${avatar.tone}`} aria-hidden="true">
-                {avatar.initial}
-              </span>
-              <div>
-                <h1>{title}</h1>
-                <p className="pub-offer-company">{decodeEntities(item.company)}</p>
-                <div className="pub-tags">
-                  <span className="pub-tag">{item.category}</span>
-                  {item.contract_type && <span className="pub-tag pub-tag-gold">{item.contract_type}</span>}
-                  {expired ? <span className="pub-tag pub-tag-red">Offre expirée</span> : <span className="pub-tag pub-tag-green">En cours</span>}
-                </div>
+      <section className="pub-offer-hero">
+        <div className="pub-container">
+          <nav className="pub-breadcrumb pub-breadcrumb-light" aria-label="Fil d’Ariane">
+            <Link href="/">Accueil</Link> <span aria-hidden="true">/</span>{" "}
+            <Link href={categoryPage.href}>{categoryPage.label}</Link> <span aria-hidden="true">/</span>{" "}
+            <span className="pub-breadcrumb-current">{title}</span>
+          </nav>
+          <div className="pub-offer-hero-main">
+            <span className={`pub-avatar pub-avatar-lg tone-${avatar.tone}`} aria-hidden="true">
+              {avatar.initial}
+            </span>
+            <div className="pub-offer-hero-text">
+              <h1>{title}</h1>
+              <p>
+                <Building2 size={15} aria-hidden="true" /> {decodeEntities(item.company)}
+                <span aria-hidden="true">·</span>
+                <MapPin size={15} aria-hidden="true" /> {decodeEntities(item.location)}
+              </p>
+              <div className="pub-tags">
+                <span className="pub-tag">{item.category}</span>
+                {item.contract_type && <span className="pub-tag pub-tag-gold">{item.contract_type}</span>}
+                {item.salary && <span className="pub-tag">{item.salary}</span>}
+                {expired ? <span className="pub-tag pub-tag-red">Offre expirée</span> : <span className="pub-tag pub-tag-green">En cours</span>}
               </div>
-            </header>
+            </div>
+            {canApply && (
+              <a className="pub-btn pub-btn-gold pub-offer-hero-cta" href="#postuler">
+                <Send size={16} /> {applyLabel}
+              </a>
+            )}
+          </div>
+        </div>
+      </section>
 
-            <dl className="pub-facts">
+      <main className="pub-container pub-offer">
+        <article className="pub-offer-card">
+          {item.description && (
+            <section className="pub-prose">
+              <h2>{isTender ? "Description de l’appel d’offre" : "Description du poste"}</h2>
+              {paragraphs(item.description).map((paragraph, index) => (
+                <p key={index}>{paragraph}</p>
+              ))}
+            </section>
+          )}
+
+          {item.media && item.media.length > 0 && (
+            <section className="pub-prose pub-media" aria-label="Documents de l’offre">
+              <h2>Documents</h2>
+              {item.media.map((file, index) =>
+                file.type === "application/pdf" ? (
+                  <a className="pub-pdf" href={file.dataUrl} download={file.name} key={`${file.name}-${index}`}>
+                    <FileText size={26} aria-hidden="true" />
+                    <span>{file.name}</span>
+                    <small>Télécharger</small>
+                  </a>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- image stockée en data URL
+                  <img key={`${file.name}-${index}`} src={file.dataUrl} alt={`Document de l’offre : ${file.name}`} />
+                )
+              )}
+            </section>
+          )}
+
+          {item.source_url && (
+            <p className="pub-source">
+              Source :{" "}
+              <a href={item.source_url} target="_blank" rel="noreferrer nofollow">
+                voir la publication d’origine
+              </a>
+            </p>
+          )}
+        </article>
+
+        <aside className="pub-aside">
+          <section className="pub-offer-card pub-apply" id="postuler" aria-labelledby="apply-title">
+            <h2 id="apply-title">{applyLabel}</h2>
+            <p className="pub-apply-sub">Les candidatures sont envoyées directement à l’organisation.</p>
+            {countdown && (
+              <p className={`pub-countdown ${countdown.tone}`}>
+                <Hourglass size={16} aria-hidden="true" /> {countdown.text}
+              </p>
+            )}
+            {canApply ? (
+              <>
+                <div className="pub-apply-contact">{item.apply_contact}</div>
+                {applyHref && (
+                  <a
+                    className="pub-btn pub-btn-gold pub-btn-block"
+                    href={applyHref}
+                    target={applyHref.startsWith("http") ? "_blank" : undefined}
+                    rel="noreferrer"
+                  >
+                    {applyHref.startsWith("mailto:") ? <Send size={16} /> : <ExternalLink size={16} />}
+                    {applyHref.startsWith("mailto:") ? "Envoyer ma candidature" : "Accéder à la candidature"}
+                  </a>
+                )}
+              </>
+            ) : (
+              !expired && <p className="pub-apply-sub">Les modalités de candidature figurent dans la description ou le document joint.</p>
+            )}
+          </section>
+
+          <section className="pub-offer-card" aria-labelledby="facts-title">
+            <h3 id="facts-title" className="pub-card-title">En bref</h3>
+            <dl className="pub-facts-list">
               {facts.map(({ icon: Icon, label, value }) => (
                 <div key={label}>
-                  <Icon size={18} aria-hidden="true" />
-                  <span>
-                    <dt>{label}</dt>
-                    <dd>{value}</dd>
-                  </span>
+                  <Icon size={17} aria-hidden="true" />
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
                 </div>
               ))}
             </dl>
+          </section>
 
-            {item.description && (
-              <section className="pub-prose">
-                <h2>{isTender ? "Description de l’appel d’offre" : "Description du poste"}</h2>
-                {paragraphs(item.description).map((paragraph, index) => (
-                  <p key={index}>{paragraph}</p>
-                ))}
-              </section>
-            )}
+          <section className="pub-offer-card pub-share" aria-labelledby="share-title">
+            <h3 id="share-title" className="pub-card-title">Partager cette offre</h3>
+            <ShareButtons url={`${SITE_URL}${canonical}`} title={title} />
+          </section>
 
-            {item.media && item.media.length > 0 && (
-              <section className="pub-media" aria-label="Documents de l’offre">
-                {item.media.map((file, index) =>
-                  file.type === "application/pdf" ? (
-                    <a className="pub-pdf" href={file.dataUrl} download={file.name} key={`${file.name}-${index}`}>
-                      <FileText size={26} aria-hidden="true" />
-                      <span>{file.name}</span>
-                      <small>Télécharger</small>
-                    </a>
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element -- image stockée en data URL
-                    <img key={`${file.name}-${index}`} src={file.dataUrl} alt={`Document de l’offre : ${file.name}`} />
-                  )
-                )}
-              </section>
-            )}
-
-            {item.source_url && (
-              <p className="pub-source">
-                Source :{" "}
-                <a href={item.source_url} target="_blank" rel="noreferrer nofollow">
-                  voir la publication d’origine
-                </a>
-              </p>
-            )}
-          </article>
-
-          <aside className="pub-aside">
-            <section className="pub-offer-card pub-apply" aria-labelledby="apply-title">
-              <h2 id="apply-title">{isTender ? "Soumissionner" : "Postuler"}</h2>
-              <p className="pub-apply-sub">Les candidatures sont envoyées directement à l’organisation.</p>
-
-              {remaining !== null && (
-                <p className={`pub-countdown ${expired ? "is-closed" : remaining <= 7 ? "is-soon" : "is-open"}`}>
-                  <Hourglass size={16} aria-hidden="true" />
-                  {expired
-                    ? "La date limite est dépassée"
-                    : remaining === 0
-                      ? "Dernier jour pour postuler"
-                      : `Plus que ${remaining} jour${remaining > 1 ? "s" : ""} pour postuler`}
-                </p>
-              )}
-
-              {item.apply_contact && !expired ? (
-                <>
-                  <div className="pub-apply-contact">{item.apply_contact}</div>
-                  {applyHref && (
-                    <a
-                      className="pub-btn pub-btn-gold pub-btn-block"
-                      href={applyHref}
-                      target={applyHref.startsWith("http") ? "_blank" : undefined}
-                      rel="noreferrer"
-                    >
-                      {applyHref.startsWith("mailto:") ? <Send size={16} /> : <ExternalLink size={16} />}
-                      {applyHref.startsWith("mailto:") ? "Envoyer ma candidature" : "Accéder à la candidature"}
-                    </a>
-                  )}
-                </>
-              ) : (
-                !expired && <p className="pub-apply-sub">Les modalités de candidature figurent dans la description ou le document joint.</p>
-              )}
-            </section>
-
-            <section className="pub-offer-card pub-share" aria-labelledby="share-title">
-              <h3 id="share-title">Partager cette offre</h3>
-              <ShareButtons url={`${SITE_URL}${canonical}`} title={title} />
-            </section>
-
+          {/* Mention anti-arnaque : seulement pour les offres d'emploi. Les appels d'offres (frais de dossier) et les
+              annonces de prestataires (services payants) peuvent légitimement comporter des frais. */}
+          {isJob && (
             <aside className="pub-warning">
               <ShieldAlert size={18} aria-hidden="true" />
               <p>
@@ -254,9 +280,33 @@ export default async function OfferPage({ params }: Props) {
                 ne payez pas et signalez-le-nous via le formulaire de contact.
               </p>
             </aside>
-          </aside>
-        </div>
+          )}
+        </aside>
       </main>
+
+      {similar.length > 0 && (
+        <section className="pub-container pub-similar" aria-labelledby="similar-title">
+          <div className="pub-list-head">
+            <h2 id="similar-title">Offres similaires</h2>
+            <Link className="pub-link-btn" href={categoryPage.href}>
+              Tout voir
+            </Link>
+          </div>
+          <ul className="pub-jobs">
+            {similar.map((entry) => (
+              <OfferRow key={String(entry.id)} item={entry} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {canApply && (
+        <div className="pub-apply-bar">
+          <a className="pub-btn pub-btn-gold pub-btn-block" href="#postuler">
+            <Send size={16} /> {applyLabel}
+          </a>
+        </div>
+      )}
       <SiteFooter />
     </>
   );
