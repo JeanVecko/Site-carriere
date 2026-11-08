@@ -143,6 +143,34 @@ export function formatDate(value?: string | null): string {
     : date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 }
 
+// Date relative courte : « aujourd’hui », « hier », « il y a 3 jours »…
+export function timeAgo(value?: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
+  if (days <= 0) return "Aujourd’hui";
+  if (days === 1) return "Hier";
+  if (days < 7) return `Il y a ${days} jours`;
+  if (days < 30) return `Il y a ${Math.floor(days / 7)} semaine${days >= 14 ? "s" : ""}`;
+  return formatDate(value);
+}
+
+// Nombre de jours restants avant la date limite (négatif si dépassée), ou null sans date limite.
+export function daysLeft(deadline?: string | null): number | null {
+  if (!deadline) return null;
+  const end = new Date(`${deadline}T23:59:59`).getTime();
+  return Math.ceil((end - Date.now()) / 86_400_000) - 1;
+}
+
+// Initiale et teinte stable pour l'avatar d'un employeur.
+export function companyAvatar(name?: string): { initial: string; tone: number } {
+  const text = decodeEntities(name || "?").trim();
+  let hash = 0;
+  for (const char of text) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return { initial: (text.charAt(0) || "?").toUpperCase(), tone: hash % 5 };
+}
+
 // Une offre est expirée le lendemain de sa date limite.
 export function isExpired(item: { deadline?: string | null }): boolean {
   if (!item.deadline) return false;

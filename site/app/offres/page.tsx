@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import SiteHeader from "../components/SiteHeader";
 import CategoryList from "../components/CategoryList";
-import CategoryFooter from "../components/CategoryFooter";
+import SiteFooter from "../components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Offres d’emploi — Carrières RDC",
@@ -11,11 +11,11 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <>
-      <SiteHeader active="offres" />
+      <SiteHeader />
       <Suspense fallback={null}>
         <CategoryList category="jobs" />
       </Suspense>
-      <CategoryFooter />
+      <SiteFooter />
     </>
   );
 }

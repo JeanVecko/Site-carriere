@@ -21,10 +21,10 @@ export const SOCIAL_NETWORKS = [
   },
 ];
 
-// Icônes des réseaux sociaux (en-tête du site).
-export default function SocialLinks() {
+// Icônes rondes des réseaux sociaux (en-tête, menu mobile, pied de page).
+export default function SocialLinks({ dark = false }: { dark?: boolean }) {
   return (
-    <div className="social-links" aria-label="Réseaux sociaux">
+    <div className={`pub-social${dark ? " pub-social-dark" : ""}`} aria-label="Réseaux sociaux">
       {SOCIAL_NETWORKS.map((network) => (
         <a key={network.name} href={network.href} target="_blank" rel="noreferrer" aria-label={network.label} title={network.name}>
           <svg viewBox="0 0 24 24" aria-hidden="true">

@@ -1,128 +1,111 @@
 "use client";
 
-import { startTransition, useEffect, useRef, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, LogOut, Menu, UserRound, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, Megaphone, Menu, X } from "lucide-react";
 import SocialLinks from "./SocialLinks";
 
-type Props = {
-  active?: "accueil" | "offres" | "annonces" | "appels-offres";
-  adminButton?: boolean;
-};
+const LINKS = [
+  { href: "/offres", label: "Offres d’emploi" },
+  { href: "/annonces", label: "Annonces" },
+  { href: "/appels-offres", label: "Appels d’offres" },
+];
 
-export default function SiteHeader({ active, adminButton = false }: Props) {
-  const router = useRouter();
+// Lien « Administration » visible seulement quand l'administrateur est connecté dans cet onglet.
+function subscribe(callback: () => void) {
+  window.addEventListener("carrieres-admin-auth", callback);
+  return () => window.removeEventListener("carrieres-admin-auth", callback);
+}
+function adminConnected() {
+  try {
+    return Boolean(sessionStorage.getItem("carrieres-admin-token"));
+  } catch {
+    return false;
+  }
+}
+
+export function Brand() {
+  return (
+    <Link className="pub-brand" href="/" aria-label="Carrières RDC, accueil">
+      {/* eslint-disable-next-line @next/next/no-img-element -- logo statique */}
+      <img src="/LOGO/Logo.png" alt="" />
+      <span>
+        <strong>
+          Carrières <em>RDC</em>
+        </strong>
+        <small>Opportunités en RDC</small>
+      </span>
+    </Link>
+  );
+}
+
+export default function SiteHeader() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [adminConnected, setAdminConnected] = useState(false);
-  const headerRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    startTransition(() => {
-      setAdminConnected(Boolean(sessionStorage.getItem("carrieres-admin-token")));
-    });
-  }, []);
-
-  useEffect(() => {
-    document.body.classList.toggle("menu-open", open);
-    return () => document.body.classList.remove("menu-open");
-  }, [open]);
+  const isAdmin = useSyncExternalStore(subscribe, adminConnected, () => false);
 
   useEffect(() => {
     if (!open) return;
-
-    const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
-      if (headerRef.current?.contains(event.target as Node)) return;
-      setOpen(false);
-    };
-
-    document.addEventListener("mousedown", closeOnOutsideClick);
-    document.addEventListener("touchstart", closeOnOutsideClick);
-    return () => {
-      document.removeEventListener("mousedown", closeOnOutsideClick);
-      document.removeEventListener("touchstart", closeOnOutsideClick);
-    };
+    const close = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
   }, [open]);
 
-  const links = (
-    <>
-      <Link href="/offres" className={active === "offres" ? "active" : undefined}>
-        Offres d’emploi
-      </Link>
-      <Link href="/annonces" className={active === "annonces" ? "active" : undefined}>
-        Annonces
-      </Link>
-      <Link href="/appels-offres" className={active === "appels-offres" ? "active" : undefined}>
-        Appels d’offres
-      </Link>
-      {adminButton ? null : <Link href="/#contact">Contact</Link>}
-    </>
-  );
-
-  if (adminButton) {
-    return (
-      <header className="site-header admin-header">
-        <Link className="brand" href="/" aria-label="Carrières RDC, accueil">
-          <span className="brand-emblem">
-            <img src="/LOGO/Logo.png" alt="Logo Carrières RDC" />
-          </span>
-          <span className="brand-name">
-            <span className="brand-title">Carrières <strong>RDC</strong></span>
-            <span className="brand-tagline">Opportunités en RDC</span>
-          </span>
-        </Link>
-        <Link className="header-button" href="/">
-          <ArrowLeft size={17} /> Retour au site
-        </Link>
-      </header>
-    );
-  }
+  const isActive = (href: string) => pathname === href || (href === "/offres" && pathname.startsWith("/offre/"));
+  const navLinks = LINKS.map((link) => (
+    <Link
+      key={link.href}
+      href={link.href}
+      className={isActive(link.href) ? "is-active" : undefined}
+      aria-current={isActive(link.href) ? "page" : undefined}
+      onClick={() => setOpen(false)}
+    >
+      {link.label}
+    </Link>
+  ));
 
   return (
-    <header ref={headerRef} className={`site-header public-header${open ? " menu-open" : ""}`}>
-      <div className="header-brand-row">
-        <Link className="brand" href="/" aria-label="Carrière RDC, accueil">
-          <span className="brand-emblem">
-            <img src="/LOGO/Logo.png" alt="Logo Carrières RDC" />
-          </span>
-          <span className="brand-name">
-            <span className="brand-title">Carrières <strong>RDC</strong></span>
-            <span className="brand-tagline">Opportunités en RDC</span>
-          </span>
-        </Link>
-      </div>
-      <div className="header-navigation-row">
-        <SocialLinks />
-        <nav className="main-nav" aria-label="Navigation principale" onClick={() => setOpen(false)}>
-          {links}
+    <header className={`pub-header${open ? " is-open" : ""}`}>
+      <div className="pub-container pub-header-inner">
+        <Brand />
+        <nav className="pub-nav" aria-label="Navigation principale">
+          {navLinks}
         </nav>
-        {adminConnected && (
-          <div className="account-actions">
-            <Link className="login-link header-account-link" href="/admin">
-              <UserRound size={15} /> Administration
+        <div className="pub-header-actions">
+          {isAdmin && (
+            <Link className="pub-admin-link" href="/admin">
+              <LayoutDashboard size={16} /> Administration
             </Link>
-            <button
-              type="button"
-              className="signup-link header-logout-btn"
-              onClick={() => {
-                sessionStorage.removeItem("carrieres-admin-token");
-                setAdminConnected(false);
-                router.push("/");
-              }}
-            >
-              <LogOut size={15} /> Déconnexion
-            </button>
-          </div>
-        )}
-        <button
-          className="menu-toggle"
-          type="button"
-          aria-label="Ouvrir le menu"
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-        >
-          {open ? <X size={17} /> : <Menu size={17} />}
-        </button>
+          )}
+          <SocialLinks />
+          <Link className="pub-btn pub-btn-gold" href="/#recruteurs">
+            <Megaphone size={16} /> Publier une offre
+          </Link>
+          <button
+            type="button"
+            className="pub-menu-toggle"
+            aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+      </div>
+      <div className="pub-mobile-panel">
+        <nav aria-label="Navigation mobile">
+          {navLinks}
+          {isAdmin && (
+            <Link href="/admin" onClick={() => setOpen(false)}>
+              Administration
+            </Link>
+          )}
+        </nav>
+        <SocialLinks />
+        <Link className="pub-btn pub-btn-gold pub-btn-block" href="/#recruteurs" onClick={() => setOpen(false)}>
+          <Megaphone size={16} /> Publier une offre
+        </Link>
       </div>
     </header>
   );

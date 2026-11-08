@@ -1,18 +1,11 @@
 import type { Metadata } from "next";
-import SiteHeader from "../components/SiteHeader";
 import AdminContent from "../components/AdminContent";
 
 export const metadata: Metadata = {
   title: "Administration — Carrières RDC",
+  robots: { index: false, follow: false },
 };
 
 export default function Page() {
-  return (
-    <div className="admin-page">
-      <SiteHeader adminButton />
-      <main className="admin-main">
-        <AdminContent />
-      </main>
-    </div>
-  );
+  return <AdminContent />;
 }

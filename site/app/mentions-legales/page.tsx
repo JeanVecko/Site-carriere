@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import SiteHeader from "../components/SiteHeader";
-import CategoryFooter from "../components/CategoryFooter";
+import SiteFooter from "../components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Mentions légales et confidentialité — Carrières RDC",
@@ -12,10 +12,8 @@ export default function LegalPage() {
   return (
     <>
       <SiteHeader />
-      <main className="legal-page">
-        <p className="eyebrow">
-          <span className="eyebrow-line"></span> Informations
-        </p>
+      <main className="pub-container">
+        <article className="pub-prose-page">
         <h1>Mentions légales et confidentialité</h1>
 
         <h2>Rôle du site</h2>
@@ -47,8 +45,9 @@ export default function LegalPage() {
 
         <h2>Contact</h2>
         <p>Pour toute question ou demande de retrait d’une offre, utilisez le formulaire de contact en bas de la page d’accueil.</p>
+        </article>
       </main>
-      <CategoryFooter />
+      <SiteFooter />
     </>
   );
 }

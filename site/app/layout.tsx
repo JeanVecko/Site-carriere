@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import "./styles.css";
+import "./public.css";
+import "./admin.css";
 
 export const metadata: Metadata = {
   title: "Carrières RDC — Offres et annonces",

@@ -4,79 +4,85 @@ import { useState } from "react";
 import Link from "next/link";
 import { Mail, Send } from "lucide-react";
 import { apiRequest } from "../lib/api";
+import SocialLinks from "./SocialLinks";
+import { Brand } from "./SiteHeader";
 
-export default function SiteFooter() {
+// Pied de page commun. Le formulaire de contact n'est affiché que sur l'accueil (withContact).
+export default function SiteFooter({ withContact = false }: { withContact?: boolean }) {
   const [feedback, setFeedback] = useState("");
+  const [pending, setPending] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    const data = Object.fromEntries(new FormData(form));
+    setPending(true);
     try {
-      await apiRequest("/messages", { method: "POST", body: JSON.stringify(data) });
+      await apiRequest("/messages", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+      form.reset();
+      setFeedback("Merci ! Votre message a bien été envoyé.");
     } catch {
-      // Le message n'est pas arrivé : on ne prétend pas le contraire.
       setFeedback("L’envoi a échoué. Réessayez dans un instant ou écrivez-nous par e-mail.");
-      return;
+    } finally {
+      setPending(false);
     }
-    form.reset();
-    setFeedback("Votre message a bien été envoyé.");
   }
 
   return (
-    <footer id="contact" className="site-footer">
-      <div className="footer-contact">
-        <div className="footer-message">
-          <h2>
-            Une <em>question ?</em>
-          </h2>
-          <p>Écrivez-nous, ou signalez une offre qui vous semble suspecte.</p>
+    <footer className="pub-footer" id="contact">
+      <div className="pub-container pub-footer-grid">
+        <div>
+          <Brand />
+          <p className="pub-footer-about">
+            Offres d’emploi, annonces et appels d’offres en République démocratique du Congo, publiés chaque jour.
+          </p>
+          <SocialLinks dark />
         </div>
-        <div className="footer-details">
-          <p className="footer-label">Contactez-nous</p>
-          <a href="mailto:contact@carrieresrdc.cd" className="footer-contact-link">
-            <Mail size={19} />
-            <span>contact@carrieresrdc.cd</span>
+
+        <div>
+          <h3>Explorer</h3>
+          <ul className="pub-footer-links">
+            <li><Link href="/offres">Offres d’emploi</Link></li>
+            <li><Link href="/annonces">Annonces</Link></li>
+            <li><Link href="/appels-offres">Appels d’offres</Link></li>
+            <li><Link href="/#recruteurs">Publier une offre</Link></li>
+            <li><Link href="/mentions-legales">Mentions légales</Link></li>
+          </ul>
+        </div>
+
+        <div className="pub-footer-contact">
+          <h3>Nous contacter</h3>
+          <a className="pub-footer-mail" href="mailto:contact@carrieresrdc.cd">
+            <Mail size={16} /> contact@carrieresrdc.cd
           </a>
-          <form className="contact-form" onSubmit={handleSubmit}>
-            <label>
-              Votre nom
-              <input name="name" type="text" placeholder="Nom complet" required />
-            </label>
-            <label>
-              Votre e-mail
-              <input name="email" type="email" placeholder="vous@exemple.cd" required />
-            </label>
-            <label>
-              Sujet
-              <input name="subject" type="text" placeholder="Objet de votre message" required />
-            </label>
-            <label>
-              Votre message
-              <textarea
-                name="message"
-                rows={2}
-                placeholder="Écrivez votre message ici..."
-                required
-              ></textarea>
-            </label>
-            <button className="button button-light" type="submit">
-              Envoyer le message <Send size={16} />
-            </button>
-            <p className="form-feedback" role="status">
-              {feedback}
-            </p>
-          </form>
+          {withContact ? (
+            <form className="pub-contact-form" onSubmit={handleSubmit}>
+              <input name="name" type="text" placeholder="Votre nom" aria-label="Votre nom" required />
+              <input name="email" type="email" placeholder="Votre e-mail" aria-label="Votre e-mail" required />
+              <input className="pub-span" name="subject" type="text" placeholder="Sujet (ex. publier une offre, signaler une offre)" aria-label="Sujet" required />
+              <textarea className="pub-span" name="message" rows={3} placeholder="Votre message" aria-label="Votre message" required />
+              <button className="pub-btn pub-btn-gold pub-span" type="submit" disabled={pending}>
+                <Send size={16} /> {pending ? "Envoi…" : "Envoyer le message"}
+              </button>
+              {feedback && (
+                <p className="pub-form-feedback pub-span" role="status">
+                  {feedback}
+                </p>
+              )}
+            </form>
+          ) : (
+            <Link className="pub-btn pub-btn-light" href="/#contact">
+              Écrire un message
+            </Link>
+          )}
         </div>
       </div>
-      <div className="footer-bottom">
-        <span>
-          Carrière <strong>RDC</strong>
-        </span>
-        <span>
-          © {new Date().getFullYear()} Carrières RDC ·{" "}
-          <Link className="footer-legal-link" href="/mentions-legales">Mentions légales</Link>
-        </span>
+      <div className="pub-footer-bottom">
+        <div className="pub-container">
+          <span>© {new Date().getFullYear()} Carrières RDC. Tous droits réservés.</span>
+          <span>
+            <Link href="/mentions-legales">Mentions légales et confidentialité</Link>
+          </span>
+        </div>
       </div>
     </footer>
   );
