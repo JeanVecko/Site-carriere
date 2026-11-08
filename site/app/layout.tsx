@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./styles.css";
 
 export const metadata: Metadata = {
@@ -18,7 +19,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Vercel Web Analytics (sans cookies) : actif seulement sur le site déployé par Vercel. */}
+        {process.env.VERCEL === "1" && (
+          <>
+            <Script id="vercel-analytics-queue" strategy="afterInteractive">
+              {"window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };"}
+            </Script>
+            <Script src="/_vercel/insights/script.js" strategy="afterInteractive" />
+          </>
+        )}
+      </body>
     </html>
   );
 }

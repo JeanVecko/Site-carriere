@@ -140,6 +140,8 @@ async function initializeDatabase() {
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS apply_contact TEXT NOT NULL DEFAULT ''");
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS source_url TEXT NOT NULL DEFAULT ''");
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS salary TEXT NOT NULL DEFAULT ''");
+  // Nombre de consultations de chaque offre (affiché dans le panneau admin)
+  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS views INTEGER NOT NULL DEFAULT 0');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -726,7 +728,7 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
   const result = await pool.query(
     `SELECT a.id, a.title, a.category, a.company, a.location, a.description, a.contract_type,
             to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
-            jsonb_array_length(a.media) AS media_count, a.created_at,
+            jsonb_array_length(a.media) AS media_count, a.views, a.created_at,
             u.email AS author_email, o.name AS organization_name
      FROM announcements a
      LEFT JOIN users u ON u.id = a.owner_id
@@ -745,6 +747,27 @@ app.post('/api/announcements', requireAdmin, async (request, response) => {
     values
   );
   response.status(201).json(result.rows[0]);
+});
+
+// Compteur de vues : appelé par la page d'une offre. Un même visiteur (adresse IP) n'est compté
+// qu'une fois par offre et par période de 30 minutes ; les robots d'indexation sont ignorés.
+const recentViews = new Map();
+const VIEW_WINDOW_MS = 30 * 60 * 1000;
+const BOT_PATTERN = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|preview|curl|wget|python|headless/i;
+app.post('/api/announcements/:id/view', async (request, response) => {
+  const id = request.params.id;
+  if (!/^\d+$/.test(id)) return response.status(404).end();
+  if (BOT_PATTERN.test(request.get('user-agent') || '')) return response.status(204).end();
+  const ip = String(request.get('x-forwarded-for') || request.socket.remoteAddress || '').split(',')[0].trim();
+  const key = `${ip}:${id}`;
+  const now = Date.now();
+  if (now - (recentViews.get(key) || 0) < VIEW_WINDOW_MS) return response.status(204).end();
+  recentViews.set(key, now);
+  if (recentViews.size > 50000) {
+    for (const [entry, time] of recentViews) if (now - time >= VIEW_WINDOW_MS) recentViews.delete(entry);
+  }
+  await pool.query('UPDATE announcements SET views = views + 1 WHERE id = $1', [id]);
+  response.status(204).end();
 });
 
 app.delete('/api/announcements/:id', requireAdmin, async (request, response) => {

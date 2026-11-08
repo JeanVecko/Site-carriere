@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { ArrowLeft, CalendarClock, FileText, MapPin, ShieldAlert } from "lucide-react";
 import SiteHeader from "../../components/SiteHeader";
 import CategoryFooter from "../../components/CategoryFooter";
+import ViewTracker from "../../components/ViewTracker";
 import { applyLink, detailHref, formatDate, isExpired, paragraphs, type Announcement } from "../../lib/api";
 import { fetchAnnouncement, SITE_URL } from "../../lib/server";
 
@@ -98,6 +99,7 @@ export default async function OfferPage({ params }: Props) {
   return (
     <>
       <SiteHeader />
+      <ViewTracker id={String(item.id)} />
       {isJob && !expired && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jobPostingJsonLd(item) }} />
       )}

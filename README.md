@@ -88,6 +88,11 @@ Ne jamais placer ces secrets dans `site/` ni dans une variable `NEXT_PUBLIC_*`.
 
 L'URL obtenue ressemble à `https://carrieres-rdc-api.onrender.com`.
 
+### Statistiques de fréquentation
+
+- **Vues par offre** : chaque consultation d'une offre est comptée (une fois par visiteur et par offre toutes les 30 minutes, robots exclus). Les chiffres s'affichent dans `/admin`, à côté de chaque offre, avec le total en haut du panneau.
+- **Visiteurs du site** : Vercel Web Analytics, sans cookies. À activer une fois dans Vercel : projet → onglet **Analytics** → **Enable**. Les statistiques (visiteurs, pages vues, pays, appareils, provenance) apparaissent ensuite dans ce même onglet. Rien n'est envoyé en développement local.
+
 ### Site sur Vercel
 
 1. Importer le dépôt `JeanVecko/Site-carriere` dans Vercel.

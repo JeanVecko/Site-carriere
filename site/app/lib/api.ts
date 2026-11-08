@@ -18,6 +18,7 @@ export type Announcement = {
   created_at?: string;
   media?: AnnouncementMedia[];
   media_count?: number;
+  views?: number;
   contract_type?: string;
   deadline?: string | null;
   apply_contact?: string;

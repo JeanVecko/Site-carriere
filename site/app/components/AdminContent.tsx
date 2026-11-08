@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, FileUp, LogOut, RefreshCw, Send, Trash2 } from "lucide-react";
+import { ArrowRight, Eye, FileUp, LogOut, RefreshCw, Send, Trash2 } from "lucide-react";
 import {
   Announcement,
   AnnouncementMedia,
@@ -24,6 +24,7 @@ export default function AdminContent() {
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [loginFeedback, setLoginFeedback] = useState("");
   const [adminFeedback, setAdminFeedback] = useState("");
+  const totalViews = announcements.reduce((total, item) => total + Number(item.views || 0), 0);
 
   const loadAnnouncements = useCallback(async () => {
     try {
@@ -172,6 +173,9 @@ export default function AdminContent() {
           </p>
           <h1 id="dashboard-title">Centre de <em>contrôle.</em></h1>
           <p className="admin-dashboard-subtitle">Publiez vos offres et gérez les messages reçus</p>
+          <p className="admin-views-total">
+            <Eye size={15} /> {totalViews.toLocaleString("fr-FR")} consultation{totalViews > 1 ? "s" : ""} d’offres au total
+          </p>
         </div>
         <button
           className="text-button"
@@ -296,6 +300,9 @@ export default function AdminContent() {
                       {isExpired(item) ? "Expirée" : "Date limite"} : {formatDate(item.deadline)}
                     </p>
                   )}
+                  <p className="media-status admin-views">
+                    <Eye size={13} /> {Number(item.views || 0).toLocaleString("fr-FR")} vue{Number(item.views || 0) > 1 ? "s" : ""}
+                  </p>
                   {Number(item.media_count) > 0 && <p className="media-status">Document{Number(item.media_count) > 1 ? "s" : ""} joint{Number(item.media_count) > 1 ? "s" : ""} : {item.media_count}</p>}
                   <small className="admin-announcement-detail-hint">Voir le détail</small>
                   </div>
