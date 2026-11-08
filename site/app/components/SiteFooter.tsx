@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Phone, Send } from "lucide-react";
+import Link from "next/link";
+import { Mail, Send } from "lucide-react";
 import { apiRequest } from "../lib/api";
 
 export default function SiteFooter() {
@@ -14,9 +15,9 @@ export default function SiteFooter() {
     try {
       await apiRequest("/messages", { method: "POST", body: JSON.stringify(data) });
     } catch {
-      const messages = JSON.parse(localStorage.getItem("carrieres-rdc-messages") || "[]");
-      messages.unshift({ ...data, date: new Date().toLocaleString("fr-FR") });
-      localStorage.setItem("carrieres-rdc-messages", JSON.stringify(messages));
+      // Le message n'est pas arrivé : on ne prétend pas le contraire.
+      setFeedback("L’envoi a échoué. Réessayez dans un instant ou écrivez-nous par e-mail.");
+      return;
     }
     form.reset();
     setFeedback("Votre message a bien été envoyé.");
@@ -26,28 +27,16 @@ export default function SiteFooter() {
     <footer id="contact" className="site-footer">
       <div className="footer-contact">
         <div className="footer-message">
-          <p className="eyebrow eyebrow-light">
-            <span className="eyebrow-line"></span> Vous avez une offre ?
-          </p>
           <h2>
-            Vous êtes au
-            <br />
-            <em>bon endroit.</em>
+            Une <em>question ?</em>
           </h2>
-          <p>
-            Besoin de publier une offre ou une annonce ? Carrières RDC vous accompagne pour toucher
-            les bons profils.
-          </p>
+          <p>Écrivez-nous, ou signalez une offre qui vous semble suspecte.</p>
         </div>
         <div className="footer-details">
           <p className="footer-label">Contactez-nous</p>
           <a href="mailto:contact@carrieresrdc.cd" className="footer-contact-link">
             <Mail size={19} />
             <span>contact@carrieresrdc.cd</span>
-          </a>
-          <a href="tel:+243810000000" className="footer-contact-link">
-            <Phone size={19} />
-            <span>+243 81 000 00 00</span>
           </a>
           <form className="contact-form" onSubmit={handleSubmit}>
             <label>
@@ -84,8 +73,10 @@ export default function SiteFooter() {
         <span>
           Carrière <strong>RDC</strong>
         </span>
-        <span>Les opportunités sont partout.</span>
-        <span>© 2026 Carrières RDC</span>
+        <span>
+          © {new Date().getFullYear()} Carrières RDC ·{" "}
+          <Link className="footer-legal-link" href="/mentions-legales">Mentions légales</Link>
+        </span>
       </div>
     </footer>
   );

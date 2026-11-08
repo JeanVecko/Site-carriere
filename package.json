@@ -1,0 +1,14 @@
+{
+  "name": "carrieres-rdc",
+  "private": true,
+  "description": "Carrières RDC : site (site/) et API (server/). Commandes à lancer depuis la racine.",
+  "scripts": {
+    "postinstall": "npm install --prefix server && npm install --prefix site",
+    "dev": "node scripts/dev.mjs",
+    "dev:api": "npm run dev --prefix server",
+    "dev:site": "npm run dev --prefix site",
+    "build": "npm run build --prefix site",
+    "start": "npm start --prefix server",
+    "lint": "npm run lint --prefix site"
+  }
+}

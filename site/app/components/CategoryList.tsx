@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpRight, FileText, MapPin, Search } from "lucide-react";
-import { Announcement, apiRequest, detailHref, escapeHtml, paragraphs } from "../lib/api";
+import { ArrowUpRight, Search } from "lucide-react";
+import { Announcement, apiRequest, isExpired } from "../lib/api";
+import AnnouncementCard from "./AnnouncementCard";
 
 const LABELS: Record<string, string> = {
   jobs: "Offre d’emploi",
@@ -19,16 +21,17 @@ const DISPLAY: Record<string, string> = {
 
 export default function CategoryList({ category }: { category: string }) {
   const [items, setItems] = useState<Announcement[]>([]);
-  const [search, setSearch] = useState("");
+  // Recherche lancée depuis la page d'accueil : /offres?q=comptable
+  const [search, setSearch] = useState(useSearchParams().get("q") ?? "");
 
   useEffect(() => {
     (async () => {
       try {
-        setItems(
-          await apiRequest<Announcement[]>(
-            `/announcements?category=${encodeURIComponent(LABELS[category])}`
-          )
+        const list = await apiRequest<Announcement[]>(
+          `/announcements?category=${encodeURIComponent(LABELS[category])}`
         );
+        // Offres encore ouvertes d'abord, les offres expirées à la fin.
+        setItems([...list].sort((a, b) => Number(isExpired(a)) - Number(isExpired(b))));
       } catch {
         setItems([]);
       }
@@ -79,41 +82,13 @@ export default function CategoryList({ category }: { category: string }) {
               onChange={(event) => setSearch(event.target.value)}
             />
           </label>
-          <Link className="text-button" href="/#annonces">
+          <Link className="text-button" href="/">
             Retour à l’accueil <ArrowUpRight size={15} />
           </Link>
         </div>
         <div className="category-list" id="category-list">
           {visible.map((item) => (
-            <Link
-              key={String(item.id ?? item.title)}
-              className="announcement-card category-item"
-              href={detailHref(item)}
-            >
-              <div className="card-meta">
-                <span className="tag">{escapeHtml(item.category || LABELS[category])}</span>
-                <span className="date">
-                  {item.created_at
-                    ? new Date(item.created_at).toLocaleDateString("fr-FR")
-                    : "Récent"}
-                </span>
-              </div>
-              <h3>{escapeHtml(item.title)}</h3>
-              <span className="company">{escapeHtml(item.company)}</span>
-              <p className="category-description">
-                {escapeHtml(paragraphs(String(item.description))[0] || "")}
-              </p>
-              <span className="location">
-                <MapPin size={14} />
-                {escapeHtml(item.location)}
-              </span>
-              <span className="detail-hint">
-                Voir le détail complet <ArrowUpRight size={13} />
-              </span>
-              {item.media && item.media.length > 0 && (
-                <span className="media-status"><FileText size={13} /> {item.media.length} document{item.media.length > 1 ? "s" : ""} joint{item.media.length > 1 ? "s" : ""}</span>
-              )}
-            </Link>
+            <AnnouncementCard key={String(item.id ?? item.title)} item={item} />
           ))}
         </div>
         <div className="empty-state" id="category-empty" hidden={visible.length > 0}>

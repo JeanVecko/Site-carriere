@@ -6,6 +6,7 @@ export default function CategoryFooter() {
       <span>
         Carrières <strong>RDC</strong>
       </span>
+      <Link href="/mentions-legales">Mentions légales</Link>
       <Link href="/">Retour à l’accueil</Link>
     </footer>
   );

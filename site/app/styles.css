@@ -2672,3 +2672,105 @@ h2 {
 .admin-page .admin-stat-card span {
   font-size: 11px;
 }
+
+/* ===== Page d'offre : informations normalisées ===== */
+.offer-facts { border-top: 1px solid var(--line); display: grid; gap: 14px 24px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin: 22px 0 6px; padding-top: 18px; }
+.offer-facts div { display: flex; flex-direction: column; gap: 3px; }
+.offer-facts dt { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.offer-facts dd { color: var(--ink); font-size: 14px; font-weight: 600; margin: 0; }
+.offer-apply { background: var(--cream); border-left: 3px solid var(--orange); margin-top: 24px; padding: 16px 18px; }
+.offer-apply h2 { align-items: center; color: var(--ink); display: flex; font-size: 15px; gap: 8px; margin: 0 0 8px; }
+.offer-apply a { color: var(--ink); font-weight: 700; overflow-wrap: anywhere; text-decoration: underline; }
+.offer-apply p { margin: 0; overflow-wrap: anywhere; }
+.offer-apply.is-expired { border-left-color: var(--muted); opacity: .8; }
+.offer-expired-badge { background: #fbe9e5; color: #a33a22; display: inline-block; font-size: 11px; font-weight: 700; margin-left: 8px; padding: 4px 9px; }
+.offer-warning { align-items: flex-start; border: 1px solid var(--line); color: var(--muted); display: flex; font-size: 12px; gap: 10px; line-height: 1.6; margin-top: 26px; padding: 14px 16px; }
+.offer-warning svg { color: var(--orange); flex-shrink: 0; margin-top: 2px; }
+.offer-warning p { margin: 0; }
+.offer-warning strong { color: var(--ink); }
+.offer-source { color: var(--muted); font-size: 12px; margin-top: 14px; }
+.offer-source a { color: var(--ink); text-decoration: underline; }
+.card-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.card-deadline { color: var(--muted); font-size: 11px; }
+.card-deadline.is-expired { color: #a33a22; font-weight: 700; }
+.category-item.is-expired { opacity: .65; }
+.legal-page { margin: 0 auto; max-width: 760px; padding: 48px 20px 72px; }
+.legal-page h1 { color: var(--ink); }
+.legal-page h2 { color: var(--ink); font-size: 18px; margin-top: 28px; }
+.legal-page p, .legal-page li { color: var(--muted); line-height: 1.7; }
+.footer-legal-link { color: inherit; text-decoration: underline; }
+
+/* ===== Accueil ===== */
+.home-hero { background: var(--ink); color: var(--paper); padding: 30px clamp(16px, 6vw, 80px) 28px; text-align: center; }
+.home-hero h1 { font-family: 'Space Grotesk', sans-serif; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.8px; line-height: 1.15; margin: 0 auto; max-width: 760px; }
+.home-hero h1 em { color: var(--orange); font-style: normal; }
+.home-hero > p { color: #c9d5e5; font-size: 13px; margin: 8px auto 18px; }
+.home-search { align-items: center; background: var(--paper); display: flex; gap: 10px; margin: 0 auto; max-width: 560px; padding: 4px 4px 4px 14px; }
+.home-search svg { color: var(--orange); flex-shrink: 0; }
+.home-search input { border: 0; color: var(--ink); flex: 1; font: inherit; font-size: 14px; min-width: 0; outline: 0; padding: 8px 0; }
+.home-search button { background: var(--orange); border: 0; color: var(--ink); cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; padding: 9px 18px; }
+.home-search button:hover { filter: brightness(1.07); }
+.home-categories { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+.home-categories a { align-items: center; border: 1px solid #55709a; color: var(--paper); display: inline-flex; font-size: 12px; font-weight: 600; gap: 7px; padding: 6px 11px; text-decoration: none; }
+.home-categories a:hover { border-color: var(--orange); }
+.home-categories span { background: var(--orange); color: var(--ink); font-size: 11px; font-weight: 700; min-width: 20px; padding: 1px 6px; text-align: center; }
+.home-latest { margin: 0 auto; max-width: 1180px; padding: 30px clamp(16px, 5vw, 40px) 36px; }
+.home-latest-heading { align-items: baseline; display: flex; gap: 16px; justify-content: space-between; margin-bottom: 18px; }
+.home-latest-heading h2 { color: var(--ink); font-family: 'Space Grotesk', sans-serif; font-size: clamp(24px, 3vw, 32px); margin: 0; }
+.home-latest-heading a { align-items: center; color: var(--ink); display: inline-flex; font-size: 13px; font-weight: 700; gap: 6px; white-space: nowrap; }
+.home-tiktok { align-items: center; background: var(--cream); display: flex; flex-wrap: wrap; gap: 14px 24px; justify-content: center; margin: 0 auto 48px; max-width: 1100px; padding: 22px clamp(16px, 4vw, 32px); text-align: center; }
+.home-tiktok p { color: var(--ink); margin: 0; }
+.home-tiktok a { align-items: center; background: var(--ink); color: var(--paper); display: inline-flex; font-size: 13px; font-weight: 700; gap: 8px; padding: 11px 18px; text-decoration: none; }
+@media (max-width: 560px) {
+  .home-hero { padding-top: 22px; padding-bottom: 22px; }
+  .home-search { flex-wrap: wrap; padding: 6px 6px 6px 12px; }
+  .home-search button { width: 100%; }
+}
+
+/* ===== Accueil : liste compacte des dernières offres ===== */
+.home-latest { max-width: 920px; }
+.home-latest > h2 { color: var(--ink); font-family: 'Space Grotesk', sans-serif; font-size: clamp(20px, 2.4vw, 26px); margin: 0 0 12px; }
+.offer-rows { border-top: 1px solid var(--line); list-style: none; margin: 0; padding: 0; }
+.offer-rows li { border-bottom: 1px solid var(--line); }
+.offer-row { align-items: center; color: inherit; display: flex; gap: 16px; padding: 13px 8px; text-decoration: none; transition: background .15s; }
+.offer-row:hover, .offer-row:focus-visible { background: var(--paper); }
+.offer-row-main { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+.offer-row-main strong { color: var(--ink); font-size: 15px; }
+.offer-row-meta { align-items: center; color: var(--muted); display: flex; flex-wrap: wrap; font-size: 12px; gap: 3px 4px; }
+.offer-row-meta svg { color: var(--orange); }
+.offer-row-meta .tag { margin-left: 6px; padding: 2px 7px; }
+.offer-row-dates { align-items: flex-end; color: var(--muted); display: flex; flex-direction: column; font-size: 11px; gap: 3px; text-align: right; white-space: nowrap; }
+.offer-row-deadline { color: var(--ink); font-weight: 600; }
+.offer-row-arrow { color: var(--orange); flex-shrink: 0; }
+.home-more { display: flex; justify-content: center; margin-top: 22px; }
+.home-more-button { align-items: center; background: var(--ink); color: var(--paper); display: inline-flex; font-size: 14px; font-weight: 700; gap: 8px; padding: 12px 22px; text-decoration: none; }
+.home-more-button:hover { filter: brightness(1.15); }
+@media (max-width: 560px) {
+  .offer-row { align-items: flex-start; flex-wrap: wrap; gap: 6px 10px; }
+  .offer-row-dates { align-items: flex-start; flex-direction: row; gap: 10px; order: 3; text-align: left; width: 100%; }
+  .offer-row-arrow { display: none; }
+}
+
+/* ===== Accueil : bandeau recruteurs ===== */
+.home-recruiters { align-items: center; background: linear-gradient(120deg, #fff8e1 0%, var(--paper) 60%); border: 1px solid #f0dc9c; border-left: 4px solid var(--orange); box-shadow: 0 10px 30px rgba(9, 45, 99, .07); display: flex; gap: 22px; margin: 28px auto 0; max-width: 840px; padding: 22px 26px; width: calc(100% - 2 * clamp(16px, 5vw, 40px)); box-sizing: border-box; }
+.home-recruiters-icon { align-items: center; background: var(--ink); border-radius: 50%; color: var(--orange); display: flex; flex-shrink: 0; height: 56px; justify-content: center; width: 56px; }
+.home-recruiters-text { flex: 1; min-width: 0; }
+.home-recruiters h2 { color: var(--ink); font-family: 'Space Grotesk', sans-serif; font-size: clamp(19px, 2.2vw, 24px); letter-spacing: -.4px; margin: 0 0 6px; }
+.home-recruiters h2 em { color: var(--orange); font-style: normal; }
+.home-recruiters p { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0 0 10px; }
+.home-recruiters ul { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0; padding: 0; }
+.home-recruiters li { align-items: center; color: var(--ink); display: inline-flex; font-size: 12px; font-weight: 600; gap: 6px; }
+.home-recruiters li svg { color: #2e9d5b; }
+.home-recruiters-button { align-items: center; background: var(--orange); color: var(--ink); display: inline-flex; flex-shrink: 0; font-size: 14px; font-weight: 700; gap: 8px; padding: 13px 20px; text-decoration: none; transition: transform .15s, box-shadow .15s; }
+.home-recruiters-button:hover { box-shadow: 0 6px 16px rgba(217, 164, 0, .35); transform: translateY(-1px); }
+@media (max-width: 720px) {
+  .home-recruiters { align-items: flex-start; flex-direction: column; gap: 14px; padding: 20px; }
+  .home-recruiters-icon { height: 46px; width: 46px; }
+  .home-recruiters-button { justify-content: center; width: 100%; box-sizing: border-box; }
+}
+
+/* ===== Réseaux sociaux ===== */
+.social-links { display: flex; gap: 8px; }
+.home-social-buttons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.home-tiktok .home-social-buttons a { align-items: center; display: inline-flex; gap: 7px; padding: 9px 14px; }
+.home-social-buttons svg { height: 16px; width: 16px; }

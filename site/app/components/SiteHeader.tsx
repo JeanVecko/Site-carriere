@@ -4,23 +4,21 @@ import { startTransition, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, LogOut, Menu, UserRound, X } from "lucide-react";
-import { clearSession, dashboardHref, getSession, type SessionUser } from "../lib/api";
+import SocialLinks from "./SocialLinks";
 
 type Props = {
-  active?: "accueil" | "offres" | "annonces" | "appels-offres" | "connexion" | "inscription";
+  active?: "accueil" | "offres" | "annonces" | "appels-offres";
   adminButton?: boolean;
 };
 
 export default function SiteHeader({ active, adminButton = false }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [session, setSession] = useState<SessionUser | null>(null);
   const [adminConnected, setAdminConnected] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     startTransition(() => {
-      setSession(getSession());
       setAdminConnected(Boolean(sessionStorage.getItem("carrieres-admin-token")));
     });
   }, []);
@@ -94,48 +92,28 @@ export default function SiteHeader({ active, adminButton = false }: Props) {
         </Link>
       </div>
       <div className="header-navigation-row">
-        <div className="social-links" aria-label="Réseaux sociaux">
-          <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook Carrières RDC">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="currentColor" d="M13.7 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.3-1.5 1.6-1.5h1.7V3.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.2v2.2H7.7V13h2.8v8h3.2Z" />
-            </svg>
-          </a>
-          <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" aria-label="LinkedIn Carrières RDC">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="currentColor" d="M6.5 8.4A1.9 1.9 0 1 0 6.5 4.6a1.9 1.9 0 0 0 0 3.8ZM4.9 20h3.2v-10H4.9v10Zm5.2 0h3.2v-5.6c0-1.5.3-2.9 2.1-2.9 1.8 0 1.8 1.7 1.8 3V20h3.2v-6.2c0-3-.6-5.3-4.1-5.3-1.7 0-2.8.9-3.3 1.8h-.1V10h-3v10Z" />
-            </svg>
-          </a>
-        </div>
+        <SocialLinks />
         <nav className="main-nav" aria-label="Navigation principale" onClick={() => setOpen(false)}>
           {links}
         </nav>
-        <div className="account-actions">
-          {session || adminConnected ? (
-            <>
-              <Link className="login-link header-account-link" href={adminConnected ? "/admin" : dashboardHref(session?.role)}>
-                <UserRound size={15} /> {adminConnected ? "Superadmin" : "Mon espace"}
-              </Link>
-              <button
-                type="button"
-                className="signup-link header-logout-btn"
-                onClick={() => {
-                  clearSession();
-                  sessionStorage.removeItem("carrieres-admin-token");
-                  setSession(null);
-                  setAdminConnected(false);
-                  router.push("/");
-                }}
-              >
-                <LogOut size={15} /> Déconnexion
-              </button>
-            </>
-          ) : (
-            <>
-              <Link className={`login-link${active === "connexion" ? " active" : ""}`} href="/connexion">Se connecter</Link>
-              <Link className={`signup-link${active === "inscription" ? " active" : ""}`} href="/inscription">S’inscrire</Link>
-            </>
-          )}
-        </div>
+        {adminConnected && (
+          <div className="account-actions">
+            <Link className="login-link header-account-link" href="/admin">
+              <UserRound size={15} /> Administration
+            </Link>
+            <button
+              type="button"
+              className="signup-link header-logout-btn"
+              onClick={() => {
+                sessionStorage.removeItem("carrieres-admin-token");
+                setAdminConnected(false);
+                router.push("/");
+              }}
+            >
+              <LogOut size={15} /> Déconnexion
+            </button>
+          </div>
+        )}
         <button
           className="menu-toggle"
           type="button"

@@ -17,6 +17,12 @@ export type Announcement = {
   date?: string;
   created_at?: string;
   media?: AnnouncementMedia[];
+  media_count?: number;
+  contract_type?: string;
+  deadline?: string | null;
+  apply_contact?: string;
+  source_url?: string;
+  salary?: string;
   author_email?: string;
   organization_name?: string;
 };
@@ -35,51 +41,6 @@ export type ContactMessage = {
   id?: number | string;
   date?: string;
   created_at?: string;
-};
-
-export type AdminOverview = {
-  users: Array<{
-    id: number;
-    email: string;
-    role: string;
-    organization_role?: string;
-    account_status: "active" | "suspended";
-    organization_name?: string;
-    email_verified_at?: string;
-    created_at: string;
-  }>;
-  organizations: Array<{
-    id: number;
-    name: string;
-    plan: string;
-    plan_status: string;
-    account_status: "active" | "suspended";
-    owner_email?: string;
-    member_count: number;
-    created_at: string;
-  }>;
-  invitations: Array<{
-    id: number;
-    invited_email: string;
-    organization_name: string;
-    expires_at: string;
-    accepted_at?: string;
-    created_at: string;
-  }>;
-};
-
-export type DirectMessage = {
-  id: number;
-  subject: string;
-  body: string;
-  read_at?: string;
-  created_at: string;
-  announcement_id?: number;
-  announcement_title?: string;
-  sender_id: number;
-  sender_email: string;
-  recipient_id: number;
-  recipient_email: string;
 };
 
 export function adminHeaders(): Record<string, string> {
@@ -149,59 +110,65 @@ export function categoryFor(item: Announcement): string {
   );
 }
 
-export function detailHref(item: { id?: number | string; _id?: string }): string {
-  return `/detail?id=${encodeURIComponent(String(item.id ?? item._id ?? ""))}`;
+// Réseaux où les offres sont aussi publiées (à renseigner dans les variables d'environnement).
+export const TIKTOK_URL = process.env.NEXT_PUBLIC_TIKTOK_URL || "https://www.tiktok.com/";
+export const FACEBOOK_URL = process.env.NEXT_PUBLIC_FACEBOOK_URL || "https://www.facebook.com/";
+export const WHATSAPP_CHANNEL_URL = process.env.NEXT_PUBLIC_WHATSAPP_CHANNEL_URL || "https://www.whatsapp.com/channel/";
+
+export const CONTRACT_TYPES =["CDI", "CDD", "Stage", "Consultance", "Temps partiel", "Intérim", "Bénévolat", "Autre"];
+
+export function slugify(value: string): string {
+  return String(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 70);
+}
+
+// Adresse publique d'une offre, lisible par les moteurs de recherche : /offre/12-comptable-kinshasa
+export function detailHref(item: { id?: number | string; _id?: string; title?: string }): string {
+  const id = String(item.id ?? item._id ?? "");
+  const slug = item.title ? slugify(item.title) : "";
+  return `/offre/${encodeURIComponent(slug ? `${id}-${slug}` : id)}`;
+}
+
+export function formatDate(value?: string | null): string {
+  if (!value) return "";
+  const date = new Date(value.length === 10 ? `${value}T12:00:00` : value);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+}
+
+// Une offre est expirée le lendemain de sa date limite.
+export function isExpired(item: { deadline?: string | null }): boolean {
+  if (!item.deadline) return false;
+  return new Date(`${item.deadline}T23:59:59`).getTime() < Date.now();
+}
+
+// Transforme le champ "comment postuler" en lien cliquable quand c'est un e-mail ou une URL.
+export function applyLink(contact?: string): string | null {
+  const value = String(contact || "").trim();
+  if (/^https?:\/\//i.test(value)) return value;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `mailto:${value}`;
+  return null;
+}
+
+// Certaines anciennes publications ont été enregistrées avec des entités HTML (&#39;, &amp;…).
+export function decodeEntities(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;|&#x27;/gi, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
 }
 
 export function paragraphs(value: string): string[] {
-  return String(value)
+  return decodeEntities(value)
     .split(/\n+|(?<=;)\s+/)
     .map((part) => part.trim())
     .filter(Boolean);
-}
-
-// ============ SESSION UTILISATEUR (candidat / recruteur) ============
-export type UserRole = "candidat" | "recruteur" | "admin";
-
-export type SessionUser = {
-  token: string;
-  role: UserRole;
-  email: string;
-};
-
-const TOKEN_KEY = "carrieres-token";
-const ROLE_KEY = "carrieres-role";
-const EMAIL_KEY = "carrieres-email";
-
-export function saveSession(session: SessionUser) {
-  localStorage.setItem(TOKEN_KEY, session.token);
-  localStorage.setItem(ROLE_KEY, session.role);
-  localStorage.setItem(EMAIL_KEY, session.email);
-}
-
-export function getSession(): SessionUser | null {
-  if (typeof window === "undefined") return null;
-  const token = localStorage.getItem(TOKEN_KEY);
-  const role = localStorage.getItem(ROLE_KEY) as UserRole | null;
-  const email = localStorage.getItem(EMAIL_KEY);
-  if (!token || !role || !email) return null;
-  return { token, role, email };
-}
-
-export function clearSession() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(ROLE_KEY);
-  localStorage.removeItem(EMAIL_KEY);
-}
-
-export function userHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const session = getSession();
-  return session ? { Authorization: `Bearer ${session.token}` } : {};
-}
-
-export function dashboardHref(role: UserRole | null | undefined): string {
-  if (role === "admin") return "/admin";
-  if (role === "recruteur") return "/dashboard/recruteur";
-  return "/dashboard/candidat";
 }

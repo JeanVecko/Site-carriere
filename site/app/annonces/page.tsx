@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import SiteHeader from "../components/SiteHeader";
 import CategoryList from "../components/CategoryList";
 import CategoryFooter from "../components/CategoryFooter";
@@ -11,7 +12,9 @@ export default function Page() {
   return (
     <>
       <SiteHeader active="annonces" />
-      <CategoryList category="notices" />
+      <Suspense fallback={null}>
+        <CategoryList category="notices" />
+      </Suspense>
       <CategoryFooter />
     </>
   );

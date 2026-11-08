@@ -2,16 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Ban, Building2, CheckCircle2, FileUp, LogOut, RefreshCw, Send, ShieldCheck, Trash2, Users } from "lucide-react";
+import { ArrowRight, FileUp, LogOut, RefreshCw, Send, Trash2 } from "lucide-react";
 import {
   Announcement,
   AnnouncementMedia,
+  CONTRACT_TYPES,
   ContactMessage,
-  AdminOverview,
   adminHeaders,
   apiRequest,
   detailHref,
   escapeHtml,
+  formatDate,
+  isExpired,
 } from "../lib/api";
 
 export default function AdminContent() {
@@ -20,9 +22,6 @@ export default function AdminContent() {
   );
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
-  const [overview, setOverview] = useState<AdminOverview | null>(null);
-  const [overviewLoading, setOverviewLoading] = useState(false);
-  const [overviewError, setOverviewError] = useState("");
   const [loginFeedback, setLoginFeedback] = useState("");
   const [adminFeedback, setAdminFeedback] = useState("");
 
@@ -42,29 +41,14 @@ export default function AdminContent() {
     }
   }, []);
 
-  const loadOverview = useCallback(async () => {
-    setOverviewLoading(true);
-    setOverviewError("");
-    try {
-      setOverview(await apiRequest<AdminOverview>("/admin/overview", { headers: adminHeaders() }));
-    } catch (error) {
-      setOverview(null);
-      const message = error instanceof Error ? error.message : "Impossible de charger les comptes inscrits.";
-      setOverviewError(message);
-    } finally {
-      setOverviewLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     if (!loggedIn) return;
     const loadTimer = window.setTimeout(() => {
       void loadAnnouncements();
       void loadMessages();
-      void loadOverview();
     }, 0);
     return () => window.clearTimeout(loadTimer);
-  }, [loggedIn, loadAnnouncements, loadMessages, loadOverview]);
+  }, [loggedIn, loadAnnouncements, loadMessages]);
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,7 +59,7 @@ export default function AdminContent() {
         body: JSON.stringify(data),
       });
       if (result.role !== "admin") {
-        setLoginFeedback("Ces identifiants correspondent à un compte utilisateur, pas au superadmin.");
+        setLoginFeedback("Identifiants incorrects.");
         return;
       }
       sessionStorage.setItem("carrieres-admin-token", result.token);
@@ -96,7 +80,7 @@ export default function AdminContent() {
       await apiRequest("/announcements", {
         method: "POST",
         headers: adminHeaders(),
-        body: JSON.stringify({ ...formValues, description: formValues.description || "", media }),
+        body: JSON.stringify({ ...formValues, media }),
       });
       form.reset();
       setAdminFeedback("Annonce publiée avec succès.");
@@ -126,60 +110,6 @@ export default function AdminContent() {
       return;
     }
     loadMessages();
-  }
-
-  async function updateUserStatus(id: number, status: "active" | "suspended") {
-    try {
-      const updated = await apiRequest<{ id: number; account_status: "active" | "suspended" }>(`/admin/users/${id}/status`, {
-        method: "PATCH",
-        headers: adminHeaders(),
-        body: JSON.stringify({ status }),
-      });
-      setOverview((current) => current ? {
-        ...current,
-        users: current.users.map((user) => user.id === id ? { ...user, account_status: updated.account_status } : user),
-      } : current);
-    } catch (error) {
-      setOverviewError(error instanceof Error ? error.message : "Impossible de modifier le statut du compte.");
-    }
-  }
-
-  async function deleteUser(id: number, email: string) {
-    if (!window.confirm(`Supprimer définitivement le compte ${email} ? Cette action est irréversible.`)) return;
-    try {
-      await apiRequest(`/admin/users/${id}`, { method: "DELETE", headers: adminHeaders() });
-      setOverview((current) => current ? { ...current, users: current.users.filter((user) => user.id !== id) } : current);
-    } catch (error) {
-      setOverviewError(error instanceof Error ? error.message : "Impossible de supprimer le compte.");
-    }
-  }
-
-  async function updateOrganizationStatus(id: number, status: "active" | "suspended") {
-    try {
-      const updated = await apiRequest<{ id: number; account_status: "active" | "suspended" }>(`/admin/organizations/${id}/status`, {
-        method: "PATCH",
-        headers: adminHeaders(),
-        body: JSON.stringify({ status }),
-      });
-      setOverview((current) => current ? {
-        ...current,
-        organizations: current.organizations.map((organization) => organization.id === id ? { ...organization, account_status: updated.account_status } : organization),
-      } : current);
-    } catch (error) {
-      setOverviewError(error instanceof Error ? error.message : "Impossible de modifier l’accès de la société.");
-    }
-  }
-
-  async function sendPaymentReminder(id: number) {
-    try {
-      const result = await apiRequest<{ message: string }>(`/admin/organizations/${id}/payment-reminder`, {
-        method: "POST",
-        headers: adminHeaders(),
-      });
-      setAdminFeedback(result.message);
-    } catch (error) {
-      setAdminFeedback(error instanceof Error ? error.message : "Impossible d’envoyer le rappel de paiement.");
-    }
   }
 
   if (!loggedIn) {
@@ -241,7 +171,7 @@ export default function AdminContent() {
             <span className="eyebrow-line"></span> Tableau de bord
           </p>
           <h1 id="dashboard-title">Centre de <em>contrôle.</em></h1>
-          <p className="admin-dashboard-subtitle">Superadmin · comptes, organisations et activité de la plateforme</p>
+          <p className="admin-dashboard-subtitle">Publiez vos offres et gérez les messages reçus</p>
         </div>
         <button
           className="text-button"
@@ -255,69 +185,6 @@ export default function AdminContent() {
           Se déconnecter <LogOut size={15} />
         </button>
       </div>
-      {overviewLoading && <p className="admin-overview-status">Chargement des comptes inscrits...</p>}
-      {overviewError && (
-        <div className="admin-overview-error" role="alert">
-          <strong>Les comptes inscrits ne sont pas disponibles.</strong>
-          <span>{overviewError}</span>
-          <button type="button" className="refresh-button" onClick={() => void loadOverview()}><RefreshCw size={13} /> Réessayer</button>
-        </div>
-      )}
-      {overview && (
-        <section className="admin-command-center" aria-labelledby="admin-overview-title">
-          <div className="admin-command-heading">
-            <div>
-              <p className="eyebrow"><span className="eyebrow-line"></span> Vue globale</p>
-              <h2 id="admin-overview-title">Les inscrits de la plateforme</h2>
-            </div>
-            <button type="button" className="refresh-button" onClick={() => void loadOverview()}><RefreshCw size={13} /> Actualiser</button>
-          </div>
-          <div className="admin-stat-grid">
-            <div className="admin-stat-card"><Users size={20} /><strong>{overview.users.length}</strong><span>Comptes inscrits</span></div>
-            <div className="admin-stat-card"><Building2 size={20} /><strong>{overview.organizations.length}</strong><span>Organisations</span></div>
-            <div className="admin-stat-card"><ShieldCheck size={20} /><strong>{overview.users.filter((user) => user.email_verified_at).length}</strong><span>E-mails vérifiés</span></div>
-            <div className="admin-stat-card"><Send size={20} /><strong>{overview.invitations.filter((invitation) => !invitation.accepted_at).length}</strong><span>Invitations en attente</span></div>
-          </div>
-          <div className="admin-command-grid">
-            <div className="admin-data-panel">
-              <div className="admin-panel-title"><h3>Comptes inscrits</h3><span>{overview.users.length}</span></div>
-              <div className="admin-table-list">
-                {overview.users.length === 0 ? <p className="admin-empty-state">Aucun compte inscrit.</p> : overview.users.map((user) => (
-                  <div className="admin-table-row" key={user.id}>
-                    <div><strong>{user.email}</strong><span>{user.role}{user.organization_role ? ` · ${user.organization_role}` : ""}</span></div>
-                    <div><span>{user.organization_name || "Sans organisation"}</span><small className={user.email_verified_at ? "is-verified" : "is-pending"}>{user.email_verified_at ? "Vérifié" : "Non vérifié"}</small></div>
-                    <div className="admin-user-actions">
-                      <button type="button" className={`admin-status-button ${user.account_status === "suspended" ? "is-suspended" : ""}`} onClick={() => void updateUserStatus(user.id, user.account_status === "active" ? "suspended" : "active")} title={user.account_status === "active" ? "Suspendre le compte" : "Réactiver le compte"}>
-                        {user.account_status === "active" ? <Ban size={14} /> : <CheckCircle2 size={14} />}
-                        {user.account_status === "active" ? "Suspendre" : "Réactiver"}
-                      </button>
-                      <button type="button" className="admin-delete-user" onClick={() => void deleteUser(user.id, user.email)} title="Supprimer définitivement le compte"><Trash2 size={14} /></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="admin-data-panel">
-              <div className="admin-panel-title"><h3>Organisations</h3><span>{overview.organizations.length}</span></div>
-              <div className="admin-table-list">
-                {overview.organizations.length === 0 ? <p className="admin-empty-state">Aucune organisation.</p> : overview.organizations.map((organization) => (
-                  <div className="admin-table-row" key={organization.id}>
-                    <div><strong>{organization.name}</strong><span>{organization.member_count} membre(s) · {organization.owner_email || "Propriétaire inconnu"}</span></div>
-                    <div><small>Plan {organization.plan} · {organization.plan_status}</small><small className={organization.account_status === "active" ? "is-verified" : "is-pending"}>{organization.account_status === "active" ? "Accès actif" : "Accès suspendu"}</small></div>
-                    <div className="admin-user-actions">
-                      <button type="button" className={`admin-status-button ${organization.account_status === "suspended" ? "is-suspended" : ""}`} onClick={() => void updateOrganizationStatus(organization.id, organization.account_status === "active" ? "suspended" : "active")} title={organization.account_status === "active" ? "Suspendre l’accès de la société" : "Réactiver la société"}>
-                        {organization.account_status === "active" ? <Ban size={14} /> : <CheckCircle2 size={14} />}
-                        {organization.account_status === "active" ? "Suspendre accès" : "Réactiver"}
-                      </button>
-                      <button type="button" className="admin-payment-button" onClick={() => void sendPaymentReminder(organization.id)} title="Envoyer un rappel de paiement"><Send size={14} /> Rappeler paiement</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
       <div className="dashboard-grid">
         <form className="publish-form admin-publish-form" id="admin-form" onSubmit={handlePublish}>
           <div className="form-topline">
@@ -343,19 +210,54 @@ export default function AdminContent() {
             </label>
           </div>
           <label>
-            Nom de l’organisation
+            Nom de l’organisation (employeur)
             <input name="company" type="text" placeholder="Ex. Atelier Nord" required />
           </label>
+          <div className="form-row">
+            <label>
+              Type de contrat (obligatoire pour une offre d’emploi)
+              <select name="contract_type" defaultValue="">
+                <option value="">—</option>
+                {CONTRACT_TYPES.map((type) => (
+                  <option key={type}>{type}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Date limite de candidature
+              <input name="deadline" type="date" />
+            </label>
+          </div>
           <label>
-            Description (facultative)
+            Comment postuler (obligatoire pour une offre ou un appel d’offre)
+            <input
+              name="apply_contact"
+              type="text"
+              placeholder="Ex. recrutement@entreprise.cd, https://… ou adresse de dépôt"
+            />
+          </label>
+          <label>
+            Résumé de l’offre (missions, profil, documents demandés)
             <textarea
               name="description"
-              rows={4}
-              placeholder="Quelques mots sur l'opportunité..."
+              rows={5}
+              minLength={30}
+              required
+              placeholder="Obligatoire même si une image est jointe : Google et les lecteurs d’écran ne lisent pas le texte des images."
             ></textarea>
           </label>
+          <div className="form-row">
+            <label>
+              Salaire (facultatif)
+              <input name="salary" type="text" placeholder="Ex. 800 USD / mois" />
+            </label>
+            <label>
+              Lien source (facultatif)
+              <input name="source_url" type="url" placeholder="Ex. lien de votre vidéo TikTok" />
+            </label>
+          </div>
           <label className="media-upload">
-            Document scanné ou image (facultatif si une description est ajoutée)
+            Document scanné ou image (facultatif)
             <span className="media-upload-control">
               <FileUp size={17} />
               <input name="media" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple />
@@ -389,7 +291,12 @@ export default function AdminContent() {
                       {escapeHtml(item.organization_name || "Publication admin")}{item.author_email ? ` · ${escapeHtml(item.author_email)}` : ""}
                     </small>
                   )}
-                  {item.media && item.media.length > 0 && <p className="media-status">Document{item.media.length > 1 ? "s" : ""} joint{item.media.length > 1 ? "s" : ""} : {item.media.length}</p>}
+                  {item.deadline && (
+                    <p className="media-status">
+                      {isExpired(item) ? "Expirée" : "Date limite"} : {formatDate(item.deadline)}
+                    </p>
+                  )}
+                  {Number(item.media_count) > 0 && <p className="media-status">Document{Number(item.media_count) > 1 ? "s" : ""} joint{Number(item.media_count) > 1 ? "s" : ""} : {item.media_count}</p>}
                   <small className="admin-announcement-detail-hint">Voir le détail</small>
                   </div>
                 </Link>

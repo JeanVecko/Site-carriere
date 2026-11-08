@@ -13,6 +13,7 @@ const app = express();
 const port = Number(process.env.PORT || 10000);
 const jwtSecret = process.env.JWT_SECRET;
 const databaseUrl = process.env.DATABASE_URL;
+const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
 const adminPasswordHashPromise = bcrypt.hash(process.env.ADMIN_PASSWORD || '', 12);
 
 if (!databaseUrl || !jwtSecret || !process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
@@ -26,6 +27,16 @@ const pool = new Pool({
 
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: '30mb' }));
+
+// Mode administrateur seul : inscriptions, espaces candidat/recruteur et invitations sont fermés.
+// Seul l'administrateur publie ; le public consulte les annonces et peut envoyer un message de contact.
+const closedAccountRoutes = /^\/api\/(auth\/(register|verify-email|password-reset)|me$|my\/|invitations\/)/;
+app.use((request, response, next) => {
+  if (closedAccountRoutes.test(request.path)) {
+    return response.status(410).json({ error: 'Les comptes utilisateurs sont désactivés : seul l’administrateur publie sur ce site.' });
+  }
+  next();
+});
 
 const defaultAnnouncements = [
   ['Responsable de projet culturel', 'Offre d’emploi', 'Kivu Culture', 'Kinshasa · Hybride', 'Coordonner des projets qui rapprochent les publics de la culture en RDC.'],
@@ -123,6 +134,12 @@ async function initializeDatabase() {
   await pool.query('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_data_url TEXT');
   await pool.query('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_name TEXT');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
+  // Informations normalisées d'une offre (type de contrat, date limite, candidature, source, salaire)
+  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS contract_type TEXT NOT NULL DEFAULT ''");
+  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS deadline DATE');
+  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS apply_contact TEXT NOT NULL DEFAULT ''");
+  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS source_url TEXT NOT NULL DEFAULT ''");
+  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS salary TEXT NOT NULL DEFAULT ''");
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -333,12 +350,32 @@ function validateAnnouncement(body) {
   return values.every(Boolean) && ['Offre d’emploi', 'Annonce', 'Appel d’offre'].includes(values[1]) ? values : null;
 }
 
+const CONTRACT_TYPES = ['CDI', 'CDD', 'Stage', 'Consultance', 'Temps partiel', 'Intérim', 'Bénévolat', 'Autre'];
+
+// Valide une publication de l'admin. Renvoie { values } ou { error } avec un message précis.
 function validateAnnouncementWithMedia(body) {
-  const values = [clean(body.title), clean(body.category), clean(body.company), clean(body.location), clean(body.description)];
+  const title = clean(body.title);
+  const category = clean(body.category);
+  const company = clean(body.company);
+  const location = clean(body.location);
+  const description = clean(body.description);
+  const contractType = clean(body.contract_type);
+  const deadline = clean(body.deadline);
+  const applyContact = clean(body.apply_contact);
+  const sourceUrl = clean(body.source_url);
+  const salary = clean(body.salary).slice(0, 120);
   const media = cleanMedia(body.media || []);
-  const validMetadata = validateAnnouncement({ ...body, description: values[4] || 'document attached' });
-  if (!validMetadata || !media || (!values[4] && media.length === 0)) return null;
-  return [...values, media];
+
+  if (!title || !company || !location) return { error: 'Le titre, l’organisation et la localisation sont obligatoires.' };
+  if (!['Offre d’emploi', 'Annonce', 'Appel d’offre'].includes(category)) return { error: 'Catégorie invalide.' };
+  if (description.length < 30) return { error: 'Ajoutez un résumé en texte d’au moins 30 caractères (missions, profil…), même si une image est jointe.' };
+  if (category === 'Offre d’emploi' && !CONTRACT_TYPES.includes(contractType)) return { error: 'Choisissez le type de contrat.' };
+  if (contractType && !CONTRACT_TYPES.includes(contractType)) return { error: 'Type de contrat invalide.' };
+  if (category !== 'Annonce' && !applyContact) return { error: 'Indiquez comment postuler ou soumissionner (e-mail, lien ou adresse).' };
+  if (deadline && (!/^\d{4}-\d{2}-\d{2}$/.test(deadline) || Number.isNaN(Date.parse(deadline)))) return { error: 'Date limite invalide.' };
+  if (sourceUrl && !/^https?:\/\//i.test(sourceUrl)) return { error: 'Le lien source doit commencer par http:// ou https://.' };
+  if (!media) return { error: 'Fichiers joints invalides ou trop volumineux.' };
+  return { values: [title, category, company, location, description, media, contractType, deadline || null, applyContact, sourceUrl, salary] };
 }
 
 app.get('/api/health', (_request, response) => response.json({ status: 'ok' }));
@@ -360,29 +397,7 @@ app.post('/api/auth/login', async (request, response) => {
     });
   }
 
-  // Comptes utilisateurs (candidats / recruteurs)
-  try {
-    const result = await pool.query(
-      `SELECT u.id, u.role, u.email, u.password_hash, u.organization_id, u.organization_role,
-              u.account_status, o.account_status AS organization_status
-       FROM users u LEFT JOIN organizations o ON o.id = u.organization_id
-       WHERE u.email = $1`,
-      [email]
-    );
-    const user = result.rows[0];
-    if (user && (await bcrypt.compare(password, user.password_hash))) {
-      if (user.account_status !== 'active') return response.status(403).json({ error: 'Ce compte est suspendu. Contactez le support.' });
-      if (user.organization_status !== 'active') return response.status(403).json({ error: 'L’accès de cette société est suspendu pour paiement en attente.' });
-      return response.json({
-        token: jwt.sign({ id: user.id, email: user.email, role: user.role, organization_id: user.organization_id, organization_role: user.organization_role }, jwtSecret, { expiresIn: '7d' }),
-        role: user.role,
-        email: user.email,
-      });
-    }
-  } catch {
-    // La table users n'existe pas encore : on continue vers l'admin.
-  }
-
+  // Site en mode administrateur seul : aucun autre compte ne peut se connecter.
   return response.status(401).json({ error: 'Identifiants incorrects.' });
 });
 
@@ -492,7 +507,7 @@ app.post('/api/auth/password-reset/request', async (request, response) => {
   if (!result.rows[0]) return response.json(genericResponse);
   try {
     const resetToken = await createAuthToken(result.rows[0].id, 'password_reset', 60 * 60 * 1000);
-    const resetUrl = `${process.env.FRONTEND_URL || `http://localhost:${port}`}/connexion?reset_token=${resetToken}`;
+    const resetUrl = `${frontendUrl}/connexion?reset_token=${resetToken}`;
     await sendTransactionalEmail({
       to: email,
       subject: 'Réinitialisation de votre mot de passe - Carrières RDC',
@@ -584,7 +599,7 @@ app.post('/api/my/organization/invitations', requireUser, requireOrganizationOwn
      VALUES ($1, $2, $3, NOW() + INTERVAL '7 days')`,
     [request.user.organization_id, invitedEmail, hashToken(token)]
   );
-  const invitationUrl = `${process.env.FRONTEND_URL || `http://localhost:${port}`}/invitation?token=${token}`;
+  const invitationUrl = `${frontendUrl}/invitation?token=${token}`;
   try {
     await sendTransactionalEmail({
       to: invitedEmail,
@@ -675,7 +690,7 @@ app.delete('/api/my/organization/members/:id', requireUser, requireOrganizationO
 app.get('/api/announcements', async (request, response) => {
   const category = clean(request.query.category);
   const values = category ? [category] : [];
-  const result = await pool.query(`SELECT id, title, category, company, location, description, media, created_at FROM announcements ${category ? 'WHERE category = $1' : ''} ORDER BY created_at DESC`, values);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count FROM announcements ${category ? 'WHERE category = $1' : ''} ORDER BY created_at DESC`, values);
   response.json(result.rows);
 });
 
@@ -701,14 +716,17 @@ app.get('/api/my/recommended-offers', requireUser, async (request, response) => 
 });
 
 app.get('/api/announcements/:id', async (request, response) => {
-  const result = await pool.query('SELECT id, title, category, company, location, description, media, created_at FROM announcements WHERE id = $1', [request.params.id]);
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, media FROM announcements WHERE id = $1`, [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   response.json(result.rows[0]);
 });
 
 app.get('/api/admin/announcements', requireAdmin, async (_request, response) => {
   const result = await pool.query(
-    `SELECT a.id, a.title, a.category, a.company, a.location, a.description, a.media, a.created_at,
+    `SELECT a.id, a.title, a.category, a.company, a.location, a.description, a.contract_type,
+            to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
+            jsonb_array_length(a.media) AS media_count, a.created_at,
             u.email AS author_email, o.name AS organization_name
      FROM announcements a
      LEFT JOIN users u ON u.id = a.owner_id
@@ -719,9 +737,13 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
 });
 
 app.post('/api/announcements', requireAdmin, async (request, response) => {
-  const values = validateAnnouncementWithMedia(request.body);
-  if (!values) return response.status(400).json({ error: 'Tous les champs de l’annonce sont obligatoires.' });
-  const result = await pool.query('INSERT INTO announcements (title, category, company, location, description, media) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *', values);
+  const { values, error } = validateAnnouncementWithMedia(request.body);
+  if (error) return response.status(400).json({ error });
+  const result = await pool.query(
+    `INSERT INTO announcements (title, category, company, location, description, media, contract_type, deadline, apply_contact, source_url, salary)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+    values
+  );
   response.status(201).json(result.rows[0]);
 });
 
