@@ -345,7 +345,12 @@ function Dashboard() {
             }}
           />
         )}
-        {section === "messages" && <MessagesList messages={messages} loading={loading} onDelete={deleteMessage} />}
+        {section === "messages" && (
+          <>
+            <EmailAlertTest />
+            <MessagesList messages={messages} loading={loading} onDelete={deleteMessage} />
+          </>
+        )}
       </div>
 
       {extending && (
@@ -897,6 +902,43 @@ function ExtendDialog({
 }
 
 /* ----- Messages ----- */
+
+// Vérifie que les alertes e-mail des messages de contact partent bien, et affiche la cause sinon.
+function EmailAlertTest() {
+  const [state, setState] = useState<{ status: "idle" | "pending" | "ok" | "error"; text: string }>({ status: "idle", text: "" });
+
+  async function runTest() {
+    setState({ status: "pending", text: "" });
+    try {
+      const result = await apiRequest<{ to: string; methods: string }>("/admin/test-email", { method: "POST", headers: adminHeaders() });
+      setState({ status: "ok", text: `E-mail de test envoyé à ${result.to} (via ${result.methods}). Vérifiez aussi le dossier Spam.` });
+    } catch (error) {
+      setState({ status: "error", text: error instanceof Error ? error.message : "Envoi impossible." });
+    }
+  }
+
+  return (
+    <section className="adm-card adm-email-test">
+      <div>
+        <h2>Alerte e-mail des messages</h2>
+        <p className="adm-muted-text">Chaque message reçu vous est aussi envoyé par e-mail. Testez l’envoi ici.</p>
+      </div>
+      <button type="button" className="adm-btn adm-btn-ghost" onClick={runTest} disabled={state.status === "pending"}>
+        <Mail size={16} /> {state.status === "pending" ? "Envoi…" : "Tester l’alerte e-mail"}
+      </button>
+      {state.status === "ok" && (
+        <p className="adm-alert adm-alert-success" role="status">
+          <CircleCheck size={16} /> {state.text}
+        </p>
+      )}
+      {state.status === "error" && (
+        <p className="adm-alert adm-alert-error" role="alert">
+          <TriangleAlert size={16} /> {state.text}
+        </p>
+      )}
+    </section>
+  );
+}
 
 function MessagesList({
   messages,

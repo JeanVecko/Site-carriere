@@ -65,7 +65,9 @@ Pour vérifier la connexion à la base : `node server/check-db.mjs`, lancé depu
 Envoi d'e-mails : configurer **l'une** des deux options. Sans configuration, en développement, le contenu des e-mails est affiché dans la console de l'API.
 
 - **SMTP (Gmail par défaut)** : `EMAIL_FROM_ADDRESS`, `EMAIL_APP_PASSWORD` (mot de passe d'application), et facultativement `EMAIL_FROM_NAME`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`.
-- **Resend** : `RESEND_API_KEY` et `EMAIL_FROM`.
+- **Resend** : `RESEND_API_KEY`, et facultativement `EMAIL_FROM` (défaut : `Carrières RDC <onboarding@resend.dev>`, qui ne peut écrire qu'à l'adresse du compte Resend — suffisant pour les alertes). Recommandé sur Render gratuit, qui bloque l'envoi SMTP.
+
+Si les deux sont configurés, SMTP est essayé d'abord, puis Resend en cas d'échec. Le bouton « Tester l'alerte e-mail » (admin → Messages) affiche la cause exacte d'un échec.
 
 Ne jamais placer ces secrets dans `site/` ni dans une variable `NEXT_PUBLIC_*`.
 

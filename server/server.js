@@ -260,41 +260,70 @@ async function createAuthToken(userId, kind, lifetimeMs) {
   );
   return token;
 }
-async function sendTransactionalEmail({ to, subject, text, replyTo }) {
-  const gmailAddress = process.env.EMAIL_FROM_ADDRESS || process.env.GMAIL_USER;
-  const gmailAppPassword = process.env.EMAIL_APP_PASSWORD || process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASSWORD;
-  if (gmailAddress && gmailAppPassword) {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: Number(process.env.SMTP_PORT || 465),
-      secure: String(process.env.SMTP_SECURE || 'true') === 'true',
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-      auth: { user: gmailAddress, pass: gmailAppPassword },
-    });
-    await transporter.verify();
-    await transporter.sendMail({
-      from: `${process.env.EMAIL_FROM_NAME || 'Carrières RDC'} <${gmailAddress}>`,
-      to,
-      subject,
-      text,
-      ...(replyTo ? { replyTo } : {}),
-    });
-    return;
-  }
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
-  if (!apiKey || !from) {
-    if (process.env.NODE_ENV !== 'production') console.info(`[email preview] ${to}\n${text}`);
-    return;
-  }
+// Envoi d'e-mails : SMTP (Gmail) si configuré, sinon ou en cas d'échec Resend (API web, non bloquée par les
+// hébergeurs qui ferment les ports SMTP, comme les services gratuits de Render). Lève une erreur détaillée.
+function emailConfiguration() {
+  const smtpUser = process.env.EMAIL_FROM_ADDRESS || process.env.GMAIL_USER;
+  const smtpPassword = process.env.EMAIL_APP_PASSWORD || process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASSWORD;
+  return {
+    smtp: smtpUser && smtpPassword ? { user: smtpUser, password: smtpPassword } : null,
+    resend: process.env.RESEND_API_KEY ? { apiKey: process.env.RESEND_API_KEY, from: process.env.EMAIL_FROM || 'Carrières RDC <onboarding@resend.dev>' } : null,
+  };
+}
+
+async function sendWithSmtp({ user, password }, { to, subject, text, replyTo }) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 465),
+    secure: String(process.env.SMTP_SECURE || 'true') === 'true',
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+    auth: { user, pass: password },
+  });
+  await transporter.sendMail({
+    from: `${process.env.EMAIL_FROM_NAME || 'Carrières RDC'} <${user}>`,
+    to,
+    subject,
+    text,
+    ...(replyTo ? { replyTo } : {}),
+  });
+}
+
+async function sendWithResend({ apiKey, from }, { to, subject, text, replyTo }) {
   const result = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from, to: [to], subject, text, ...(replyTo ? { reply_to: replyTo } : {}) }),
   });
-  if (!result.ok) throw new Error('Echec de l’envoi de l’e-mail.');
+  if (!result.ok) {
+    const detail = await result.text().catch(() => '');
+    throw new Error(`Resend a refusé l’envoi (${result.status}) ${detail.slice(0, 200)}`);
+  }
+}
+
+async function sendTransactionalEmail(message) {
+  const { smtp, resend } = emailConfiguration();
+  const errors = [];
+  if (smtp) {
+    try {
+      return await sendWithSmtp(smtp, message);
+    } catch (error) {
+      errors.push(`SMTP (${smtp.user}) : ${error.code || ''} ${error.message}`.trim());
+    }
+  }
+  if (resend) {
+    try {
+      return await sendWithResend(resend, message);
+    } catch (error) {
+      errors.push(`Resend : ${error.message}`);
+    }
+  }
+  if (!smtp && !resend) {
+    if (process.env.NODE_ENV !== 'production') return console.info(`[email preview] ${message.to}\n${message.text}`);
+    throw new Error('Aucun envoi d’e-mail n’est configuré sur le serveur (ni SMTP, ni Resend).');
+  }
+  throw new Error(errors.join(' | '));
 }
 function requireOrganizationOwner(request, response, next) {
   if (request.user.organization_role !== 'owner') {
@@ -849,6 +878,23 @@ app.post('/api/messages', async (request, response) => {
     subject: `Nouveau message Carrières RDC : ${subject}`.slice(0, 180),
     text: `Nouveau message reçu via le formulaire de contact du site.\n\nDe : ${name} <${email}>\nSujet : ${subject}\n\n${message}\n\n—\nRépondez directement à cet e-mail pour écrire à ${name}.\nTous les messages : ${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')}/admin`,
   }).catch((error) => console.error('Alerte e-mail non envoyée :', error.message));
+});
+
+// Test de l'alerte e-mail depuis le panneau admin : renvoie la cause exacte en cas d'échec.
+app.post('/api/admin/test-email', requireAdmin, async (_request, response) => {
+  const to = process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL;
+  const { smtp, resend } = emailConfiguration();
+  const methods = [smtp && `SMTP (${smtp.user})`, resend && 'Resend'].filter(Boolean).join(' puis ') || 'aucune';
+  try {
+    await sendTransactionalEmail({
+      to,
+      subject: 'Test de l’alerte e-mail — Carrières RDC',
+      text: 'Ceci est un e-mail de test envoyé depuis le panneau d’administration. Si vous le recevez, les alertes des messages de contact fonctionnent.',
+    });
+    response.json({ ok: true, to, methods });
+  } catch (error) {
+    response.status(502).json({ error: `Envoi impossible vers ${to} (méthodes : ${methods}). Détail : ${error.message}` });
+  }
 });
 
 app.get('/api/messages', requireAdmin, async (_request, response) => {

@@ -246,3 +246,9 @@
 .adm-quick-dates button.is-active, .adm-quick-dates button:hover { background: #e6eefa; border-color: var(--adm-primary-2); color: var(--adm-primary); }
 
 .adm-info-inline { border: 1px solid var(--adm-border); border-radius: 8px; margin-bottom: 4px; }
+
+/* Test de l'alerte e-mail */
+.adm-email-test { align-items: center; display: flex; flex-wrap: wrap; gap: 12px 20px; justify-content: space-between; margin-bottom: 14px; }
+.adm-email-test h2 { font-size: 15px; margin: 0 0 2px; }
+.adm-email-test .adm-alert { flex-basis: 100%; overflow-wrap: anywhere; }
+.adm-alert-success { background: #e9f7ef; border: 1px solid #bfe5cd; color: var(--adm-success); }
