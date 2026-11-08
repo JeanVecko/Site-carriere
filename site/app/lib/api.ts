@@ -119,9 +119,11 @@ export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "contact@c
 export const CONTACT_PHONE = process.env.NEXT_PUBLIC_CONTACT_PHONE || "+243 898 887 099";
 
 // Réseaux où les offres sont aussi publiées (à renseigner dans les variables d'environnement).
-export const TIKTOK_URL = process.env.NEXT_PUBLIC_TIKTOK_URL || "https://www.tiktok.com/";
-export const FACEBOOK_URL = process.env.NEXT_PUBLIC_FACEBOOK_URL || "https://www.facebook.com/";
-export const WHATSAPP_CHANNEL_URL = process.env.NEXT_PUBLIC_WHATSAPP_CHANNEL_URL || "https://www.whatsapp.com/channel/";
+// Un réseau sans lien (chaîne vide) n'est pas affiché.
+export const TIKTOK_URL = process.env.NEXT_PUBLIC_TIKTOK_URL || "https://www.tiktok.com/@carrieresrdc";
+export const FACEBOOK_URL = process.env.NEXT_PUBLIC_FACEBOOK_URL || "";
+export const WHATSAPP_CHANNEL_URL =
+  process.env.NEXT_PUBLIC_WHATSAPP_CHANNEL_URL || "https://whatsapp.com/channel/0029VbC3FGn7z4kbQ6ZEck0Q";
 
 export const CONTRACT_TYPES =["CDI", "CDD", "Stage", "Consultance", "Temps partiel", "Intérim", "Bénévolat", "Autre"];
 

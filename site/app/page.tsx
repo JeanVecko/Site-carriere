@@ -3,7 +3,7 @@ import { ArrowRight, CircleCheck, Megaphone, Search } from "lucide-react";
 import SiteHeader from "./components/SiteHeader";
 import SiteFooter from "./components/SiteFooter";
 import OfferRow from "./components/OfferRow";
-import { SOCIAL_NETWORKS } from "./components/SocialLinks";
+import { ACTIVE_SOCIAL_NETWORKS } from "./components/SocialLinks";
 import { isExpired } from "./lib/api";
 import { fetchAnnouncements } from "./lib/server";
 
@@ -97,7 +97,7 @@ export default async function Home() {
               <p>Suivez-nous sur nos plateformes pour recevoir les nouvelles offres dès leur publication.</p>
             </div>
             <div className="pub-follow-buttons">
-              {SOCIAL_NETWORKS.map((network) => (
+              {ACTIVE_SOCIAL_NETWORKS.map((network) => (
                 <a key={network.name} className="pub-btn pub-btn-light" href={network.href} target="_blank" rel="noreferrer" aria-label={network.label}>
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="currentColor" d={network.path} />
