@@ -60,6 +60,7 @@ Pour vérifier la connexion à la base : `node server/check-db.mjs`, lancé depu
 | `FRONTEND_URL` | oui en production | URL publique du site, utilisée dans les liens envoyés par e-mail (réinitialisation, invitations). Défaut : `http://localhost:3000`. |
 | `API_PUBLIC_URL` | oui en production | URL publique de l'API, utilisée dans le lien de vérification d'e-mail. |
 | `PORT` | non | Port d'écoute (défaut `10000`). |
+| `CONTACT_ALERT_EMAIL` | non | Adresse qui reçoit une alerte e-mail à chaque message du formulaire de contact (défaut : `ADMIN_EMAIL`). Nécessite l'envoi d'e-mails configuré ci-dessous. |
 
 Envoi d'e-mails : configurer **l'une** des deux options. Sans configuration, en développement, le contenu des e-mails est affiché dans la console de l'API.
 

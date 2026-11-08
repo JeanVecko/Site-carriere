@@ -115,7 +115,7 @@ export function categoryFor(item: Announcement): string {
 }
 
 // Coordonnées affichées dans le pied de page (le téléphone n'apparaît que s'il est renseigné).
-export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "contact@carrieresrdc.cd";
+export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "carrieresrdc@gmail.com";
 export const CONTACT_PHONE = process.env.NEXT_PUBLIC_CONTACT_PHONE || "+243 898 887 099";
 
 // Réseaux où les offres sont aussi publiées (à renseigner dans les variables d'environnement).

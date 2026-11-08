@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
+import { CONTACT_EMAIL, CONTACT_PHONE } from "../lib/api";
 
 export const metadata: Metadata = {
   title: "Mentions légales et confidentialité — Carrières RDC",
   description: "Rôle de Carrières RDC, conditions de publication des offres et traitement des données personnelles.",
 };
 
-// À compléter : nom ou raison sociale de l'éditeur, adresse et contact réels.
 export default function LegalPage() {
   return (
     <>
@@ -15,6 +15,21 @@ export default function LegalPage() {
       <main className="pub-container">
         <article className="pub-prose-page">
         <h1>Mentions légales et confidentialité</h1>
+
+        <h2>Éditeur du site</h2>
+        <p>
+          Le site est édité par <strong>Carrières RDC</strong>, République démocratique du Congo.
+          <br />
+          E-mail : <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+          <br />
+          Téléphone : <a href={`tel:${CONTACT_PHONE.replace(/[^\d+]/g, "")}`}>{CONTACT_PHONE}</a>
+        </p>
+
+        <h2>Hébergement</h2>
+        <p>
+          Le site est hébergé par Vercel Inc. (États-Unis) ; le service de données est hébergé par Render
+          Services, Inc. (États-Unis) et la base de données par Neon, Inc. (États-Unis).
+        </p>
 
         <h2>Rôle du site</h2>
         <p>
@@ -29,8 +44,10 @@ export default function LegalPage() {
           <li>Chaque offre indique, lorsqu’elle est connue, sa source, sa date de publication et sa date limite.</li>
           <li>Une offre dont la date limite est dépassée est signalée comme expirée.</li>
           <li>
-            Aucun frais ne doit être demandé à un candidat pour postuler. Si l’on vous réclame de l’argent,
-            ne payez pas et signalez l’offre via le formulaire de contact : elle sera vérifiée et retirée si nécessaire.
+            Pour une offre d’emploi, aucun frais ne doit être demandé à un candidat pour postuler. Si l’on vous
+            réclame de l’argent, ne payez pas et signalez l’offre via le formulaire de contact : elle sera vérifiée
+            et retirée si nécessaire. Les annonces de prestataires et les appels d’offres peuvent, eux, comporter des
+            frais fixés par leur auteur.
           </li>
           <li>Les offres comportant des critères discriminatoires ne sont pas publiées.</li>
         </ul>
@@ -41,6 +58,10 @@ export default function LegalPage() {
           saisissez dans le formulaire de contact (nom, adresse e-mail, sujet et message). Elles servent
           uniquement à vous répondre, ne sont ni vendues ni transmises à des tiers, et sont supprimées une
           fois la demande traitée. Vous pouvez demander leur suppression à tout moment via ce même formulaire.
+        </p>
+        <p>
+          La fréquentation du site est mesurée de façon anonyme et sans cookies (nombre de visites et de
+          consultations des offres).
         </p>
 
         <h2>Contact</h2>

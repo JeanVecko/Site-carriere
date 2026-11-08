@@ -38,14 +38,6 @@ app.use((request, response, next) => {
   next();
 });
 
-const defaultAnnouncements = [
-  ['Responsable de projet culturel', 'Offre d’emploi', 'Kivu Culture', 'Kinshasa · Hybride', 'Coordonner des projets qui rapprochent les publics de la culture en RDC.'],
-  ['Développeur·se web junior', 'Offre d’emploi', 'Congo Digital', 'Lubumbashi · Flexible', 'Transformer des idées utiles en outils simples et accessibles.'],
-  ['Photographe pour série documentaire', 'Annonce', 'Regards du Congo', 'Goma · Sur place', 'Raconter en images les initiatives et les talents de la communauté.'],
-  ['Identité visuelle pour commerce local', 'Annonce', 'Maison Tshopo', 'Kisangani · À distance', 'Donner une identité forte à une nouvelle activité congolaise.'],
-  ['Fourniture de matériel informatique', 'Appel d’offre', 'Impact RDC', 'Kinshasa · Date limite : 30 sept.', 'Consultation pour la fourniture de matériel informatique aux équipes.'],
-  ['Construction d’un centre communautaire', 'Appel d’offre', 'Initiative Kivu', 'Bukavu · Date limite : 15 oct.', 'Appel à candidatures pour les travaux d’un centre communautaire.']
-];
 
 async function initializeDatabase() {
   await pool.query(`
@@ -166,12 +158,8 @@ async function initializeDatabase() {
   // Index pour le cloisonnement multi-tenant
   await pool.query('CREATE INDEX IF NOT EXISTS idx_announcements_org ON announcements(organization_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_users_org ON users(organization_id)');
-  const result = await pool.query('SELECT COUNT(*)::int AS count FROM announcements');
-  if (result.rows[0].count === 0) {
-    for (const item of defaultAnnouncements) {
-      await pool.query('INSERT INTO announcements (title, category, company, location, description) VALUES ($1, $2, $3, $4, $5)', item);
-    }
-  }
+  // Les publications de démonstration ne sont plus insérées automatiquement : une base vide reste vide
+  // (sinon elles réapparaîtraient à chaque redémarrage de l'API après leur suppression).
 }
 
 function requireAdmin(request, response, next) {
@@ -272,7 +260,7 @@ async function createAuthToken(userId, kind, lifetimeMs) {
   );
   return token;
 }
-async function sendTransactionalEmail({ to, subject, text }) {
+async function sendTransactionalEmail({ to, subject, text, replyTo }) {
   const gmailAddress = process.env.EMAIL_FROM_ADDRESS || process.env.GMAIL_USER;
   const gmailAppPassword = process.env.EMAIL_APP_PASSWORD || process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASSWORD;
   if (gmailAddress && gmailAppPassword) {
@@ -291,6 +279,7 @@ async function sendTransactionalEmail({ to, subject, text }) {
       to,
       subject,
       text,
+      ...(replyTo ? { replyTo } : {}),
     });
     return;
   }
@@ -303,7 +292,7 @@ async function sendTransactionalEmail({ to, subject, text }) {
   const result = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [to], subject, text }),
+    body: JSON.stringify({ from, to: [to], subject, text, ...(replyTo ? { reply_to: replyTo } : {}) }),
   });
   if (!result.ok) throw new Error('Echec de l’envoi de l’e-mail.');
 }
@@ -773,9 +762,28 @@ app.post('/api/announcements', requireAdmin, async (request, response) => {
   const result = await pool.query(
     `INSERT INTO announcements (title, category, company, location, description, media, contract_type, deadline, apply_contact, source_url, salary)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
-    values
+    // Les pièces jointes sont envoyées en JSON : une liste JavaScript brute serait mal convertie par le pilote.
+    [...values.slice(0, 5), JSON.stringify(values[5]), ...values.slice(6)]
   );
   response.status(201).json(result.rows[0]);
+});
+
+// Modification complète d'une offre par l'administrateur (mêmes règles que la publication).
+// Sans nouveaux fichiers (keep_media = true), les pièces jointes existantes sont conservées ; vues et date de publication aussi.
+app.put('/api/announcements/:id', requireAdmin, async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
+  const existing = await pool.query('SELECT media FROM announcements WHERE id = $1', [request.params.id]);
+  if (!existing.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
+  const body = request.body.keep_media ? { ...request.body, media: existing.rows[0].media } : request.body;
+  const { values, error } = validateAnnouncementWithMedia(body);
+  if (error) return response.status(400).json({ error });
+  await pool.query(
+    `UPDATE announcements SET title = $2, category = $3, company = $4, location = $5, description = $6, media = $7,
+       contract_type = $8, deadline = $9, apply_contact = $10, source_url = $11, salary = $12
+     WHERE id = $1`,
+    [request.params.id, ...values.slice(0, 5), JSON.stringify(values[5]), ...values.slice(6)]
+  );
+  response.json({ id: request.params.id });
 });
 
 // Prolongation (ou modification) de la date limite d'une offre par l'administrateur.
@@ -831,6 +839,16 @@ app.post('/api/messages', async (request, response) => {
   if (!values.every(Boolean) || !values[1].includes('@')) return response.status(400).json({ error: 'Veuillez remplir correctement tous les champs.' });
   const result = await pool.query('INSERT INTO messages (name, email, subject, message) VALUES ($1, $2, $3, $4) RETURNING id, created_at', values);
   response.status(201).json(result.rows[0]);
+
+  // Alerte e-mail à l'administrateur (sans bloquer la réponse au visiteur). « Répondre » écrit directement au visiteur.
+  const alertTo = process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL;
+  const [name, email, subject, message] = values;
+  sendTransactionalEmail({
+    to: alertTo,
+    replyTo: email,
+    subject: `Nouveau message Carrières RDC : ${subject}`.slice(0, 180),
+    text: `Nouveau message reçu via le formulaire de contact du site.\n\nDe : ${name} <${email}>\nSujet : ${subject}\n\n${message}\n\n—\nRépondez directement à cet e-mail pour écrire à ${name}.\nTous les messages : ${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')}/admin`,
+  }).catch((error) => console.error('Alerte e-mail non envoyée :', error.message));
 });
 
 app.get('/api/messages', requireAdmin, async (_request, response) => {

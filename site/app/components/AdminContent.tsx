@@ -24,6 +24,7 @@ import {
   TriangleAlert,
   Archive,
   CalendarPlus,
+  Pencil,
 } from "lucide-react";
 import {
   Announcement,
@@ -160,6 +161,7 @@ function Dashboard() {
   const [loadError, setLoadError] = useState("");
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [extending, setExtending] = useState<Announcement | null>(null);
+  const [editing, setEditing] = useState<Announcement | null>(null);
 
   const logout = useCallback(() => setToken(null), []);
 
@@ -258,7 +260,10 @@ function Dashboard() {
               type="button"
               className={section === id ? "is-active" : undefined}
               aria-current={section === id ? "page" : undefined}
-              onClick={() => setSection(id)}
+              onClick={() => {
+                setEditing(null);
+                setSection(id);
+              }}
             >
               <Icon size={18} />
               <span>{label}</span>
@@ -280,8 +285,8 @@ function Dashboard() {
       <div className="adm-main">
         <header className="adm-topbar">
           <div>
-            <p className="adm-breadcrumb">Administration / {current.label}</p>
-            <h1>{current.label}</h1>
+            <p className="adm-breadcrumb">Administration / {editing ? "Offres publiées" : current.label}</p>
+            <h1>{editing ? "Modifier une offre" : current.label}</h1>
           </div>
           <div className="adm-topbar-actions">
             <button type="button" className="adm-btn adm-btn-ghost" onClick={() => void loadAll()} disabled={loading}>
@@ -312,8 +317,15 @@ function Dashboard() {
         )}
         {section === "publish" && (
           <PublishForm
-            onPublished={async () => {
-              setToast({ type: "success", text: "Offre publiée avec succès." });
+            key={editing ? String(editing.id) : "new"}
+            initial={editing}
+            onCancel={() => {
+              setEditing(null);
+              setSection("offers");
+            }}
+            onSaved={async (mode) => {
+              setToast({ type: "success", text: mode === "updated" ? "Offre modifiée avec succès." : "Offre publiée avec succès." });
+              setEditing(null);
               await loadAll();
               setSection("offers");
             }}
@@ -327,6 +339,10 @@ function Dashboard() {
             loading={loading}
             onDelete={deleteAnnouncement}
             onExtend={setExtending}
+            onEdit={(item) => {
+              setEditing(item);
+              setSection("publish");
+            }}
           />
         )}
         {section === "messages" && <MessagesList messages={messages} loading={loading} onDelete={deleteMessage} />}
@@ -460,32 +476,53 @@ function DashboardHome({
   );
 }
 
-/* ----- Publication ----- */
+/* ----- Publication et modification ----- */
 
-function PublishForm({ onPublished }: { onPublished: () => Promise<void> }) {
+function PublishForm({
+  initial,
+  onSaved,
+  onCancel,
+}: {
+  initial?: Announcement | null;
+  onSaved: (mode: "created" | "updated") => Promise<void>;
+  onCancel?: () => void;
+}) {
+  const editing = Boolean(initial);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [category, setCategory] = useState("Offre d’emploi");
+  const [category, setCategory] = useState(initial?.category || "Offre d’emploi");
+  const text = (value?: string | null) => (value ? decodeEntities(value) : "");
 
-  async function handlePublish(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     setPending(true);
     setError("");
     try {
       const mediaInput = form.elements.namedItem("media") as HTMLInputElement | null;
-      const media = await filesToMedia(mediaInput?.files || null);
+      const files = mediaInput?.files || null;
+      const media = await filesToMedia(files);
       const values = Object.fromEntries(new FormData(form));
-      await apiRequest("/announcements", {
-        method: "POST",
-        headers: adminHeaders(),
-        body: JSON.stringify({ ...values, media }),
-      });
-      form.reset();
-      setCategory("Offre d’emploi");
-      await onPublished();
-    } catch (publishError) {
-      setError(publishError instanceof Error ? publishError.message : "Publication impossible.");
+      if (initial) {
+        // Sans nouveau fichier, les pièces jointes actuelles sont conservées.
+        await apiRequest(`/announcements/${initial.id}`, {
+          method: "PUT",
+          headers: adminHeaders(),
+          body: JSON.stringify({ ...values, media, keep_media: !files || files.length === 0 }),
+        });
+        await onSaved("updated");
+      } else {
+        await apiRequest("/announcements", {
+          method: "POST",
+          headers: adminHeaders(),
+          body: JSON.stringify({ ...values, media }),
+        });
+        form.reset();
+        setCategory("Offre d’emploi");
+        await onSaved("created");
+      }
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Enregistrement impossible.");
     } finally {
       setPending(false);
     }
@@ -495,7 +532,12 @@ function PublishForm({ onPublished }: { onPublished: () => Promise<void> }) {
   const needsContact = category !== "Annonce";
 
   return (
-    <form className="adm-card adm-publish" onSubmit={handlePublish}>
+    <form className="adm-card adm-publish" onSubmit={handleSubmit}>
+      {initial && (
+        <p className="adm-info adm-info-inline">
+          <Pencil size={16} /> Vous modifiez « {text(initial.title)} ». Les vues et la date de publication sont conservées.
+        </p>
+      )}
       <fieldset>
         <legend>Informations générales</legend>
         <div className="adm-row">
@@ -509,17 +551,17 @@ function PublishForm({ onPublished }: { onPublished: () => Promise<void> }) {
           </label>
           <label className="adm-field adm-span-2">
             <span>Intitulé *</span>
-            <input name="title" type="text" required placeholder="Ex. Comptable senior" />
+            <input name="title" type="text" required placeholder="Ex. Comptable senior" defaultValue={text(initial?.title)} />
           </label>
         </div>
         <div className="adm-row">
           <label className="adm-field">
             <span>Organisation / employeur *</span>
-            <input name="company" type="text" required placeholder="Ex. Banque du Kivu" />
+            <input name="company" type="text" required placeholder="Ex. Banque du Kivu" defaultValue={text(initial?.company)} />
           </label>
           <label className="adm-field">
             <span>Localisation *</span>
-            <input name="location" type="text" required placeholder="Ex. Kinshasa · Gombe" />
+            <input name="location" type="text" required placeholder="Ex. Kinshasa · Gombe" defaultValue={text(initial?.location)} />
           </label>
         </div>
       </fieldset>
@@ -529,7 +571,7 @@ function PublishForm({ onPublished }: { onPublished: () => Promise<void> }) {
         <div className="adm-row adm-row-3">
           <label className="adm-field">
             <span>Type de contrat {isJob && "*"}</span>
-            <select name="contract_type" defaultValue="" required={isJob}>
+            <select name="contract_type" defaultValue={initial?.contract_type || ""} required={isJob}>
               <option value="">— Choisir —</option>
               {CONTRACT_TYPES.map((type) => (
                 <option key={type}>{type}</option>
@@ -538,11 +580,11 @@ function PublishForm({ onPublished }: { onPublished: () => Promise<void> }) {
           </label>
           <label className="adm-field">
             <span>Date limite</span>
-            <input name="deadline" type="date" />
+            <input name="deadline" type="date" defaultValue={initial?.deadline || ""} />
           </label>
           <label className="adm-field">
             <span>Salaire</span>
-            <input name="salary" type="text" placeholder="Ex. 800 USD / mois" />
+            <input name="salary" type="text" placeholder="Ex. 800 USD / mois" defaultValue={text(initial?.salary)} />
           </label>
         </div>
       </fieldset>
@@ -556,6 +598,7 @@ function PublishForm({ onPublished }: { onPublished: () => Promise<void> }) {
             rows={7}
             minLength={30}
             required
+            defaultValue={text(initial?.description)}
             placeholder="Obligatoire même si une image est jointe : Google et les lecteurs d’écran ne lisent pas le texte des images."
           />
         </label>
@@ -571,15 +614,20 @@ function PublishForm({ onPublished }: { onPublished: () => Promise<void> }) {
               type="text"
               required={needsContact}
               placeholder="E-mail, lien ou adresse de dépôt"
+              defaultValue={text(initial?.apply_contact)}
             />
           </label>
           <label className="adm-field">
             <span>Lien source</span>
-            <input name="source_url" type="url" placeholder="Ex. lien de la vidéo TikTok" />
+            <input name="source_url" type="url" placeholder="Ex. lien de la vidéo TikTok" defaultValue={initial?.source_url || ""} />
           </label>
         </div>
         <label className="adm-field adm-file">
-          <span>Pièces jointes (image ou PDF, facultatif)</span>
+          <span>
+            {editing
+              ? `Pièces jointes — ${Number(initial?.media_count || 0)} actuellement. Choisissez des fichiers seulement pour les remplacer.`
+              : "Pièces jointes (image ou PDF, facultatif)"}
+          </span>
           <span className="adm-file-control">
             <FileUp size={18} />
             <input name="media" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple />
@@ -594,11 +642,17 @@ function PublishForm({ onPublished }: { onPublished: () => Promise<void> }) {
         </p>
       )}
       <div className="adm-form-actions">
-        <button className="adm-btn adm-btn-ghost" type="reset" onClick={() => setCategory("Offre d’emploi")}>
-          Effacer
-        </button>
+        {editing ? (
+          <button className="adm-btn adm-btn-ghost" type="button" onClick={onCancel}>
+            Annuler
+          </button>
+        ) : (
+          <button className="adm-btn adm-btn-ghost" type="reset" onClick={() => setCategory("Offre d’emploi")}>
+            Effacer
+          </button>
+        )}
         <button className="adm-btn adm-btn-primary" type="submit" disabled={pending}>
-          <Send size={16} /> {pending ? "Publication…" : "Publier l’offre"}
+          <Send size={16} /> {pending ? "Enregistrement…" : editing ? "Enregistrer les modifications" : "Publier l’offre"}
         </button>
       </div>
     </form>
@@ -627,12 +681,14 @@ function OffersTable({
   loading,
   onDelete,
   onExtend,
+  onEdit,
 }: {
   mode: "active" | "expired";
   announcements: Announcement[];
   loading: boolean;
   onDelete: (item: Announcement) => void;
   onExtend: (item: Announcement) => void;
+  onEdit: (item: Announcement) => void;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "open" | "grace">("all");
@@ -718,6 +774,15 @@ function OffersTable({
                     </td>
                     <td className="adm-num">{Number(item.views || 0).toLocaleString("fr-FR")}</td>
                     <td className="adm-actions-col">
+                      <button
+                        type="button"
+                        className="adm-icon-btn"
+                        onClick={() => onEdit(item)}
+                        title="Modifier"
+                        aria-label={`Modifier ${item.title}`}
+                      >
+                        <Pencil size={16} />
+                      </button>
                       <button
                         type="button"
                         className="adm-icon-btn is-accent"

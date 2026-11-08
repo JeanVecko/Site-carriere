@@ -244,3 +244,5 @@
 .adm-quick-dates { display: flex; flex-wrap: wrap; gap: 8px; }
 .adm-quick-dates button { background: #fff; border: 1px solid #cfd8e3; border-radius: 8px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 12px; }
 .adm-quick-dates button.is-active, .adm-quick-dates button:hover { background: #e6eefa; border-color: var(--adm-primary-2); color: var(--adm-primary); }
+
+.adm-info-inline { border: 1px solid var(--adm-border); border-radius: 8px; margin-bottom: 4px; }
