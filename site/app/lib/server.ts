@@ -2,13 +2,16 @@
 import { cache } from "react";
 import { API_BASE, type Announcement } from "./api";
 
-// Adresse publique du site. Sur Vercel, VERCEL_PROJECT_PRODUCTION_URL est fournie automatiquement ;
-// définir NEXT_PUBLIC_SITE_URL si vous utilisez votre propre nom de domaine.
+// Adresse publique du site (liens canoniques, sitemap, partage). En production : le domaine carrieresrdc.com
+// (version www, vers laquelle Vercel redirige). NEXT_PUBLIC_SITE_URL permet de la changer sans toucher au code.
+const PRODUCTION_SITE_URL = "https://www.carrieresrdc.com";
 export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "http://localhost:3000")
+  (process.env.VERCEL_ENV === "production"
+    ? PRODUCTION_SITE_URL
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000")
 ).replace(/\/$/, "");
 
 const REVALIDATE_SECONDS = 60;
