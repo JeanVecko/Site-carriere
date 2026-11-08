@@ -22,6 +22,8 @@ import {
   Send,
   Trash2,
   TriangleAlert,
+  Archive,
+  CalendarPlus,
 } from "lucide-react";
 import {
   Announcement,
@@ -40,12 +42,13 @@ import { CategorySplitChart, PublicationsChart, TopViewsChart } from "./AdminCha
 const TOKEN_KEY = "carrieres-admin-token";
 const AUTH_EVENT = "carrieres-admin-auth";
 
-type Section = "dashboard" | "publish" | "offers" | "messages";
+type Section = "dashboard" | "publish" | "offers" | "expired" | "messages";
 
 const SECTIONS: Array<{ id: Section; label: string; icon: typeof LayoutDashboard }> = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { id: "publish", label: "Publier une offre", icon: CirclePlus },
   { id: "offers", label: "Offres publiées", icon: BriefcaseBusiness },
+  { id: "expired", label: "Offres expirées", icon: Archive },
   { id: "messages", label: "Messages", icon: Inbox },
 ];
 
@@ -156,6 +159,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [extending, setExtending] = useState<Announcement | null>(null);
 
   const logout = useCallback(() => setToken(null), []);
 
@@ -195,6 +199,7 @@ function Dashboard() {
     return {
       open: open.length,
       expired: announcements.length - open.length,
+      hidden: announcements.filter((item) => item.hidden).length,
       views: announcements.reduce((total, item) => total + Number(item.views || 0), 0),
       messages: messages.length,
     };
@@ -209,6 +214,17 @@ function Dashboard() {
     } catch (error) {
       setToast({ type: "error", text: error instanceof Error ? error.message : "Suppression impossible." });
     }
+  }
+
+  async function extendDeadline(item: Announcement, deadline: string) {
+    await apiRequest(`/announcements/${item.id}/deadline`, {
+      method: "PATCH",
+      headers: adminHeaders(),
+      body: JSON.stringify({ deadline }),
+    });
+    setExtending(null);
+    setToast({ type: "success", text: `Date prolongée jusqu’au ${formatDate(deadline)}.` });
+    await loadAll();
   }
 
   async function deleteMessage(message: ContactMessage) {
@@ -247,6 +263,7 @@ function Dashboard() {
               <Icon size={18} />
               <span>{label}</span>
               {id === "messages" && stats.messages > 0 && <em className="adm-badge">{stats.messages}</em>}
+              {id === "expired" && stats.hidden > 0 && <em className="adm-badge adm-badge-muted">{stats.hidden}</em>}
             </button>
           ))}
         </nav>
@@ -302,11 +319,22 @@ function Dashboard() {
             }}
           />
         )}
-        {section === "offers" && (
-          <OffersTable announcements={announcements} loading={loading} onDelete={deleteAnnouncement} />
+        {(section === "offers" || section === "expired") && (
+          <OffersTable
+            key={section}
+            mode={section === "expired" ? "expired" : "active"}
+            announcements={announcements}
+            loading={loading}
+            onDelete={deleteAnnouncement}
+            onExtend={setExtending}
+          />
         )}
         {section === "messages" && <MessagesList messages={messages} loading={loading} onDelete={deleteMessage} />}
       </div>
+
+      {extending && (
+        <ExtendDialog item={extending} onClose={() => setExtending(null)} onSave={(deadline) => extendDeadline(extending, deadline)} />
+      )}
 
       {toast && (
         <div className={`adm-toast adm-toast-${toast.type}`} role="status">
@@ -326,7 +354,7 @@ function DashboardHome({
   loading,
   goTo,
 }: {
-  stats: { open: number; expired: number; views: number; messages: number };
+  stats: { open: number; expired: number; hidden: number; views: number; messages: number };
   announcements: Announcement[];
   messages: ContactMessage[];
   loading: boolean;
@@ -579,26 +607,51 @@ function PublishForm({ onPublished }: { onPublished: () => Promise<void> }) {
 
 /* ----- Tableau des offres ----- */
 
+type OfferStatus = "open" | "grace" | "hidden";
+
+// En ligne → expirée mais encore visible 24 h (« grace ») → retirée du site (visible seulement ici).
+function offerStatus(item: Announcement): OfferStatus {
+  if (item.hidden) return "hidden";
+  return isExpired(item) ? "grace" : "open";
+}
+
+const STATUS_LABELS: Record<OfferStatus, string> = {
+  open: "En ligne",
+  grace: "Expirée · retrait sous 24 h",
+  hidden: "Retirée du site",
+};
+
 function OffersTable({
+  mode,
   announcements,
   loading,
   onDelete,
+  onExtend,
 }: {
+  mode: "active" | "expired";
   announcements: Announcement[];
   loading: boolean;
   onDelete: (item: Announcement) => void;
+  onExtend: (item: Announcement) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "open" | "expired">("all");
+  const [filter, setFilter] = useState<"all" | "open" | "grace">("all");
   const needle = query.trim().toLowerCase();
-  const rows = announcements.filter((item) => {
-    if (filter === "open" && isExpired(item)) return false;
-    if (filter === "expired" && !isExpired(item)) return false;
+  const scoped = announcements.filter((item) => (mode === "expired" ? item.hidden : !item.hidden));
+  const rows = scoped.filter((item) => {
+    const status = offerStatus(item);
+    if (mode === "active" && filter !== "all" && status !== filter) return false;
     return `${item.title} ${item.company} ${item.location} ${item.category}`.toLowerCase().includes(needle);
   });
 
   return (
     <section className="adm-card adm-card-flush">
+      {mode === "expired" && (
+        <p className="adm-info">
+          <Archive size={16} /> Ces offres ne sont plus visibles sur le site public (24 h après leur date d’expiration).
+          Prolongez la date pour les remettre en ligne.
+        </p>
+      )}
       <div className="adm-toolbar">
         <label className="adm-search">
           <Search size={16} />
@@ -610,24 +663,26 @@ function OffersTable({
             aria-label="Rechercher une offre"
           />
         </label>
-        <div className="adm-segmented" role="group" aria-label="Filtrer">
-          {(
-            [
-              ["all", "Toutes"],
-              ["open", "En ligne"],
-              ["expired", "Expirées"],
-            ] as const
-          ).map(([value, label]) => (
-            <button key={value} type="button" className={filter === value ? "is-active" : undefined} onClick={() => setFilter(value)}>
-              {label}
-            </button>
-          ))}
-        </div>
+        {mode === "active" && (
+          <div className="adm-segmented" role="group" aria-label="Filtrer">
+            {(
+              [
+                ["all", "Toutes"],
+                ["open", "En ligne"],
+                ["grace", "Expirées (24 h)"],
+              ] as const
+            ).map(([value, label]) => (
+              <button key={value} type="button" className={filter === value ? "is-active" : undefined} onClick={() => setFilter(value)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {loading && announcements.length === 0 ? (
         <EmptyState text="Chargement…" />
       ) : rows.length === 0 ? (
-        <EmptyState text="Aucune offre ne correspond." />
+        <EmptyState text={mode === "expired" ? "Aucune offre expirée." : "Aucune offre ne correspond."} />
       ) : (
         <div className="adm-table-wrap">
           <table className="adm-table">
@@ -635,7 +690,7 @@ function OffersTable({
               <tr>
                 <th>Offre</th>
                 <th>Catégorie</th>
-                <th>Publiée le</th>
+                <th>Expiration</th>
                 <th>Statut</th>
                 <th className="adm-num">Vues</th>
                 <th className="adm-actions-col">Actions</th>
@@ -643,7 +698,7 @@ function OffersTable({
             </thead>
             <tbody>
               {rows.map((item) => {
-                const expired = isExpired(item);
+                const status = offerStatus(item);
                 return (
                   <tr key={String(item.id)}>
                     <td>
@@ -654,18 +709,29 @@ function OffersTable({
                       </span>
                     </td>
                     <td>{item.category}</td>
-                    <td>{formatDate(item.created_at)}</td>
                     <td>
-                      <span className={`adm-status ${expired ? "is-expired" : "is-open"}`}>
-                        {expired ? "Expirée" : "En ligne"}
-                      </span>
-                      {item.deadline && <small>Limite : {formatDate(item.deadline)}</small>}
+                      {item.deadline ? formatDate(item.deadline) : "Non précisée"}
+                      <small>Publiée le {formatDate(item.created_at)}</small>
+                    </td>
+                    <td>
+                      <span className={`adm-status is-${status}`}>{STATUS_LABELS[status]}</span>
                     </td>
                     <td className="adm-num">{Number(item.views || 0).toLocaleString("fr-FR")}</td>
                     <td className="adm-actions-col">
-                      <Link className="adm-icon-btn" href={detailHref(item)} target="_blank" title="Voir l’offre" aria-label="Voir l’offre">
-                        <Eye size={16} />
-                      </Link>
+                      <button
+                        type="button"
+                        className="adm-icon-btn is-accent"
+                        onClick={() => onExtend(item)}
+                        title="Prolonger la date"
+                        aria-label={`Prolonger la date de ${item.title}`}
+                      >
+                        <CalendarPlus size={16} />
+                      </button>
+                      {status !== "hidden" && (
+                        <Link className="adm-icon-btn" href={detailHref(item)} target="_blank" title="Voir l’offre" aria-label="Voir l’offre">
+                          <Eye size={16} />
+                        </Link>
+                      )}
                       <button type="button" className="adm-icon-btn is-danger" onClick={() => onDelete(item)} title="Supprimer" aria-label={`Supprimer ${item.title}`}>
                         <Trash2 size={16} />
                       </button>
@@ -678,9 +744,90 @@ function OffersTable({
         </div>
       )}
       <p className="adm-table-footer">
-        {rows.length} offre{rows.length > 1 ? "s" : ""} affichée{rows.length > 1 ? "s" : ""} sur {announcements.length}
+        {rows.length} offre{rows.length > 1 ? "s" : ""} affichée{rows.length > 1 ? "s" : ""} sur {scoped.length}
       </p>
     </section>
+  );
+}
+
+/* ----- Prolongation de la date d'expiration ----- */
+
+function toIsoDate(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function ExtendDialog({
+  item,
+  onClose,
+  onSave,
+}: {
+  item: Announcement;
+  onClose: () => void;
+  onSave: (deadline: string) => Promise<void>;
+}) {
+  const today = toIsoDate(new Date());
+  // Les raccourcis partent de la date actuelle si elle est encore à venir, sinon d'aujourd'hui.
+  const base = item.deadline && item.deadline > today ? new Date(`${item.deadline}T12:00:00`) : new Date();
+  const plus = (days: number) => toIsoDate(new Date(base.getTime() + days * 86_400_000));
+  const [value, setValue] = useState(plus(14));
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [onClose]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!value || value < today) return setError("Choisissez une date à partir d’aujourd’hui.");
+    setPending(true);
+    setError("");
+    try {
+      await onSave(value);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Impossible de prolonger.");
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="adm-modal-backdrop" onClick={onClose}>
+      <form className="adm-modal" role="dialog" aria-modal="true" aria-labelledby="extend-title" onSubmit={submit} onClick={(event) => event.stopPropagation()}>
+        <h2 id="extend-title">Prolonger la date d’expiration</h2>
+        <p className="adm-muted-text">
+          <strong>{decodeEntities(item.title)}</strong>
+          <br />
+          Date actuelle : {item.deadline ? formatDate(item.deadline) : "non précisée"}
+        </p>
+        <div className="adm-quick-dates">
+          {[7, 14, 30].map((days) => (
+            <button key={days} type="button" className={value === plus(days) ? "is-active" : undefined} onClick={() => setValue(plus(days))}>
+              + {days} jours
+            </button>
+          ))}
+        </div>
+        <label className="adm-field">
+          <span>Nouvelle date d’expiration</span>
+          <input type="date" min={today} value={value} onChange={(event) => setValue(event.target.value)} required />
+        </label>
+        <p className="adm-muted-text">L’offre restera en ligne jusqu’au lendemain de cette date, puis passera dans « Offres expirées ».</p>
+        {error && (
+          <p className="adm-alert adm-alert-error" role="alert">
+            <TriangleAlert size={16} /> {error}
+          </p>
+        )}
+        <div className="adm-form-actions">
+          <button type="button" className="adm-btn adm-btn-ghost" onClick={onClose}>
+            Annuler
+          </button>
+          <button type="submit" className="adm-btn adm-btn-primary" disabled={pending}>
+            <CalendarPlus size={16} /> {pending ? "Enregistrement…" : "Prolonger"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 

@@ -4,7 +4,7 @@ import SiteHeader from "./components/SiteHeader";
 import SiteFooter from "./components/SiteFooter";
 import OfferRow from "./components/OfferRow";
 import { SOCIAL_NETWORKS } from "./components/SocialLinks";
-import { decodeEntities, isExpired } from "./lib/api";
+import { isExpired } from "./lib/api";
 import { fetchAnnouncements } from "./lib/server";
 
 export const revalidate = 60;
@@ -19,9 +19,6 @@ export default async function Home() {
   const open = (await fetchAnnouncements()).filter((item) => !isExpired(item));
   // Les 10 dernières offres d'emploi encore ouvertes (l'API trie de la plus récente à la plus ancienne).
   const latest = open.filter((item) => item.category === "Offre d’emploi").slice(0, 10);
-  // Chiffres réels affichés sous la recherche.
-  const cities = new Set(open.map((item) => decodeEntities(item.location).split(/[·,(-]/)[0].trim().toLowerCase()).filter(Boolean));
-  const employers = new Set(open.map((item) => decodeEntities(item.company).trim().toLowerCase()).filter(Boolean));
 
   return (
     <>
@@ -29,9 +26,6 @@ export default async function Home() {
       <main>
         <section className="pub-hero">
           <div className="pub-container">
-            <span className="pub-pill">
-              <i aria-hidden="true" /> Nouvelles offres publiées chaque jour
-            </span>
             <h1>
               Votre prochain <em>emploi</em> en RDC commence ici.
             </h1>
@@ -51,20 +45,6 @@ export default async function Home() {
                 </Link>
               ))}
             </nav>
-            <div className="pub-stats">
-              <div>
-                <strong>{open.length}</strong>
-                <span>publications en cours</span>
-              </div>
-              <div>
-                <strong>{employers.size}</strong>
-                <span>organisations</span>
-              </div>
-              <div>
-                <strong>{cities.size}</strong>
-                <span>villes</span>
-              </div>
-            </div>
           </div>
         </section>
 

@@ -689,10 +689,16 @@ app.delete('/api/my/organization/members/:id', requireUser, requireOrganizationO
   response.status(204).end();
 });
 
+// Visibilité publique : une offre reste en ligne jusqu'à la fin de sa date limite, puis encore 24 h
+// (affichée « Expirée »). Ensuite elle n'est plus visible que par l'administrateur.
+// Heure de référence : Kinshasa. Fin de visibilité = (date limite + 2 jours) à 00:00.
+const PUBLIC_UNTIL_SQL = "((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')";
+const PUBLICLY_VISIBLE_SQL = `(deadline IS NULL OR NOW() < ${PUBLIC_UNTIL_SQL})`;
+
 app.get('/api/announcements', async (request, response) => {
   const category = clean(request.query.category);
   const values = category ? [category] : [];
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count FROM announcements ${category ? 'WHERE category = $1' : ''} ORDER BY created_at DESC`, values);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY created_at DESC`, values);
   response.json(result.rows);
 });
 
@@ -719,7 +725,7 @@ app.get('/api/my/recommended-offers', requireUser, async (request, response) => 
 
 app.get('/api/announcements/:id', async (request, response) => {
   if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, media FROM announcements WHERE id = $1`, [request.params.id]);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, media FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   response.json(result.rows[0]);
 });
@@ -729,6 +735,8 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
     `SELECT a.id, a.title, a.category, a.company, a.location, a.description, a.contract_type,
             to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
             jsonb_array_length(a.media) AS media_count, a.views, a.created_at,
+            ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa') AS public_until,
+            NOT (a.deadline IS NULL OR NOW() < ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden,
             u.email AS author_email, o.name AS organization_name
      FROM announcements a
      LEFT JOIN users u ON u.id = a.owner_id
@@ -747,6 +755,28 @@ app.post('/api/announcements', requireAdmin, async (request, response) => {
     values
   );
   response.status(201).json(result.rows[0]);
+});
+
+// Prolongation (ou modification) de la date limite d'une offre par l'administrateur.
+// La nouvelle date doit être aujourd'hui ou plus tard (heure de Kinshasa) ; l'offre redevient visible.
+app.patch('/api/announcements/:id/deadline', requireAdmin, async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
+  const deadline = clean(request.body.deadline);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline) || Number.isNaN(Date.parse(deadline))) {
+    return response.status(400).json({ error: 'Date invalide.' });
+  }
+  const result = await pool.query(
+    `UPDATE announcements SET deadline = $2::date
+     WHERE id = $1 AND $2::date >= (NOW() AT TIME ZONE 'Africa/Kinshasa')::date
+     RETURNING id, to_char(deadline, 'YYYY-MM-DD') AS deadline`,
+    [request.params.id, deadline]
+  );
+  if (!result.rows[0]) {
+    const exists = await pool.query('SELECT 1 FROM announcements WHERE id = $1', [request.params.id]);
+    if (!exists.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
+    return response.status(400).json({ error: 'La nouvelle date doit être aujourd’hui ou plus tard.' });
+  }
+  response.json(result.rows[0]);
 });
 
 // Compteur de vues : appelé par la page d'une offre. Un même visiteur (adresse IP) n'est compté

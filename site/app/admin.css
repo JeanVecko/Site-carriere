@@ -228,3 +228,19 @@
 .viz-legend em { color: var(--viz-muted); font-style: normal; font-variant-numeric: tabular-nums; text-align: right; }
 @media (max-width: 860px) { .adm-grid-chart { grid-template-columns: minmax(0, 1fr); } }
 
+
+/* Statuts d'expiration, prolongation */
+.adm-status.is-open { background: #e3f4ea; color: var(--adm-success) !important; }
+.adm-status.is-grace { background: #fdf3d8; color: #8a6400 !important; }
+.adm-status.is-hidden { background: #f1f3f6; color: var(--adm-muted) !important; }
+.adm-badge-muted { background: rgba(255,255,255,.22); color: #fff; }
+.adm-icon-btn.is-accent:hover { border-color: var(--adm-success); color: var(--adm-success); }
+.adm-info { align-items: center; background: #f6f8fc; border-bottom: 1px solid var(--adm-border); color: var(--adm-muted); display: flex; font-size: 13px; gap: 8px; margin: 0; padding: 12px 18px; }
+.adm-modal-backdrop { align-items: center; background: rgba(9, 20, 40, .45); display: flex; inset: 0; justify-content: center; padding: 16px; position: fixed; z-index: 60; }
+.adm-modal { background: #fff; border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.25); display: flex; flex-direction: column; gap: 14px; max-width: 440px; padding: 24px; width: 100%; }
+.adm-modal h2 { font-family: 'Space Grotesk', sans-serif; font-size: 19px; margin: 0; }
+.adm-muted-text { color: var(--adm-muted); font-size: 13px; line-height: 1.5; margin: 0; }
+.adm-muted-text strong { color: var(--adm-text); }
+.adm-quick-dates { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-quick-dates button { background: #fff; border: 1px solid #cfd8e3; border-radius: 8px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 12px; }
+.adm-quick-dates button.is-active, .adm-quick-dates button:hover { background: #e6eefa; border-color: var(--adm-primary-2); color: var(--adm-primary); }

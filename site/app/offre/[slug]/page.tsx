@@ -124,7 +124,7 @@ export default async function OfferPage({ params }: Props) {
     { icon: BriefcaseBusiness, label: "Type de contrat", value: item.contract_type || "" },
     { icon: Banknote, label: "Salaire", value: item.salary || "" },
     { icon: CalendarDays, label: "Publiée le", value: formatDate(item.created_at) },
-    { icon: CalendarClock, label: "Date limite", value: item.deadline ? formatDate(item.deadline) : "Non précisée" },
+    { icon: CalendarClock, label: "Date d’expiration", value: item.deadline ? formatDate(item.deadline) : "Non précisée" },
   ].filter((fact) => fact.value);
 
   return (

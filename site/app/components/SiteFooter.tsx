@@ -45,7 +45,6 @@ export default function SiteFooter({ withContact = false }: { withContact?: bool
             <li><Link href="/annonces">Annonces</Link></li>
             <li><Link href="/appels-offres">Appels d’offres</Link></li>
             <li><Link href="/#recruteurs">Publier une offre</Link></li>
-            <li><Link href="/mentions-legales">Mentions légales</Link></li>
           </ul>
         </div>
 
@@ -58,10 +57,10 @@ export default function SiteFooter({ withContact = false }: { withContact?: bool
             <form className="pub-contact-form" onSubmit={handleSubmit}>
               <input name="name" type="text" placeholder="Votre nom" aria-label="Votre nom" required />
               <input name="email" type="email" placeholder="Votre e-mail" aria-label="Votre e-mail" required />
-              <input className="pub-span" name="subject" type="text" placeholder="Sujet (ex. publier une offre, signaler une offre)" aria-label="Sujet" required />
-              <textarea className="pub-span" name="message" rows={3} placeholder="Votre message" aria-label="Votre message" required />
-              <button className="pub-btn pub-btn-gold pub-span" type="submit" disabled={pending}>
-                <Send size={16} /> {pending ? "Envoi…" : "Envoyer le message"}
+              <input name="subject" type="text" placeholder="Sujet" aria-label="Sujet" required />
+              <textarea className="pub-span-2" name="message" rows={2} placeholder="Votre message (publier une offre, signaler une offre…)" aria-label="Votre message" required />
+              <button className="pub-btn pub-btn-gold" type="submit" disabled={pending}>
+                <Send size={15} /> {pending ? "Envoi…" : "Envoyer"}
               </button>
               {feedback && (
                 <p className="pub-form-feedback pub-span" role="status">

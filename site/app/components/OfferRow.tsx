@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Building2, Clock, MapPin } from "lucide-react";
+import { ArrowRight, Building2, CalendarClock, Clock, MapPin } from "lucide-react";
 import { type Announcement, companyAvatar, decodeEntities, detailHref, formatDate, isExpired, timeAgo } from "../lib/api";
 
 // Fiche d'une offre dans une liste (accueil et pages de catégorie).
@@ -28,11 +28,13 @@ export default function OfferRow({ item, showCategory = false }: { item: Announc
           <span className="pub-tags">
             {showCategory && item.category && <span className="pub-tag">{item.category}</span>}
             {item.contract_type && <span className="pub-tag pub-tag-gold">{item.contract_type}</span>}
-            {expired ? (
-              <span className="pub-tag pub-tag-red">Expirée</span>
-            ) : (
-              item.deadline && <span className="pub-tag">Jusqu’au {formatDate(item.deadline)}</span>
-            )}
+            {expired && <span className="pub-tag pub-tag-red">Expirée</span>}
+          </span>
+          <span className={`pub-job-expiry${expired ? " is-expired" : ""}`}>
+            <CalendarClock size={14} aria-hidden="true" />
+            {item.deadline
+              ? `${expired ? "A expiré le" : "Expire le"} ${formatDate(item.deadline)}`
+              : "Date d’expiration non précisée"}
           </span>
         </span>
         <span className="pub-job-side">
