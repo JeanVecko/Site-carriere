@@ -93,7 +93,7 @@ export default function CategoryList({ category, initialItems }: { category: str
     .filter((item) => contracts.length === 0 || contracts.includes(item.contract_type || ""))
     .filter((item) => !city || cityOf(item) === city)
     .filter((item) => maxDays === Infinity || (item.created_at && loadedAt - new Date(item.created_at).getTime() <= maxDays * 86_400_000))
-    .filter((item) => `${item.title} ${item.company} ${item.location} ${item.description}`.toLowerCase().includes(needle))
+    .filter((item) => decodeEntities(`${item.title} ${item.company} ${item.location} ${item.description}`).toLowerCase().includes(needle))
     .sort((a, b) => {
       // Offres encore ouvertes d'abord ; les offres expirées (encore visibles 24 h) à la fin.
       const expiredGap = Number(isExpired(a)) - Number(isExpired(b));

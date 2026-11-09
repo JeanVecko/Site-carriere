@@ -702,7 +702,7 @@ function OffersTable({
   const rows = scoped.filter((item) => {
     const status = offerStatus(item);
     if (mode === "active" && filter !== "all" && status !== filter) return false;
-    return `${item.title} ${item.company} ${item.location} ${item.category}`.toLowerCase().includes(needle);
+    return decodeEntities(`${item.title} ${item.company} ${item.location} ${item.category}`).toLowerCase().includes(needle);
   });
 
   return (

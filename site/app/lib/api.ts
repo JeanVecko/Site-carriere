@@ -128,7 +128,7 @@ export const WHATSAPP_CHANNEL_URL =
 export const CONTRACT_TYPES =["CDI", "CDD", "Stage", "Consultance", "Temps partiel", "Intérim", "Bénévolat", "Autre"];
 
 export function slugify(value: string): string {
-  return String(value)
+  return decodeEntities(value)
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -237,6 +237,9 @@ export function applyTarget(contact?: string, offerTitle?: string): ApplyTarget 
 // Certaines anciennes publications ont été enregistrées avec des entités HTML (&#39;, &amp;…).
 export function decodeEntities(value: unknown): string {
   return String(value ?? "")
+    // Lettres « stylisées » copiées depuis LinkedIn / Facebook (𝗔𝗻𝗮𝗹𝘆𝘀𝘁𝗲, 𝑇𝑒𝑥𝑡𝑒…) → lettres normales,
+    // sinon elles s'affichent en carrés dans les aperçus et Google ne les lit pas comme des mots.
+    .replace(/[\u{1D400}-\u{1D7FF}]/gu, (char) => char.normalize("NFKC"))
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;|&#x27;/gi, "'")
     .replace(/&lt;/g, "<")

@@ -149,7 +149,7 @@ export default async function OfferPage({ params }: Props) {
 
   const expired = isExpired(item);
   const remaining = daysLeft(item.deadline);
-  const apply = applyTarget(item.apply_contact, item.title);
+  const apply = applyTarget(item.apply_contact, decodeEntities(item.title));
   const applyHref = apply?.href ?? null;
   // Lien web et WhatsApp : nouvel onglet ; e-mail et téléphone : l'application correspondante s'ouvre.
   const applyIsWeb = apply?.kind === "web" || apply?.kind === "whatsapp";
