@@ -137,11 +137,20 @@ export function slugify(value: string): string {
     .slice(0, 70);
 }
 
-// Adresse publique d'une offre, lisible par les moteurs de recherche : /offre/12-comptable-kinshasa
-export function detailHref(item: { id?: number | string; _id?: string; title?: string }): string {
+// Début d'adresse selon la catégorie de la publication.
+export const DETAIL_BASES: Record<string, string> = {
+  "Offre d’emploi": "/offre",
+  Annonce: "/annonce",
+  "Appel d’offre": "/appel-offre",
+};
+
+// Adresse publique d'une publication, lisible par les moteurs de recherche :
+// /offre/12-comptable-kinshasa, /annonce/13-formation-…, /appel-offre/14-recherche-de-transporteurs-…
+export function detailHref(item: { id?: number | string; _id?: string; title?: string; category?: string | null }): string {
   const id = String(item.id ?? item._id ?? "");
   const slug = item.title ? slugify(item.title) : "";
-  return `/offre/${encodeURIComponent(slug ? `${id}-${slug}` : id)}`;
+  const base = DETAIL_BASES[item.category || ""] || "/offre";
+  return `${base}/${encodeURIComponent(slug ? `${id}-${slug}` : id)}`;
 }
 
 export function formatDate(value?: string | null): string {

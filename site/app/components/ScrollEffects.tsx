@@ -13,7 +13,7 @@ import { ArrowUp } from "lucide-react";
 export default function ScrollEffects() {
   const pathname = usePathname();
   const [showTop, setShowTop] = useState(false);
-  const isOffer = pathname.startsWith("/offre/");
+  const isOffer = /^\/(offre|annonce|appel-offre)\//.test(pathname);
 
   useEffect(() => {
     let frame = 0;
