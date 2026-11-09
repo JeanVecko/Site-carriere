@@ -186,11 +186,21 @@ export function isExpired(item: { deadline?: string | null }): boolean {
   return new Date(`${item.deadline}T23:59:59`).getTime() < Date.now();
 }
 
-// Transforme le champ "comment postuler" en lien cliquable quand c'est un e-mail ou une URL.
-export function applyLink(contact?: string): string | null {
+// Transforme le champ « comment postuler » en lien cliquable : un lien web (même écrit dans une phrase, ou
+// commençant par « www. ») s'ouvre tel quel ; une adresse e-mail ouvre la messagerie avec l'objet pré-rempli.
+// Renvoie null s'il n'y a ni lien ni e-mail (adresse de dépôt physique, par exemple).
+export function applyLink(contact?: string, offerTitle?: string): string | null {
   const value = String(contact || "").trim();
-  if (/^https?:\/\//i.test(value)) return value;
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `mailto:${value}`;
+  const url = value.match(/\bhttps?:\/\/[^\s<>"']+/i)?.[0] ?? value.match(/\bwww\.[^\s<>"']+\.[a-z]{2,}[^\s<>"']*/i)?.[0];
+  if (url) {
+    const clean = url.replace(/[).,;:!?]+$/, "");
+    return /^https?:\/\//i.test(clean) ? clean : `https://${clean}`;
+  }
+  const email = value.match(/[^\s<>()"',;:]+@[^\s<>()"',;:]+\.[a-z]{2,}/i)?.[0];
+  if (email) {
+    const subject = offerTitle ? `?subject=${encodeURIComponent(`Candidature – ${decodeEntities(offerTitle)}`)}` : "";
+    return `mailto:${email}${subject}`;
+  }
   return null;
 }
 

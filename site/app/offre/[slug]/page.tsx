@@ -112,7 +112,8 @@ export default async function OfferPage({ params }: Props) {
 
   const expired = isExpired(item);
   const remaining = daysLeft(item.deadline);
-  const applyHref = applyLink(item.apply_contact);
+  const applyHref = applyLink(item.apply_contact, item.title);
+  const applyIsWeb = Boolean(applyHref?.startsWith("http"));
   const isJob = item.category === "Offre d’emploi";
   const isTender = item.category === "Appel d’offre";
   const categoryPage = CATEGORY_PAGES[item.category || ""] || { href: "/", label: "Accueil" };
@@ -141,6 +142,12 @@ export default async function OfferPage({ params }: Props) {
           : { tone: remaining <= 7 ? "is-soon" : "is-open", text: `Plus que ${remaining} jour${remaining > 1 ? "s" : ""} pour postuler` };
   const applyLabel = isTender ? "Soumissionner" : "Postuler";
   const canApply = !expired && Boolean(item.apply_contact);
+  // Bouton « Postuler » du bandeau et de la barre mobile : lien de candidature ou messagerie directement,
+  // sinon (adresse de dépôt…) il descend vers l'encadré « Postuler ».
+  const ctaProps = applyHref
+    ? { href: applyHref, ...(applyIsWeb ? { target: "_blank", rel: "noreferrer" } : {}) }
+    : { href: "#postuler" };
+  const CtaIcon = applyIsWeb ? ExternalLink : Send;
 
   return (
     <>
@@ -176,8 +183,8 @@ export default async function OfferPage({ params }: Props) {
               </div>
             </div>
             {canApply && (
-              <a className="pub-btn pub-btn-gold pub-offer-hero-cta" href="#postuler">
-                <Send size={16} /> {applyLabel}
+              <a className="pub-btn pub-btn-gold pub-offer-hero-cta" {...ctaProps}>
+                <CtaIcon size={16} /> {applyLabel}
               </a>
             )}
           </div>
@@ -239,11 +246,11 @@ export default async function OfferPage({ params }: Props) {
                   <a
                     className="pub-btn pub-btn-gold pub-btn-block"
                     href={applyHref}
-                    target={applyHref.startsWith("http") ? "_blank" : undefined}
+                    target={applyIsWeb ? "_blank" : undefined}
                     rel="noreferrer"
                   >
-                    {applyHref.startsWith("mailto:") ? <Send size={16} /> : <ExternalLink size={16} />}
-                    {applyHref.startsWith("mailto:") ? "Envoyer ma candidature" : "Accéder à la candidature"}
+                    {applyIsWeb ? <ExternalLink size={16} /> : <Send size={16} />}
+                    {applyIsWeb ? "Accéder à la candidature" : "Envoyer ma candidature par e-mail"}
                   </a>
                 )}
               </>
@@ -302,8 +309,8 @@ export default async function OfferPage({ params }: Props) {
 
       {canApply && (
         <div className="pub-apply-bar">
-          <a className="pub-btn pub-btn-gold pub-btn-block" href="#postuler">
-            <Send size={16} /> {applyLabel}
+          <a className="pub-btn pub-btn-gold pub-btn-block" {...ctaProps}>
+            <CtaIcon size={16} /> {applyLabel}
           </a>
         </div>
       )}
