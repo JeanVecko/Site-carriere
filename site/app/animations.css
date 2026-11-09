@@ -193,3 +193,25 @@ html.is-splashing .pub-header, html.is-splashing .pub-hero * { animation-play-st
   .splash-logo { height: 104px; width: 104px; }
   .splash-name { font-size: 22px; }
 }
+
+/* =====================================================================
+   Transition entre les pages (PageTransition) : voile + logo qui tourne
+   ===================================================================== */
+@keyframes transition-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes transition-out { to { opacity: 0; } }
+@keyframes transition-logo-in { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
+.page-transition {
+  align-items: center;
+  animation: transition-in .2s ease both;
+  backdrop-filter: blur(6px);
+  background: radial-gradient(400px 300px at 50% 50%, rgba(240, 185, 11, .12), transparent 70%), rgba(6, 33, 74, .72);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 900;
+}
+.page-transition.is-leaving { animation: transition-out .35s ease forwards; }
+.page-transition-logo { animation: transition-logo-in .3s var(--ease-spring) both; height: 92px; position: relative; width: 92px; }
+.page-transition-logo img { animation: splash-spin 1.4s linear infinite; background: #fff; border-radius: 50%; box-shadow: 0 14px 34px rgba(0, 0, 0, .35); height: 100%; object-fit: contain; padding: 8px; width: 100%; }
+.page-transition-logo .splash-ring { inset: -10px; }

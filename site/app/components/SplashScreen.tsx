@@ -2,15 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const SEEN_KEY = "carrieres-splash-vu";
+import { SPLASH_SEEN_KEY as SEEN_KEY } from "../lib/splash";
 // Durée du chargement (logo qui tourne + barre qui se remplit). À garder identique aux durées de animations.css
 // (.splash : splash-out 8s ; .splash-bar-fill : splash-fill 8s).
 const DURATION_MS = 8000;
 const EXIT_MS = 600; // fondu de sortie
 
-// Exécuté avant l'affichage : si l'écran a déjà été vu pendant cette visite, il est masqué d'emblée
-// (pas de clignotement) ; sinon la page d'accueil reste en attente derrière lui.
-const PRE_PAINT_SCRIPT = `try{var d=document.documentElement;if(sessionStorage.getItem("${SEEN_KEY}")){d.classList.add("splash-seen")}else{d.classList.add("is-splashing")}}catch(e){}`;
+// Décision prise au premier montage de la page (null = pas encore décidé), conservée pendant la visite.
+let shouldSplash: boolean | null = null;
+
+// Le script qui décide d'afficher l'écran est dans lib/splash.ts (exécuté dans <head> par layout.tsx).
 
 /**
  * Écran d'accueil : logo qui tourne pendant 8 secondes, barre de chargement avec pourcentage sous le texte,
@@ -24,12 +25,18 @@ export default function SplashScreen() {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (root.classList.contains("splash-seen")) return;
-
+    // Seul le script d'en-tête décide d'afficher l'écran (chargement complet de l'accueil, première fois).
+    // La décision est lue une seule fois et mémorisée : le nettoyage d'un effet ne doit pas la défaire.
+    if (shouldSplash === null) shouldSplash = root.classList.contains("is-splashing");
+    if (!shouldSplash) {
+      root.classList.add("splash-seen");
+      return;
+    }
     root.classList.add("is-splashing");
     let cancelled = false;
     const release = () => {
       if (cancelled) return;
+      shouldSplash = false;
       root.classList.remove("is-splashing");
       try {
         sessionStorage.setItem(SEEN_KEY, "1");
@@ -74,7 +81,6 @@ export default function SplashScreen() {
 
   return (
     <>
-      <script dangerouslySetInnerHTML={{ __html: PRE_PAINT_SCRIPT }} />
       <div className="splash" role="status" aria-label="Chargement de Carrières RDC">
         <div className="splash-center">
           <div className="splash-logo">
