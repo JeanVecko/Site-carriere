@@ -29,9 +29,11 @@ export const fetchAnnouncement = cache(async (id: string): Promise<Announcement 
   }
 });
 
-export async function fetchAnnouncements(): Promise<Announcement[]> {
+// Liste publique (optionnellement d'une seule catégorie), mise en cache 60 s côté serveur.
+export async function fetchAnnouncements(category?: string): Promise<Announcement[]> {
   try {
-    const response = await fetch(`${API_BASE}/announcements`, {
+    const query = category ? `?category=${encodeURIComponent(category)}` : "";
+    const response = await fetch(`${API_BASE}/announcements${query}`, {
       next: { revalidate: REVALIDATE_SECONDS },
     });
     if (!response.ok) return [];

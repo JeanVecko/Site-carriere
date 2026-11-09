@@ -715,6 +715,25 @@ const PUBLICLY_VISIBLE_SQL = `(deadline IS NULL OR NOW() < ${PUBLIC_UNTIL_SQL})`
 // Une publication a une vignette si au moins une image est jointe.
 const HAS_COVER_SQL = "EXISTS (SELECT 1 FROM jsonb_array_elements(media) AS m WHERE m->>'type' LIKE 'image/%')";
 
+// Pièce jointe d'une publication (image ou PDF), servie comme un vrai fichier mis en cache par le navigateur,
+// au lieu d'être intégrée en base64 dans la page (pages bien plus légères).
+app.get('/api/announcements/:id/media/:index', async (request, response) => {
+  const { id, index } = request.params;
+  if (!/^\d+$/.test(id) || !/^\d+$/.test(index)) return response.status(404).end();
+  const result = await pool.query(
+    `SELECT media->$2::int AS file FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`,
+    [id, index]
+  );
+  const file = result.rows[0]?.file;
+  const match = file && /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,(.+)$/.exec(file.dataUrl || '');
+  if (!match) return response.status(404).end();
+  const safeName = String(file.name || 'document').replace(/[^\w.\-() ]+/g, '_').slice(0, 100);
+  response.set('Content-Type', match[1]);
+  response.set('Cache-Control', 'public, max-age=86400');
+  response.set('Content-Disposition', `${match[1] === 'application/pdf' ? 'attachment' : 'inline'}; filename="${safeName}"`);
+  response.send(Buffer.from(match[2], 'base64'));
+});
+
 // Vignette d'une publication : première image jointe, renvoyée comme un vrai fichier image
 // (mise en cache par le navigateur) pour ne pas alourdir les listes.
 app.get('/api/announcements/:id/cover', async (request, response) => {

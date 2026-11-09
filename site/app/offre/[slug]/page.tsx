@@ -22,6 +22,7 @@ import ShareButtons from "../../components/ShareButtons";
 import OfferRow from "../../components/OfferRow";
 import { SOCIAL_NETWORKS } from "../../components/SocialLinks";
 import {
+  API_BASE,
   applyTarget,
   type ApplyTarget,
   companyAvatar,
@@ -36,6 +37,21 @@ import {
 import { fetchAnnouncement, fetchAnnouncements, SITE_URL } from "../../lib/server";
 
 export const revalidate = 60;
+
+// Active la mise en cache (ISR) des pages d'offres : les offres actuelles sont préparées à la construction,
+// les nouvelles le sont à leur première visite, puis toutes sont servies depuis le cache et rafraîchies
+// en arrière-plan au plus toutes les 60 s.
+export async function generateStaticParams() {
+  // Liste lue fraîchement (sans cache) : on ne prépare jamais une offre supprimée entre-temps.
+  try {
+    const response = await fetch(`${API_BASE}/announcements`, { cache: "no-store" });
+    if (!response.ok) return [];
+    const items = (await response.json()) as Announcement[];
+    return items.map((item) => ({ slug: detailHref(item).replace("/offre/", "") }));
+  } catch {
+    return []; // API indisponible : les pages seront préparées à leur première visite
+  }
+}
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -229,14 +245,21 @@ export default async function OfferPage({ params }: Props) {
               <h2>Documents</h2>
               {item.media.map((file, index) =>
                 file.type === "application/pdf" ? (
-                  <a className="pub-pdf" href={file.dataUrl} download={file.name} key={`${file.name}-${index}`}>
+                  <a className="pub-pdf" href={`${API_BASE}/announcements/${item.id}/media/${index}`} download={file.name} key={`${file.name}-${index}`}>
                     <FileText size={26} aria-hidden="true" />
                     <span>{file.name}</span>
                     <small>Télécharger</small>
                   </a>
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element -- image stockée en data URL
-                  <img key={`${file.name}-${index}`} src={file.dataUrl} alt={`Document de l’offre : ${file.name}`} />
+                  // Image servie par l'API comme un fichier (mis en cache), et non intégrée dans la page.
+                  // eslint-disable-next-line @next/next/no-img-element -- image servie par l'API
+                  <img
+                    key={`${file.name}-${index}`}
+                    src={`${API_BASE}/announcements/${item.id}/media/${index}`}
+                    alt={`Document de l’offre : ${file.name}`}
+                    loading="lazy"
+                    decoding="async"
+                  />
                 )
               )}
             </section>

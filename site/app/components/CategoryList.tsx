@@ -56,11 +56,12 @@ function countBy(items: Announcement[], key: (item: Announcement) => string): Ar
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "fr"));
 }
 
-export default function CategoryList({ category }: { category: string }) {
+export default function CategoryList({ category, initialItems }: { category: string; initialItems?: Announcement[] }) {
   const config = CATEGORIES[category];
   // Les annonces s'affichent en grille de cartes avec image ; offres et appels d'offres en liste.
   const isGrid = category === "notices";
-  const [items, setItems] = useState<Announcement[] | null>(null);
+  // Liste fournie par le serveur (affichage immédiat), puis rafraîchie discrètement en arrière-plan.
+  const [items, setItems] = useState<Announcement[] | null>(initialItems ?? null);
   // Recherche lancée depuis la page d'accueil : /offres?q=comptable
   const [search, setSearch] = useState(useSearchParams().get("q") ?? "");
   const [contracts, setContracts] = useState<string[]>([]);
@@ -78,7 +79,8 @@ export default function CategoryList({ category }: { category: string }) {
         setLoadedAt(Date.now());
         setItems(list);
       })
-      .catch(() => setItems([]));
+      // En cas d'échec, on garde la liste du serveur si elle existe.
+      .catch(() => setItems((current) => current ?? []));
   }, [config.value]);
 
   const all = useMemo(() => items || [], [items]);
