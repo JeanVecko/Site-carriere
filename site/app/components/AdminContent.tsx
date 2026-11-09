@@ -47,13 +47,46 @@ type Section = "dashboard" | "publish" | "offers" | "expired" | "messages";
 
 const SECTIONS: Array<{ id: Section; label: string; icon: typeof LayoutDashboard }> = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { id: "publish", label: "Publier une offre", icon: CirclePlus },
+  { id: "publish", label: "Publier", icon: CirclePlus },
   { id: "offers", label: "Offres publiées", icon: BriefcaseBusiness },
   { id: "expired", label: "Offres expirées", icon: Archive },
   { id: "messages", label: "Messages", icon: Inbox },
 ];
 
 // Jeton admin lu dans sessionStorage, sans décalage entre le rendu serveur et le navigateur.
+// Libellés selon la catégorie choisie dans le formulaire.
+const CATEGORY_WORDING: Record<string, { publish: string; edit: string; button: string; published: string; updated: string }> = {
+  "Offre d’emploi": {
+    publish: "Publier une offre d’emploi",
+    edit: "Modifier une offre d’emploi",
+    button: "Publier l’offre",
+    published: "Offre d’emploi publiée avec succès.",
+    updated: "Offre d’emploi modifiée avec succès.",
+  },
+  Annonce: {
+    publish: "Publier une annonce",
+    edit: "Modifier une annonce",
+    button: "Publier l’annonce",
+    published: "Annonce publiée avec succès.",
+    updated: "Annonce modifiée avec succès.",
+  },
+  "Appel d’offre": {
+    publish: "Publier un appel d’offres",
+    edit: "Modifier un appel d’offres",
+    button: "Publier l’appel d’offres",
+    published: "Appel d’offres publié avec succès.",
+    updated: "Appel d’offres modifié avec succès.",
+  },
+};
+function wordingFor(category?: string | null) {
+  return CATEGORY_WORDING[category || ""] || CATEGORY_WORDING["Offre d’emploi"];
+}
+
+// Demande au site de rafraîchir immédiatement ses pages (sinon jusqu'à 60 s de cache).
+function refreshPublicSite() {
+  void fetch("/api/revalidate", { method: "POST", headers: adminHeaders() }).catch(() => undefined);
+}
+
 function subscribeToken(callback: () => void) {
   window.addEventListener(AUTH_EVENT, callback);
   window.addEventListener("storage", callback);
@@ -162,6 +195,8 @@ function Dashboard() {
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [extending, setExtending] = useState<Announcement | null>(null);
   const [editing, setEditing] = useState<Announcement | null>(null);
+  // Catégorie choisie dans le formulaire de publication (pour le titre de la page).
+  const [formCategory, setFormCategory] = useState("Offre d’emploi");
 
   const logout = useCallback(() => setToken(null), []);
 
@@ -212,7 +247,8 @@ function Dashboard() {
     try {
       await apiRequest(`/announcements/${item.id}`, { method: "DELETE", headers: adminHeaders() });
       setAnnouncements((list) => list.filter((entry) => entry.id !== item.id));
-      setToast({ type: "success", text: "Offre supprimée." });
+      refreshPublicSite();
+      setToast({ type: "success", text: "Publication supprimée." });
     } catch (error) {
       setToast({ type: "error", text: error instanceof Error ? error.message : "Suppression impossible." });
     }
@@ -225,6 +261,7 @@ function Dashboard() {
       body: JSON.stringify({ deadline }),
     });
     setExtending(null);
+    refreshPublicSite();
     setToast({ type: "success", text: `Date prolongée jusqu’au ${formatDate(deadline)}.` });
     await loadAll();
   }
@@ -241,6 +278,8 @@ function Dashboard() {
   }
 
   const current = SECTIONS.find((entry) => entry.id === section)!;
+  const wording = wordingFor(formCategory);
+  const heading = section === "publish" ? (editing ? wording.edit : wording.publish) : current.label;
 
   return (
     <div className="adm-shell">
@@ -286,7 +325,7 @@ function Dashboard() {
         <header className="adm-topbar">
           <div>
             <p className="adm-breadcrumb">Administration / {editing ? "Offres publiées" : current.label}</p>
-            <h1>{editing ? "Modifier une offre" : current.label}</h1>
+            <h1>{heading}</h1>
           </div>
           <div className="adm-topbar-actions">
             <button type="button" className="adm-btn adm-btn-ghost" onClick={() => void loadAll()} disabled={loading}>
@@ -294,7 +333,7 @@ function Dashboard() {
             </button>
             {section !== "publish" && (
               <button type="button" className="adm-btn adm-btn-primary" onClick={() => setSection("publish")}>
-                <CirclePlus size={16} /> Nouvelle offre
+                <CirclePlus size={16} /> Nouvelle publication
               </button>
             )}
           </div>
@@ -319,12 +358,15 @@ function Dashboard() {
           <PublishForm
             key={editing ? String(editing.id) : "new"}
             initial={editing}
+            onCategoryChange={setFormCategory}
             onCancel={() => {
               setEditing(null);
               setSection("offers");
             }}
-            onSaved={async (mode) => {
-              setToast({ type: "success", text: mode === "updated" ? "Offre modifiée avec succès." : "Offre publiée avec succès." });
+            onSaved={async (mode, category) => {
+              refreshPublicSite();
+              const saved = wordingFor(category);
+              setToast({ type: "success", text: mode === "updated" ? saved.updated : saved.published });
               setEditing(null);
               await loadAll();
               setSection("offers");
@@ -487,15 +529,25 @@ function PublishForm({
   initial,
   onSaved,
   onCancel,
+  onCategoryChange,
 }: {
   initial?: Announcement | null;
-  onSaved: (mode: "created" | "updated") => Promise<void>;
+  onSaved: (mode: "created" | "updated", category: string) => Promise<void>;
   onCancel?: () => void;
+  onCategoryChange?: (category: string) => void;
 }) {
   const editing = Boolean(initial);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [category, setCategory] = useState(initial?.category || "Offre d’emploi");
+  const [category, setCategoryState] = useState(initial?.category || "Offre d’emploi");
+  const setCategory = (value: string) => {
+    setCategoryState(value);
+    onCategoryChange?.(value);
+  };
+  // Le titre de la page suit la catégorie de la publication ouverte.
+  useEffect(() => {
+    onCategoryChange?.(initial?.category || "Offre d’emploi");
+  }, [initial, onCategoryChange]);
   const text = (value?: string | null) => (value ? decodeEntities(value) : "");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -515,7 +567,7 @@ function PublishForm({
           headers: adminHeaders(),
           body: JSON.stringify({ ...values, media, keep_media: !files || files.length === 0 }),
         });
-        await onSaved("updated");
+        await onSaved("updated", category);
       } else {
         await apiRequest("/announcements", {
           method: "POST",
@@ -524,7 +576,7 @@ function PublishForm({
         });
         form.reset();
         setCategory("Offre d’emploi");
-        await onSaved("created");
+        await onSaved("created", String(values.category || category));
       }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Enregistrement impossible.");
@@ -657,7 +709,7 @@ function PublishForm({
           </button>
         )}
         <button className="adm-btn adm-btn-primary" type="submit" disabled={pending}>
-          <Send size={16} /> {pending ? "Enregistrement…" : editing ? "Enregistrer les modifications" : "Publier l’offre"}
+          <Send size={16} /> {pending ? "Enregistrement…" : editing ? "Enregistrer les modifications" : wordingFor(category).button}
         </button>
       </div>
     </form>
