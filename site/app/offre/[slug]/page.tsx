@@ -78,7 +78,7 @@ function idFromSlug(slug: string): string {
 }
 
 function summary(item: Announcement): string {
-  const text = paragraphs(item.description || "").join(" ");
+  const text = paragraphs(item.description || "").join(" ").replace(/\s+/g, " ").trim();
   return text.length > 155 ? `${text.slice(0, 152)}…` : text;
 }
 
@@ -90,7 +90,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title,
     description: summary(item),
     alternates: { canonical: `${SITE_URL}${detailHref(item)}` },
-    openGraph: { title, description: summary(item), url: `${SITE_URL}${detailHref(item)}`, type: "article" },
+    openGraph: {
+      title,
+      description: summary(item),
+      url: `${SITE_URL}${detailHref(item)}`,
+      type: "article",
+      siteName: "Carrières RDC",
+      locale: "fr_CD",
+    },
+    twitter: { card: "summary_large_image", title, description: summary(item) },
     robots: isExpired(item) ? { index: false } : undefined,
   };
 }

@@ -5,11 +5,22 @@ import "./admin.css";
 import "./animations.css";
 import PageTransition from "./components/PageTransition";
 import { SPLASH_PRE_PAINT_SCRIPT } from "./lib/splash";
+import { SITE_URL } from "./lib/server";
 
 export const metadata: Metadata = {
+  // Base des liens absolus (images d'aperçu WhatsApp / Facebook).
+  metadataBase: new URL(SITE_URL),
   title: "Carrières RDC — Offres et annonces",
   description:
     "Carrières RDC — la plateforme pour publier et trouver des opportunités en République démocratique du Congo.",
+  openGraph: {
+    title: "Carrières RDC — Offres d’emploi, annonces et appels d’offres",
+    description: "Les offres d’emploi, annonces et appels d’offres en République démocratique du Congo.",
+    siteName: "Carrières RDC",
+    locale: "fr_CD",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
