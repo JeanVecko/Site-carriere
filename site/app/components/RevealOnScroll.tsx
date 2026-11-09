@@ -24,13 +24,17 @@ const KEYFRAMES: Keyframe[] = [
 ];
 const DURATION = 650;
 const EASING = "cubic-bezier(.2, .7, .2, 1)";
+// Re-vérifications après l'ajout d'éléments (le temps que la page se mette en place : chargement, défilement…).
+const RECHECK_DELAYS_MS = [120, 400, 1000, 2000];
 
 /**
- * Révèle les éléments au défilement, avec l'API d'animation du navigateur : aucune classe ni attribut
- * n'est modifié, ce qui évite tout conflit avec React (hydratation, nouveaux rendus).
- * - Au chargement, ce qui est déjà à l'écran reste visible ; ce qui est plus bas apparaît quand on y arrive.
- * - Les éléments ajoutés ensuite (offres chargées, « Afficher plus », filtres) apparaissent en cascade.
- * - Désactivé si l'utilisateur a demandé moins d'animations dans son système.
+ * Révèle les éléments au défilement, avec l'API d'animation du navigateur (aucune classe ni attribut modifié,
+ * donc aucun conflit avec React).
+ * Règles, vérifiées à chaque défilement, redimensionnement, et plusieurs fois juste après l'ajout d'éléments :
+ * - un élément qui entre à l'écran apparaît en fondu ;
+ * - un élément déjà dépassé (au-dessus de l'écran) est affiché immédiatement, sans animation ;
+ * - un élément plus bas attend qu'on y arrive.
+ * Désactivé si l'utilisateur a demandé moins d'animations dans son système.
  */
 export default function RevealOnScroll() {
   const pathname = usePathname();
@@ -40,23 +44,42 @@ export default function RevealOnScroll() {
     if (typeof Element.prototype.animate !== "function") return;
 
     const seen = new WeakSet<Element>();
-    const waiting = new Map<Element, Animation>();
+    const waiting = new Map<Element, { animation: Animation }>();
+    const timers = new Set<number>();
+    let frame = 0;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          observer.unobserve(entry.target);
-          const animation = waiting.get(entry.target);
-          waiting.delete(entry.target);
-          if (!animation) continue;
-          // À la fin, l'animation est retirée : les styles normaux (et les effets de survol) reprennent la main.
-          animation.onfinish = () => animation.cancel();
-          animation.play();
-        }
-      },
-      { rootMargin: "0px 0px -6% 0px", threshold: 0.06 }
-    );
+    const reveal = (element: Element, animate: boolean) => {
+      const entry = waiting.get(element);
+      if (!entry) return;
+      waiting.delete(element);
+      if (!animate) return entry.animation.cancel();
+      // À la fin, l'animation est retirée : les styles normaux (et les effets de survol) reprennent la main.
+      entry.animation.onfinish = () => entry.animation.cancel();
+      entry.animation.play();
+    };
+
+    const check = () => {
+      frame = 0;
+      const viewport = window.innerHeight;
+      waiting.forEach((_entry, element) => {
+        const rect = element.getBoundingClientRect();
+        if (rect.bottom < 0) reveal(element, false); // déjà dépassé : affiché sans animation
+        else if (rect.top < viewport * 0.96) reveal(element, true); // à l'écran : apparition en fondu
+      });
+    };
+    const schedule = () => {
+      if (!frame && waiting.size) frame = window.requestAnimationFrame(check);
+    };
+    const scheduleSoon = () => {
+      schedule();
+      for (const delay of RECHECK_DELAYS_MS) {
+        const timer = window.setTimeout(() => {
+          timers.delete(timer);
+          schedule();
+        }, delay);
+        timers.add(timer);
+      }
+    };
 
     const prepare = (element: HTMLElement, animateIfVisible: boolean) => {
       if (seen.has(element)) return;
@@ -64,6 +87,7 @@ export default function RevealOnScroll() {
       const rect = element.getBoundingClientRect();
       const inView = rect.top < window.innerHeight && rect.bottom > 0;
       if (inView && !animateIfVisible) return;
+      if (rect.bottom < 0) return; // au-dessus de l'écran : rien à animer
       // Décalage en cascade selon la position dans la liste (plafonné pour rester vif).
       const item = (element.closest("li") as HTMLElement | null) ?? element;
       const index = item.parentElement ? Array.prototype.indexOf.call(item.parentElement.children, item) : 0;
@@ -74,47 +98,37 @@ export default function RevealOnScroll() {
         fill: "both",
       });
       animation.pause(); // masqué en attendant d'arriver à l'écran
-      waiting.set(element, animation);
-      observer.observe(element);
+      waiting.set(element, { animation });
     };
 
     document.querySelectorAll<HTMLElement>(SELECTOR).forEach((element) => prepare(element, false));
+    scheduleSoon();
 
     const mutations = new MutationObserver((records) => {
+      let added = false;
       for (const record of records) {
         record.addedNodes.forEach((node) => {
           if (!(node instanceof HTMLElement)) return;
           if (node.matches(SELECTOR)) prepare(node, true);
           node.querySelectorAll<HTMLElement>(SELECTOR).forEach((element) => prepare(element, true));
+          added = true;
         });
       }
+      if (added) scheduleSoon();
     });
     mutations.observe(document.body, { childList: true, subtree: true });
-
-    // Saut rapide (touche Fin, lien d'ancre) : les éléments dépassés sans avoir été vus sont affichés directement.
-    let frame = 0;
-    const revealPassed = () => {
-      frame = 0;
-      waiting.forEach((animation, element) => {
-        if (element.getBoundingClientRect().bottom >= 0) return;
-        observer.unobserve(element);
-        waiting.delete(element);
-        animation.cancel();
-      });
-    };
-    const onScroll = () => {
-      if (!frame && waiting.size) frame = window.requestAnimationFrame(revealPassed);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
       if (frame) window.cancelAnimationFrame(frame);
-      observer.disconnect();
+      timers.forEach((timer) => window.clearTimeout(timer));
       mutations.disconnect();
       // Éléments encore masqués : on annule leur animation pour qu'ils ne restent jamais invisibles
       // (changement de page, ou double exécution des effets en développement).
-      waiting.forEach((animation) => animation.cancel());
+      waiting.forEach((entry) => entry.animation.cancel());
       waiting.clear();
     };
   }, [pathname]);

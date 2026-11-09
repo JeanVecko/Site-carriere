@@ -16,13 +16,15 @@ export default function PageTransition() {
   const [state, setState] = useState<"hidden" | "visible" | "leaving">("hidden");
   const startedAt = useRef(0);
   const safety = useRef(0);
+  const viaLink = useRef(false); // true : clic sur un lien (et non « Précédent / Suivant »)
 
   // Démarrage : clic sur un lien interne vers une autre page.
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) return;
 
-    const start = () => {
+    const start = (fromLink: boolean) => {
+      viaLink.current = fromLink;
       startedAt.current = performance.now();
       setState("visible");
       window.clearTimeout(safety.current);
@@ -39,10 +41,10 @@ export default function PageTransition() {
       if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/_next")) return;
       // Même page (simple ancre ou même adresse) : pas de transition.
       if (url.pathname === window.location.pathname) return;
-      start();
+      start(true);
     };
 
-    const onPopState = () => start();
+    const onPopState = () => start(false);
 
     document.addEventListener("click", onClick, true);
     window.addEventListener("popstate", onPopState);
@@ -55,6 +57,9 @@ export default function PageTransition() {
   // Fin : la nouvelle page est affichée → on laisse tourner le logo le temps minimum, puis fondu de sortie.
   useEffect(() => {
     if (!startedAt.current) return;
+    // Nouvelle page ouverte par un lien : on l'affiche depuis le haut (sauf lien vers une ancre précise).
+    // Avec « Précédent / Suivant », le navigateur restaure lui-même la position de défilement.
+    if (viaLink.current && !window.location.hash) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     const elapsed = performance.now() - startedAt.current;
     const hideTimer = window.setTimeout(() => {
       setState((current) => (current === "visible" ? "leaving" : current));
