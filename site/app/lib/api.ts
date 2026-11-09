@@ -190,16 +190,46 @@ export function isExpired(item: { deadline?: string | null }): boolean {
 // commençant par « www. ») s'ouvre tel quel ; une adresse e-mail ouvre la messagerie avec l'objet pré-rempli.
 // Renvoie null s'il n'y a ni lien ni e-mail (adresse de dépôt physique, par exemple).
 export function applyLink(contact?: string, offerTitle?: string): string | null {
+  return applyTarget(contact, offerTitle)?.href ?? null;
+}
+
+export type ApplyTarget = { href: string; kind: "web" | "email" | "whatsapp" | "phone" };
+
+// Numéro congolais (+243 / 00243 / 0, suivi de 9 chiffres commençant par 8 ou 9) → « 243XXXXXXXXX ».
+function congoPhone(text: string): string | null {
+  for (const match of text.matchAll(/(?:\+|00)?[\d][\d\s.\-()]{7,}\d/g)) {
+    let digits = match[0].replace(/\D/g, "");
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    if (digits.length === 10 && digits.startsWith("0")) digits = `243${digits.slice(1)}`;
+    if (digits.length === 9 && /^[89]/.test(digits)) digits = `243${digits}`;
+    if (/^243[89]\d{8}$/.test(digits)) return digits;
+  }
+  return null;
+}
+
+// Détermine où mène le bouton « Postuler » : lien web, e-mail, WhatsApp ou appel téléphonique.
+export function applyTarget(contact?: string, offerTitle?: string): ApplyTarget | null {
   const value = String(contact || "").trim();
+  const title = offerTitle ? decodeEntities(offerTitle) : "";
   const url = value.match(/\bhttps?:\/\/[^\s<>"']+/i)?.[0] ?? value.match(/\bwww\.[^\s<>"']+\.[a-z]{2,}[^\s<>"']*/i)?.[0];
   if (url) {
     const clean = url.replace(/[).,;:!?]+$/, "");
-    return /^https?:\/\//i.test(clean) ? clean : `https://${clean}`;
+    const href = /^https?:\/\//i.test(clean) ? clean : `https://${clean}`;
+    return { href, kind: /^https?:\/\/(wa\.me|api\.whatsapp\.com|chat\.whatsapp\.com)\//i.test(href) ? "whatsapp" : "web" };
   }
   const email = value.match(/[^\s<>()"',;:]+@[^\s<>()"',;:]+\.[a-z]{2,}/i)?.[0];
   if (email) {
-    const subject = offerTitle ? `?subject=${encodeURIComponent(`Candidature – ${decodeEntities(offerTitle)}`)}` : "";
-    return `mailto:${email}${subject}`;
+    const subject = title ? `?subject=${encodeURIComponent(`Candidature – ${title}`)}` : "";
+    return { href: `mailto:${email}${subject}`, kind: "email" };
+  }
+  const phone = congoPhone(value);
+  if (phone) {
+    // « WhatsApp » mentionné : conversation WhatsApp avec un message pré-rempli ; sinon, appel téléphonique.
+    if (/whats\s?app/i.test(value)) {
+      const message = `Bonjour, je souhaite postuler à l’offre${title ? ` « ${title} »` : ""} vue sur Carrières RDC.`;
+      return { href: `https://wa.me/${phone}?text=${encodeURIComponent(message)}`, kind: "whatsapp" };
+    }
+    return { href: `tel:+${phone}`, kind: "phone" };
   }
   return null;
 }

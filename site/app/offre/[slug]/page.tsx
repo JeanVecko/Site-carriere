@@ -11,6 +11,7 @@ import {
   FileText,
   Hourglass,
   MapPin,
+  Phone,
   Send,
   ShieldAlert,
 } from "lucide-react";
@@ -19,8 +20,10 @@ import SiteFooter from "../../components/SiteFooter";
 import ViewTracker from "../../components/ViewTracker";
 import ShareButtons from "../../components/ShareButtons";
 import OfferRow from "../../components/OfferRow";
+import { SOCIAL_NETWORKS } from "../../components/SocialLinks";
 import {
-  applyLink,
+  applyTarget,
+  type ApplyTarget,
   companyAvatar,
   daysLeft,
   decodeEntities,
@@ -97,6 +100,16 @@ function jobPostingJsonLd(item: Announcement) {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
+// Icône WhatsApp au même format que les icônes lucide (prop size), pour le bouton « Postuler sur WhatsApp ».
+function WhatsAppIcon({ size = 16 }: { size?: number }) {
+  const path = SOCIAL_NETWORKS.find((network) => network.name === "WhatsApp")?.path || "";
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d={path} />
+    </svg>
+  );
+}
+
 function escapeForHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -112,8 +125,17 @@ export default async function OfferPage({ params }: Props) {
 
   const expired = isExpired(item);
   const remaining = daysLeft(item.deadline);
-  const applyHref = applyLink(item.apply_contact, item.title);
-  const applyIsWeb = Boolean(applyHref?.startsWith("http"));
+  const apply = applyTarget(item.apply_contact, item.title);
+  const applyHref = apply?.href ?? null;
+  // Lien web et WhatsApp : nouvel onglet ; e-mail et téléphone : l'application correspondante s'ouvre.
+  const applyIsWeb = apply?.kind === "web" || apply?.kind === "whatsapp";
+  const APPLY_TEXT: Record<ApplyTarget["kind"], string> = {
+    web: "Accéder à la candidature",
+    email: "Envoyer ma candidature par e-mail",
+    whatsapp: "Postuler sur WhatsApp",
+    phone: "Appeler pour postuler",
+  };
+  const ApplyIcon = !apply ? Send : apply.kind === "web" ? ExternalLink : apply.kind === "phone" ? Phone : apply.kind === "whatsapp" ? WhatsAppIcon : Send;
   const isJob = item.category === "Offre d’emploi";
   const isTender = item.category === "Appel d’offre";
   const categoryPage = CATEGORY_PAGES[item.category || ""] || { href: "/", label: "Accueil" };
@@ -147,7 +169,7 @@ export default async function OfferPage({ params }: Props) {
   const ctaProps = applyHref
     ? { href: applyHref, ...(applyIsWeb ? { target: "_blank", rel: "noreferrer" } : {}) }
     : { href: "#postuler" };
-  const CtaIcon = applyIsWeb ? ExternalLink : Send;
+  const CtaIcon = ApplyIcon;
 
   return (
     <>
@@ -249,8 +271,8 @@ export default async function OfferPage({ params }: Props) {
                     target={applyIsWeb ? "_blank" : undefined}
                     rel="noreferrer"
                   >
-                    {applyIsWeb ? <ExternalLink size={16} /> : <Send size={16} />}
-                    {applyIsWeb ? "Accéder à la candidature" : "Envoyer ma candidature par e-mail"}
+                    <ApplyIcon size={16} />
+                    {apply ? APPLY_TEXT[apply.kind] : "Postuler"}
                   </a>
                 )}
               </>
