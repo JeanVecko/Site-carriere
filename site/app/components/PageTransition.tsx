@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
-const MIN_VISIBLE_MS = 750; // le logo tourne au moins ce temps, pour que la transition soit perçue
-const MAX_VISIBLE_MS = 8000; // sécurité : le voile ne reste jamais bloqué
+const MIN_VISIBLE_MS = 6000; // le logo tourne 6 secondes à chaque changement de page
+const MAX_VISIBLE_MS = 10000; // sécurité : le voile ne reste jamais bloqué
 
 /**
  * Transition entre les pages : quand on clique sur un lien interne vers une autre page (ou qu'on utilise
