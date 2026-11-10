@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -54,6 +54,25 @@ const SECTIONS: Array<{ id: Section; label: string; icon: typeof LayoutDashboard
 ];
 
 // Jeton admin lu dans sessionStorage, sans décalage entre le rendu serveur et le navigateur.
+// Rubrique ouverte gardée dans l'adresse (/admin#offres, /admin#modifier-36…) :
+// un rechargement de la page rouvre la même rubrique, au même endroit.
+const SECTION_HASHES: Record<Section, string> = {
+  dashboard: "",
+  publish: "publier",
+  offers: "offres",
+  expired: "expirees",
+  messages: "messages",
+};
+const SCROLL_KEY = "carrieres-admin-scroll";
+
+function readLocation(): { section: Section; editId: string | null } {
+  const hash = window.location.hash.replace(/^#/, "");
+  const edit = /^modifier-(.+)$/.exec(hash);
+  if (edit) return { section: "publish", editId: decodeURIComponent(edit[1]) };
+  const section = (Object.keys(SECTION_HASHES) as Section[]).find((key) => SECTION_HASHES[key] === hash);
+  return { section: section || "dashboard", editId: null };
+}
+
 // Libellés selon la catégorie choisie dans le formulaire.
 const CATEGORY_WORDING: Record<string, { publish: string; edit: string; button: string; published: string; updated: string }> = {
   "Offre d’emploi": {
@@ -187,7 +206,13 @@ function LoginScreen() {
 /* ===================== Tableau de bord ===================== */
 
 function Dashboard() {
-  const [section, setSection] = useState<Section>("dashboard");
+  // Rendu seulement dans le navigateur (après hydratation) : l'adresse peut être lue dès le départ.
+  const [initialLocation] = useState(readLocation);
+  const [section, setSection] = useState<Section>(initialLocation.section);
+  // Publication à rouvrir en modification après rechargement (#modifier-36), une fois les données chargées.
+  const pendingEditId = useRef<string | null>(initialLocation.editId);
+  // Position de défilement à restaurer après rechargement, une fois les données affichées.
+  const pendingScroll = useRef<number | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -224,6 +249,59 @@ function Dashboard() {
     const timer = window.setTimeout(() => void loadAll(), 0);
     return () => window.clearTimeout(timer);
   }, [loadAll]);
+
+  // Rubrique (et publication en cours de modification) écrite dans l'adresse, sans ajouter d'historique.
+  useEffect(() => {
+    const hash = editing ? `modifier-${encodeURIComponent(String(editing.id))}` : SECTION_HASHES[section];
+    if (pendingEditId.current) return; // pas avant d'avoir rouvert la publication demandée
+    const url = `${window.location.pathname}${window.location.search}${hash ? `#${hash}` : ""}`;
+    if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(null, "", url);
+  }, [section, editing]);
+
+  // Position de défilement : mémorisée pour la rubrique ouverte, restaurée après un rechargement.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || "null") as { hash: string; y: number } | null;
+      if (saved && saved.hash === window.location.hash) pendingScroll.current = saved.y;
+    } catch {
+      // stockage indisponible
+    }
+    const saveNow = () => {
+      try {
+        sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ hash: window.location.hash, y: Math.round(window.scrollY) }));
+      } catch {
+        // stockage indisponible
+      }
+    };
+    let timer = 0;
+    const save = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(saveNow, 150);
+    };
+    window.addEventListener("scroll", save, { passive: true });
+    window.addEventListener("pagehide", saveNow); // juste avant le rechargement
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("scroll", save);
+      window.removeEventListener("pagehide", saveNow);
+    };
+  }, []);
+
+  // Après le premier chargement des données : rouvre la publication en modification et le défilement.
+  useEffect(() => {
+    if (loading) return;
+    if (pendingEditId.current) {
+      const item = announcements.find((entry) => String(entry.id) === pendingEditId.current);
+      pendingEditId.current = null;
+      if (item) setEditing(item);
+      else setSection("offers"); // publication supprimée entre-temps
+    }
+    if (pendingScroll.current != null) {
+      const y = pendingScroll.current;
+      pendingScroll.current = null;
+      window.setTimeout(() => window.scrollTo({ top: y, left: 0, behavior: "instant" }), 0);
+    }
+  }, [loading, announcements]);
 
   useEffect(() => {
     if (!toast) return;

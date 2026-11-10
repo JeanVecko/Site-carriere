@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { SPLASH_SEEN_KEY as SEEN_KEY } from "../lib/splash";
 // Durée du chargement (logo qui tourne + barre qui se remplit). À garder identique aux durées de animations.css
-// (.splash : splash-out 8s ; .splash-bar-fill : splash-fill 8s).
-const DURATION_MS = 8000;
+// (.splash : splash-out 3s ; .splash-bar-fill : splash-fill 3s).
+const DURATION_MS = 3000;
 const EXIT_MS = 600; // fondu de sortie
 
 // Décision prise au premier montage de la page (null = pas encore décidé), conservée pendant la visite.
@@ -14,7 +14,7 @@ let shouldSplash: boolean | null = null;
 // Le script qui décide d'afficher l'écran est dans lib/splash.ts (exécuté dans <head> par layout.tsx).
 
 /**
- * Écran d'accueil : logo qui tourne pendant 8 secondes, barre de chargement avec pourcentage sous le texte,
+ * Écran d'accueil : logo qui tourne pendant 3 secondes, barre de chargement avec pourcentage sous le texte,
  * puis la page apparaît. Affiché une seule fois par visite (onglet).
  * Les animations et la sortie sont en CSS (fonctionnent même sans JavaScript) ; le script mémorise la visite,
  * bloque le défilement pendant l'attente et affiche le pourcentage.

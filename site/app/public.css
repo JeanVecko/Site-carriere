@@ -56,7 +56,7 @@ h1, h2, h3 { font-family: 'Space Grotesk', 'DM Sans', sans-serif; letter-spacing
 .pub-brand strong em { color: var(--pub-gold); font-style: normal; }
 .pub-brand small { color: var(--pub-muted); display: block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
 .pub-nav { display: flex; gap: 4px; margin-left: 12px; }
-.pub-nav a { border-radius: 8px; color: var(--pub-muted); font-size: 14px; font-weight: 600; padding: 9px 12px; transition: background .15s, color .15s; }
+.pub-nav a { white-space: nowrap; border-radius: 8px; color: var(--pub-muted); font-size: 14px; font-weight: 600; padding: 9px 12px; transition: background .15s, color .15s; }
 .pub-nav a:hover { background: #eef2f8; color: var(--pub-navy); }
 .pub-nav a.is-active { background: #eaf0f9; color: var(--pub-navy); }
 .pub-header-actions { align-items: center; display: flex; gap: 12px; margin-left: auto; }
@@ -461,3 +461,64 @@ h1, h2, h3 { font-family: 'Space Grotesk', 'DM Sans', sans-serif; letter-spacing
 .pub-footer-coords span { align-items: center; background: rgba(217, 164, 0, .15); border-radius: 7px; color: var(--pub-gold-2); display: inline-flex; flex-shrink: 0; height: 26px; justify-content: center; width: 26px; }
 @media (max-width: 960px) { .pub-footer-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 620px) { .pub-footer-grid { grid-template-columns: 1fr; } .pub-footer-coords { flex-direction: row; flex-wrap: wrap; gap: 8px 16px; } }
+
+/* ===================== Pages À propos et Recruteurs ===================== */
+.pub-about { display: flex; flex-direction: column; gap: 40px; padding-bottom: 48px; padding-top: 32px; }
+.pub-about-title { color: var(--pub-navy); font-size: clamp(20px, 2.4vw, 26px); margin-bottom: 16px; }
+.pub-about-intro { align-items: start; background: var(--pub-card); border: 1px solid var(--pub-border); border-radius: var(--pub-radius); box-shadow: var(--pub-shadow); display: grid; gap: 28px; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); padding: 28px; }
+.pub-about-intro h2 { color: var(--pub-navy); font-size: clamp(20px, 2.4vw, 26px); margin-bottom: 12px; }
+.pub-about-intro p { color: var(--pub-text); font-size: 15.5px; line-height: 1.7; margin: 0 0 12px; }
+.pub-about-intro p:last-child { margin-bottom: 0; }
+.pub-about-facts { background: var(--pub-gold-soft); border: 1px solid #f1df9f; border-radius: 12px; display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 18px 20px; }
+.pub-about-facts dt { color: var(--pub-muted); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.pub-about-facts dd { color: var(--pub-navy); font-family: 'Space Grotesk', 'DM Sans', sans-serif; font-size: 16px; font-weight: 700; margin: 2px 0 0; }
+.pub-about-grid { display: grid; gap: 16px; }
+.pub-about-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pub-about-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pub-about-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pub-about-card { background: var(--pub-card); border: 1px solid var(--pub-border); border-radius: var(--pub-radius); box-shadow: var(--pub-shadow); display: flex; flex-direction: column; gap: 8px; padding: 22px; transition: box-shadow .2s, transform .2s, border-color .2s; }
+.pub-about-card h2, .pub-about-card h3 { color: var(--pub-navy); font-size: 18px; }
+.pub-about-card p { color: var(--pub-muted); font-size: 14.5px; line-height: 1.6; margin: 0; }
+.pub-about-card.is-link:hover { border-color: #c9d6ea; box-shadow: var(--pub-shadow-hover); transform: translateY(-2px); }
+.pub-about-icon { align-items: center; background: #e8eef8; border-radius: 12px; color: var(--pub-navy); display: inline-flex; flex: none; height: 42px; justify-content: center; margin-bottom: 4px; width: 42px; }
+.pub-about-icon.is-gold { background: var(--pub-gold-soft); color: #a77d00; }
+.pub-about-more { align-items: center; color: var(--pub-navy); display: inline-flex; font-size: 14px; font-weight: 700; gap: 6px; margin-top: auto; padding-top: 6px; }
+.pub-about-steps { counter-reset: none; display: grid; gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.pub-about-steps li { background: var(--pub-card); border: 1px solid var(--pub-border); border-radius: var(--pub-radius); box-shadow: var(--pub-shadow); padding: 22px 20px 20px; position: relative; }
+.pub-about-steps h3 { color: var(--pub-navy); font-size: 17px; margin: 10px 0 6px; }
+.pub-about-steps p { color: var(--pub-muted); font-size: 14px; line-height: 1.6; margin: 0; }
+.pub-about-step-num { align-items: center; background: var(--pub-gold); border-radius: 999px; color: var(--pub-navy); display: inline-flex; font-size: 13px; font-weight: 800; height: 26px; justify-content: center; position: absolute; right: 16px; top: 16px; width: 26px; }
+.pub-about-step-icon { color: var(--pub-navy); }
+.pub-about-cta { align-items: center; background: linear-gradient(140deg, var(--pub-navy-2), var(--pub-navy) 60%, var(--pub-navy-3)); border-radius: var(--pub-radius); color: #fff; display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between; padding: 26px 28px; }
+.pub-about-cta h2 { color: #fff; font-size: clamp(20px, 2.4vw, 26px); }
+.pub-about-cta p { color: #c3d1e6; margin: 4px 0 0; }
+.pub-about-cta-buttons, .pub-about-hero-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.pub-about-hero-buttons { margin-top: 4px; }
+.pub-about-badges { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; margin: 16px 0 4px; padding: 0; }
+.pub-about-badges li { align-items: center; color: #fff; display: inline-flex; font-size: 13.5px; font-weight: 600; gap: 7px; }
+.pub-about-badges svg { color: var(--pub-gold-2); }
+.pub-about-offer { align-items: flex-start; background: linear-gradient(120deg, var(--pub-gold-soft), #fff 70%); border: 1px solid #f1df9f; border-radius: var(--pub-radius); box-shadow: var(--pub-shadow); display: flex; gap: 18px; padding: 24px 26px; }
+.pub-about-offer h2 { color: var(--pub-navy); font-size: clamp(19px, 2.2vw, 23px); margin-bottom: 8px; }
+.pub-about-offer p { color: var(--pub-text); font-size: 15px; line-height: 1.65; margin: 0 0 10px; }
+.pub-about-note { align-items: center; color: var(--pub-muted) !important; display: flex; font-size: 13.5px !important; gap: 7px; margin: 0 !important; }
+.pub-about-note svg { color: var(--pub-success); flex: none; }
+.pub-about-contact h2 { color: var(--pub-navy); font-size: clamp(20px, 2.4vw, 26px); margin-bottom: 6px; }
+.pub-about-contact > p { color: var(--pub-muted); margin: 0 0 16px; }
+.pub-about-channel p { color: var(--pub-text); font-weight: 600; overflow-wrap: anywhere; }
+.pub-about-signature { border-top: 1px solid var(--pub-border); color: var(--pub-muted); font-size: 14px; margin: 0; padding-top: 18px; text-align: center; }
+.pub-about-signature a { color: var(--pub-navy); font-weight: 700; text-decoration: underline; }
+@media (max-width: 960px) {
+  .pub-about-grid-4, .pub-about-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pub-about-grid-3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .pub-about { gap: 28px; padding-top: 22px; }
+  .pub-about-intro { grid-template-columns: 1fr; padding: 22px 18px; }
+  .pub-about-grid-2, .pub-about-grid-4, .pub-about-steps { grid-template-columns: 1fr; }
+  .pub-about-offer { flex-direction: column; padding: 20px 18px; }
+  .pub-about-cta { padding: 22px 18px; }
+  .pub-about-cta-buttons .pub-btn, .pub-about-hero-buttons .pub-btn { flex: 1 1 100%; justify-content: center; }
+}
+
+/* Lien « À propos » : visible dans la barre seulement quand il y a la place. */
+@media (max-width: 1120px) { .pub-nav .pub-nav-extra { display: none; } }

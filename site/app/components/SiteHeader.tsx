@@ -7,9 +7,11 @@ import { LayoutDashboard, Megaphone, Menu, X } from "lucide-react";
 import SocialLinks from "./SocialLinks";
 
 const LINKS = [
-  { href: "/offres", label: "Offres d’emploi" },
-  { href: "/annonces", label: "Annonces" },
-  { href: "/appels-offres", label: "Appels d’offres" },
+  { href: "/offres", label: "Offres d’emploi", extra: false },
+  { href: "/annonces", label: "Annonces", extra: false },
+  { href: "/appels-offres", label: "Appels d’offres", extra: false },
+  // Masqué dans la barre des écrans moyens (trop serrée), toujours présent dans le menu mobile et le pied de page.
+  { href: "/a-propos", label: "À propos", extra: true },
 ];
 
 // Lien « Administration » visible seulement quand l'administrateur est connecté dans cet onglet.
@@ -58,7 +60,7 @@ export default function SiteHeader({ active }: { active?: string } = {}) {
     <Link
       key={link.href}
       href={link.href}
-      className={isActive(link.href) ? "is-active" : undefined}
+      className={[isActive(link.href) ? "is-active" : "", link.extra ? "pub-nav-extra" : ""].join(" ").trim() || undefined}
       aria-current={isActive(link.href) ? "page" : undefined}
       onClick={() => setOpen(false)}
     >
@@ -80,7 +82,7 @@ export default function SiteHeader({ active }: { active?: string } = {}) {
             </Link>
           )}
           <SocialLinks />
-          <Link className="pub-btn pub-btn-gold" href="/#contact">
+          <Link className="pub-btn pub-btn-gold" href="/recruteurs">
             <Megaphone size={16} /> Publier une offre
           </Link>
           <button
@@ -104,7 +106,7 @@ export default function SiteHeader({ active }: { active?: string } = {}) {
           )}
         </nav>
         <SocialLinks />
-        <Link className="pub-btn pub-btn-gold pub-btn-block" href="/#contact" onClick={() => setOpen(false)}>
+        <Link className="pub-btn pub-btn-gold pub-btn-block" href="/recruteurs" onClick={() => setOpen(false)}>
           <Megaphone size={16} /> Publier une offre
         </Link>
       </div>

@@ -70,9 +70,9 @@ export default async function Home() {
                   <li><CircleCheck size={15} aria-hidden="true" /> Les candidatures vous arrivent directement</li>
                 </ul>
               </div>
-              <a className="pub-btn pub-btn-navy" href="#contact">
+              <Link className="pub-btn pub-btn-navy" href="/recruteurs">
                 Publier une offre <ArrowRight size={16} />
-              </a>
+              </Link>
             </div>
           </section>
 

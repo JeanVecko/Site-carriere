@@ -5,7 +5,7 @@ import { fetchAnnouncements, SITE_URL } from "./lib/server";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const pages = ["", "/offres", "/annonces", "/appels-offres", "/mentions-legales"].map((path) => ({
+  const pages = ["", "/offres", "/annonces", "/appels-offres", "/a-propos", "/recruteurs", "/mentions-legales"].map((path) => ({
     url: `${SITE_URL}${path}`,
     changeFrequency: "daily" as const,
   }));
