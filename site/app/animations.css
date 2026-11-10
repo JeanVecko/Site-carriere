@@ -128,7 +128,7 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .97); box-shadow:
 
 .splash {
   align-items: center;
-  animation: splash-out .6s ease 3s forwards; /* disparaît seul après 3 s, même sans JavaScript */
+  animation: splash-out .6s ease 2s forwards; /* disparaît seul après 2 s, même sans JavaScript */
   background:
     radial-gradient(600px 400px at 50% 40%, rgba(240, 185, 11, .14), transparent 70%),
     linear-gradient(160deg, var(--pub-navy-2), var(--pub-navy) 55%, var(--pub-navy-3));
@@ -173,7 +173,7 @@ html.is-splashing .pub-header, html.is-splashing .pub-hero * { animation-play-st
 .splash-loader { margin-top: 30px; width: min(300px, 72vw); animation: fade-up .7s var(--ease-out) .35s both; }
 .splash-bar { background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; height: 8px; overflow: hidden; padding: 1px; }
 .splash-bar-fill {
-  animation: splash-fill 3s cubic-bezier(.33, .9, .55, 1) forwards;
+  animation: splash-fill 2s cubic-bezier(.33, .9, .55, 1) forwards;
   background: linear-gradient(90deg, #c99400, var(--pub-gold-2) 60%, #ffe08a);
   border-radius: 999px;
   box-shadow: 0 0 14px rgba(240, 185, 11, .65);

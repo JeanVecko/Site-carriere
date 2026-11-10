@@ -3,32 +3,40 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
-const MIN_VISIBLE_MS = 3000; // le logo tourne 3 secondes à chaque changement de page
+// Le logo n'apparaît que si la page suivante tarde (connexion lente) : avec une bonne connexion,
+// la page s'affiche directement, sans attente artificielle.
+const SHOW_AFTER_MS = 400;
+const LEAVE_MS = 350; // fondu de sortie
 const MAX_VISIBLE_MS = 10000; // sécurité : le voile ne reste jamais bloqué
 
 /**
  * Transition entre les pages : quand on clique sur un lien interne vers une autre page (ou qu'on utilise
- * « Précédent / Suivant »), un voile apparaît avec le logo qui tourne, puis la nouvelle page s'affiche.
+ * « Précédent / Suivant »), un voile avec le logo qui tourne apparaît seulement si le chargement dure,
+ * puis disparaît dès que la nouvelle page est affichée.
  * Ignoré pour les liens externes, les ancres de la même page, les nouveaux onglets et l'administration.
  */
 export default function PageTransition() {
   const pathname = usePathname();
   const [state, setState] = useState<"hidden" | "visible" | "leaving">("hidden");
-  const startedAt = useRef(0);
+  const navigating = useRef(false);
+  const showTimer = useRef(0);
   const safety = useRef(0);
   const viaLink = useRef(false); // true : clic sur un lien (et non « Précédent / Suivant »)
 
   // Démarrage : clic sur un lien interne vers une autre page.
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) return;
 
     const start = (fromLink: boolean) => {
       viaLink.current = fromLink;
-      startedAt.current = performance.now();
-      setState("visible");
+      navigating.current = true;
+      window.clearTimeout(showTimer.current);
       window.clearTimeout(safety.current);
-      safety.current = window.setTimeout(() => setState("hidden"), MAX_VISIBLE_MS);
+      if (!reduced) showTimer.current = window.setTimeout(() => setState("visible"), SHOW_AFTER_MS);
+      safety.current = window.setTimeout(() => {
+        navigating.current = false;
+        setState("hidden");
+      }, MAX_VISIBLE_MS);
     };
 
     const onClick = (event: MouseEvent) => {
@@ -51,27 +59,25 @@ export default function PageTransition() {
     return () => {
       document.removeEventListener("click", onClick, true);
       window.removeEventListener("popstate", onPopState);
+      window.clearTimeout(showTimer.current);
+      window.clearTimeout(safety.current);
     };
   }, []);
 
-  // Fin : la nouvelle page est affichée → on laisse tourner le logo le temps minimum, puis fondu de sortie.
+  // Fin : la nouvelle page est affichée → le voile (s'il est apparu) disparaît aussitôt en fondu.
   useEffect(() => {
-    if (!startedAt.current) return;
+    if (!navigating.current) return;
+    navigating.current = false;
+    window.clearTimeout(showTimer.current);
+    window.clearTimeout(safety.current);
     // Nouvelle page ouverte par un lien : on l'affiche depuis le haut (sauf lien vers une ancre précise).
     // Avec « Précédent / Suivant », le navigateur restaure lui-même la position de défilement.
     if (viaLink.current && !window.location.hash) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-    const elapsed = performance.now() - startedAt.current;
-    const hideTimer = window.setTimeout(() => {
-      setState((current) => (current === "visible" ? "leaving" : current));
-    }, Math.max(0, MIN_VISIBLE_MS - elapsed));
-    const doneTimer = window.setTimeout(() => {
-      startedAt.current = 0;
-      window.clearTimeout(safety.current);
-      setState("hidden");
-    }, Math.max(0, MIN_VISIBLE_MS - elapsed) + 350);
+    const leave = window.setTimeout(() => setState((current) => (current === "visible" ? "leaving" : current)), 0);
+    const done = window.setTimeout(() => setState("hidden"), LEAVE_MS);
     return () => {
-      window.clearTimeout(hideTimer);
-      window.clearTimeout(doneTimer);
+      window.clearTimeout(leave);
+      window.clearTimeout(done);
     };
   }, [pathname]);
 
