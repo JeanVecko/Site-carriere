@@ -124,6 +124,9 @@ async function initializeDatabase() {
   `);
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media JSONB NOT NULL DEFAULT '[]'::jsonb");
   await pool.query('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_data_url TEXT');
+  // Réponse de l'administrateur à un message de contact (envoyée par e-mail depuis le panneau admin).
+  await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply TEXT');
+  await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ');
   await pool.query('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_name TEXT');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
   // Informations normalisées d'une offre (type de contrat, date limite, candidature, source, salaire)
@@ -917,8 +920,36 @@ app.post('/api/admin/test-email', requireAdmin, async (_request, response) => {
 });
 
 app.get('/api/messages', requireAdmin, async (_request, response) => {
-  const result = await pool.query('SELECT id, name, email, subject, message, created_at FROM messages ORDER BY created_at DESC');
+  const result = await pool.query('SELECT id, name, email, subject, message, created_at, reply, replied_at FROM messages ORDER BY created_at DESC');
   response.json(result.rows);
+});
+
+// Réponse à un message de contact : envoyée par e-mail à l'adresse du visiteur, puis enregistrée.
+// Les réponses du visiteur arrivent dans la boîte de Carrières RDC (Reply-To).
+app.post('/api/messages/:id/reply', requireAdmin, async (request, response) => {
+  const reply = clean(request.body.reply);
+  if (reply.length < 2) return response.status(400).json({ error: 'Écrivez votre réponse avant de l’envoyer.' });
+  if (reply.length > 5000) return response.status(400).json({ error: 'La réponse est trop longue (5 000 caractères au maximum).' });
+  const found = await pool.query('SELECT id, name, email, subject, message, created_at FROM messages WHERE id = $1', [request.params.id]);
+  const original = found.rows[0];
+  if (!original) return response.status(404).json({ error: 'Message introuvable (il a peut-être été supprimé).' });
+
+  const siteUrl = (process.env.FRONTEND_URL || 'https://www.carrieresrdc.com').replace(/\/$/, '');
+  const receivedOn = new Date(original.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Kinshasa' });
+  const quoted = original.message.split('\n').map((line) => `> ${line}`).join('\n');
+  try {
+    await sendTransactionalEmail({
+      to: original.email,
+      replyTo: process.env.CONTACT_REPLY_TO || process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+      subject: `Re : ${original.subject}`.slice(0, 180),
+      text: `${reply}\n\n—\nL’équipe Carrières RDC\n${siteUrl}\n\nVotre message du ${receivedOn} :\n${quoted}`,
+    });
+  } catch (error) {
+    console.error('Réponse non envoyée :', error.message);
+    return response.status(502).json({ error: `La réponse n’a pas pu être envoyée à ${original.email}. Détail : ${error.message}` });
+  }
+  const saved = await pool.query('UPDATE messages SET reply = $1, replied_at = NOW() WHERE id = $2 RETURNING id, reply, replied_at', [reply, original.id]);
+  response.json(saved.rows[0]);
 });
 
 app.delete('/api/messages/:id', requireAdmin, async (request, response) => {

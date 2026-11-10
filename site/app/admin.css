@@ -252,3 +252,12 @@
 .adm-email-test h2 { font-size: 15px; margin: 0 0 2px; }
 .adm-email-test .adm-alert { flex-basis: 100%; overflow-wrap: anywhere; }
 .adm-alert-success { background: #e9f7ef; border: 1px solid #bfe5cd; color: var(--adm-success); }
+
+/* Réponse aux messages de contact */
+.adm-message-reply { background: #eef7f1; border-left: 3px solid var(--adm-success); border-radius: 8px; margin-top: 14px; padding: 10px 14px; }
+.adm-message-reply-label { align-items: center; color: var(--adm-success); display: inline-flex; font-size: 12.5px; font-weight: 700; gap: 6px; margin-bottom: 4px; }
+.adm-message .adm-message-reply p { color: var(--adm-text); }
+.adm-reply-form { border-top: 1px solid var(--adm-border); display: flex; flex-direction: column; gap: 10px; margin-top: 14px; padding-top: 14px; }
+.adm-reply-form textarea { font: inherit; line-height: 1.55; min-height: 150px; resize: vertical; }
+.adm-message .adm-reply-hint { font-size: 12.5px; margin: 0; }
+.adm-reply-form footer { margin-top: 0; }

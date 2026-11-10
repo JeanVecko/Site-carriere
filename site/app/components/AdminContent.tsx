@@ -468,7 +468,15 @@ function Dashboard() {
         {section === "messages" && (
           <>
             <EmailAlertTest />
-            <MessagesList messages={messages} loading={loading} onDelete={deleteMessage} />
+            <MessagesList
+              messages={messages}
+              loading={loading}
+              onDelete={deleteMessage}
+              onReplied={(id, reply, repliedAt) => {
+                setMessages((list) => list.map((entry) => (entry.id === id ? { ...entry, reply, replied_at: repliedAt } : entry)));
+                setToast({ type: "success", text: "Réponse envoyée par e-mail." });
+              }}
+            />
           </>
         )}
       </div>
@@ -1074,11 +1082,14 @@ function MessagesList({
   messages,
   loading,
   onDelete,
+  onReplied,
 }: {
   messages: ContactMessage[];
   loading: boolean;
   onDelete: (message: ContactMessage) => void;
+  onReplied: (id: ContactMessage["id"], reply: string, repliedAt: string) => void;
 }) {
+  const [replyingTo, setReplyingTo] = useState<ContactMessage["id"] | null>(null);
   if (loading && messages.length === 0) return <section className="adm-card"><EmptyState text="Chargement…" /></section>;
   if (messages.length === 0) return <section className="adm-card"><EmptyState text="Aucun message reçu pour le moment." /></section>;
   return (
@@ -1097,17 +1108,103 @@ function MessagesList({
           </header>
           <h3>{message.subject}</h3>
           <p>{message.message}</p>
-          <footer>
-            <a className="adm-btn adm-btn-ghost" href={`mailto:${message.email}?subject=${encodeURIComponent(`Re : ${message.subject}`)}`}>
-              <Reply size={15} /> Répondre
-            </a>
-            <button type="button" className="adm-btn adm-btn-danger-ghost" onClick={() => onDelete(message)}>
-              <Trash2 size={15} /> Supprimer
-            </button>
-          </footer>
+          {message.reply && (
+            <div className="adm-message-reply">
+              <span className="adm-message-reply-label">
+                <CircleCheck size={14} /> Répondu{message.replied_at ? ` le ${formatDate(message.replied_at)}` : ""}
+              </span>
+              <p>{message.reply}</p>
+            </div>
+          )}
+          {replyingTo === message.id ? (
+            <ReplyForm
+              message={message}
+              onCancel={() => setReplyingTo(null)}
+              onSent={(reply, repliedAt) => {
+                setReplyingTo(null);
+                onReplied(message.id, reply, repliedAt);
+              }}
+            />
+          ) : (
+            <footer>
+              <button type="button" className="adm-btn adm-btn-ghost" onClick={() => setReplyingTo(message.id)}>
+                <Reply size={15} /> {message.reply ? "Répondre à nouveau" : "Répondre"}
+              </button>
+              <button type="button" className="adm-btn adm-btn-danger-ghost" onClick={() => onDelete(message)}>
+                <Trash2 size={15} /> Supprimer
+              </button>
+            </footer>
+          )}
         </article>
       ))}
     </section>
+  );
+}
+
+// Réponse écrite dans l'admin et envoyée par e-mail à l'adresse que le visiteur a indiquée.
+function ReplyForm({
+  message,
+  onCancel,
+  onSent,
+}: {
+  message: ContactMessage;
+  onCancel: () => void;
+  onSent: (reply: string, repliedAt: string) => void;
+}) {
+  const [text, setText] = useState(`Bonjour ${message.name.trim()},\n\n`);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function send(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError("");
+    try {
+      const saved = await apiRequest<{ reply: string; replied_at: string }>(`/messages/${message.id}/reply`, {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify({ reply: text }),
+      });
+      onSent(saved.reply, saved.replied_at);
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : "La réponse n’a pas pu être envoyée.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form className="adm-reply-form" onSubmit={send}>
+      <label className="adm-field">
+        <span>
+          Votre réponse à <strong>{message.email}</strong>
+        </span>
+        <textarea
+          rows={7}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          autoFocus
+          required
+          maxLength={5000}
+        />
+      </label>
+      <p className="adm-muted adm-reply-hint">
+        Envoyée par e-mail avec l’objet « Re : {message.subject} », signée « L’équipe Carrières RDC ». Son message d’origine est cité en dessous.
+      </p>
+      {error && (
+        <p className="adm-alert adm-alert-error" role="alert">
+          <TriangleAlert size={16} /> {error}
+        </p>
+      )}
+      <footer>
+        <button type="button" className="adm-btn adm-btn-ghost" onClick={onCancel} disabled={pending}>
+          Annuler
+        </button>
+        <button type="submit" className="adm-btn adm-btn-primary" disabled={pending || text.trim().length < 2}>
+          <Send size={15} /> {pending ? "Envoi…" : "Envoyer la réponse"}
+        </button>
+      </footer>
+    </form>
   );
 }
 

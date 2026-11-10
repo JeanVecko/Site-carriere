@@ -45,6 +45,8 @@ export type ContactMessage = {
   id?: number | string;
   date?: string;
   created_at?: string;
+  reply?: string | null; // réponse envoyée par e-mail depuis le panneau admin
+  replied_at?: string | null;
 };
 
 export function adminHeaders(): Record<string, string> {
