@@ -25,6 +25,7 @@ import {
   Archive,
   CalendarPlus,
   Pencil,
+  ChevronDown,
 } from "lucide-react";
 import {
   Announcement,
@@ -64,6 +65,8 @@ const SECTION_HASHES: Record<Section, string> = {
   messages: "messages",
 };
 const SCROLL_KEY = "carrieres-admin-scroll";
+// Offres expirées déjà vues dans la rubrique « Offres expirées » (le badge ne compte que les nouvelles).
+const SEEN_EXPIRED_KEY = "carrieres-admin-seen-expired";
 
 function readLocation(): { section: Section; editId: string | null } {
   const hash = window.location.hash.replace(/^#/, "");
@@ -222,6 +225,13 @@ function Dashboard() {
   const [editing, setEditing] = useState<Announcement | null>(null);
   // Catégorie choisie dans le formulaire de publication (pour le titre de la page).
   const [formCategory, setFormCategory] = useState("Offre d’emploi");
+  const [seenExpired, setSeenExpired] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(SEEN_EXPIRED_KEY) || "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
 
   const logout = useCallback(() => setToken(null), []);
 
@@ -318,8 +328,37 @@ function Dashboard() {
       hidden: announcements.filter((item) => item.hidden).length,
       views: announcements.reduce((total, item) => total + Number(item.views || 0), 0),
       messages: messages.length,
+      unread: messages.filter((message) => !message.read_at).length,
+      // Offres expirées pas encore vues dans la rubrique « Offres expirées » (mémorisé dans ce navigateur).
+      newExpired: announcements.filter((item) => offerStatus(item) !== "open" && !seenExpired.includes(String(item.id))).length,
     };
-  }, [announcements, messages]);
+  }, [announcements, messages, seenExpired]);
+
+  // Rubrique « Offres expirées » ouverte : toutes les offres expirées affichées sont considérées comme vues.
+  useEffect(() => {
+    if (section !== "expired" || loading) return;
+    const ids = announcements.filter((item) => offerStatus(item) !== "open").map((item) => String(item.id));
+    if (ids.every((id) => seenExpired.includes(id))) return;
+    const timer = window.setTimeout(() => {
+      setSeenExpired(ids);
+      try {
+        localStorage.setItem(SEEN_EXPIRED_KEY, JSON.stringify(ids));
+      } catch {
+        // stockage indisponible
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [section, loading, announcements, seenExpired]);
+
+  // Message ouvert : marqué comme lu (aussitôt à l'écran, puis enregistré sur le serveur).
+  function markRead(message: ContactMessage) {
+    if (message.read_at) return;
+    const now = new Date().toISOString();
+    setMessages((list) => list.map((entry) => (entry.id === message.id ? { ...entry, read_at: now } : entry)));
+    apiRequest(`/messages/${message.id}/read`, { method: "PATCH", headers: adminHeaders() }).catch(() => {
+      // sans conséquence : il sera de nouveau compté comme non lu au prochain chargement
+    });
+  }
 
   async function deleteAnnouncement(item: Announcement) {
     if (!window.confirm(`Supprimer définitivement « ${decodeEntities(item.title)} » ? Cette action est irréversible.`)) return;
@@ -385,8 +424,12 @@ function Dashboard() {
             >
               <Icon size={18} />
               <span>{label}</span>
-              {id === "messages" && stats.messages > 0 && <em className="adm-badge">{stats.messages}</em>}
-              {id === "expired" && stats.expired > 0 && <em className="adm-badge adm-badge-muted">{stats.expired}</em>}
+              {id === "messages" && stats.unread > 0 && (
+                <em className="adm-badge" title="Messages non lus">{stats.unread}</em>
+              )}
+              {id === "expired" && stats.newExpired > 0 && (
+                <em className="adm-badge adm-badge-muted" title="Nouvelles offres expirées">{stats.newExpired}</em>
+              )}
             </button>
           ))}
         </nav>
@@ -473,8 +516,11 @@ function Dashboard() {
               messages={messages}
               loading={loading}
               onDelete={deleteMessage}
+              onOpen={markRead}
               onReplied={(id, reply, repliedAt) => {
-                setMessages((list) => list.map((entry) => (entry.id === id ? { ...entry, reply, replied_at: repliedAt } : entry)));
+                setMessages((list) =>
+                  list.map((entry) => (entry.id === id ? { ...entry, reply, replied_at: repliedAt, read_at: entry.read_at || repliedAt } : entry))
+                );
                 setToast({ type: "success", text: "Réponse envoyée par e-mail." });
               }}
             />
@@ -1083,30 +1129,74 @@ function MessagesList({
   messages,
   loading,
   onDelete,
+  onOpen,
   onReplied,
 }: {
   messages: ContactMessage[];
   loading: boolean;
   onDelete: (message: ContactMessage) => void;
+  onOpen: (message: ContactMessage) => void;
   onReplied: (id: ContactMessage["id"], reply: string, repliedAt: string) => void;
 }) {
   const [replyingTo, setReplyingTo] = useState<ContactMessage["id"] | null>(null);
+  // Un seul message déplié à la fois ; la liste reste compacte (nom, objet, début du message, date).
+  const [openId, setOpenId] = useState<ContactMessage["id"] | null>(null);
   if (loading && messages.length === 0) return <section className="adm-card"><EmptyState text="Chargement…" /></section>;
   if (messages.length === 0) return <section className="adm-card"><EmptyState text="Aucun message reçu pour le moment." /></section>;
+  const unread = messages.filter((message) => !message.read_at).length;
+
   return (
-    <section className="adm-messages">
-      {messages.map((message) => (
-        <article className="adm-card adm-message" key={String(message.id)}>
-          <header>
-            <div className="adm-avatar" aria-hidden="true">
+    <section className="adm-card adm-inbox">
+      <header className="adm-card-header">
+        <h2>Boîte de réception</h2>
+        <span className="adm-muted">
+          {messages.length} message{messages.length > 1 ? "s" : ""}
+          {unread > 0 ? ` · ${unread} non lu${unread > 1 ? "s" : ""}` : ""}
+        </span>
+      </header>
+      <ul className="adm-inbox-list">
+      {messages.map((message) => {
+        const isOpen = openId === message.id;
+        const isUnread = !message.read_at;
+        return (
+        <li key={String(message.id)} className={`adm-inbox-item${isOpen ? " is-open" : ""}${isUnread ? " is-unread" : ""}`}>
+          <button
+            type="button"
+            className="adm-inbox-row"
+            aria-expanded={isOpen}
+            onClick={() => {
+              setOpenId(isOpen ? null : message.id);
+              if (!isOpen) {
+                setReplyingTo(null);
+                onOpen(message);
+              }
+            }}
+          >
+            <span className="adm-avatar" aria-hidden="true">
               {message.name.trim().charAt(0).toUpperCase() || "?"}
-            </div>
-            <div className="adm-message-from">
-              <strong>{message.name}</strong>
-              <a href={`mailto:${message.email}`}>{message.email}</a>
-            </div>
-            <time>{formatDate(message.created_at || message.date)}</time>
-          </header>
+            </span>
+            <span className="adm-inbox-text">
+              <span className="adm-inbox-top">
+                <strong className="adm-ellipsis">{message.name}</strong>
+                {isUnread && <em className="adm-inbox-dot" aria-label="Non lu" />}
+                {message.reply && (
+                  <span className="adm-inbox-replied" title="Répondu">
+                    <Reply size={12} /> Répondu
+                  </span>
+                )}
+                <time>{formatDate(message.created_at || message.date)}</time>
+              </span>
+              <span className="adm-inbox-preview adm-ellipsis">
+                <b>{message.subject}</b> — {message.message.replace(/\s+/g, " ")}
+              </span>
+            </span>
+            <ChevronDown size={16} className="adm-inbox-chevron" aria-hidden="true" />
+          </button>
+          {isOpen && (
+        <div className="adm-message">
+          <p className="adm-message-from">
+            <a href={`mailto:${message.email}`}>{message.email}</a>
+          </p>
           <h3>{message.subject}</h3>
           <p>{message.message}</p>
           {message.reply && (
@@ -1136,8 +1226,12 @@ function MessagesList({
               </button>
             </footer>
           )}
-        </article>
-      ))}
+        </div>
+          )}
+        </li>
+        );
+      })}
+      </ul>
     </section>
   );
 }

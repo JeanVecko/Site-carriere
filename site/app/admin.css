@@ -261,3 +261,34 @@
 .adm-reply-form textarea { font: inherit; line-height: 1.55; min-height: 150px; resize: vertical; }
 .adm-message .adm-reply-hint { font-size: 12.5px; margin: 0; }
 .adm-reply-form footer { margin-top: 0; }
+
+/* Boîte de réception compacte : une ligne par message, dépliée au clic */
+.adm-inbox { padding: 0; overflow: hidden; }
+.adm-inbox > .adm-card-header { padding: 16px 18px; margin: 0; border-bottom: 1px solid var(--adm-border); }
+.adm-inbox-list { list-style: none; margin: 0; padding: 0; }
+.adm-inbox-item + .adm-inbox-item { border-top: 1px solid var(--adm-border); }
+.adm-inbox-row { align-items: center; background: none; border: 0; color: inherit; cursor: pointer; display: flex; font: inherit; gap: 12px; padding: 12px 18px; text-align: left; width: 100%; }
+.adm-inbox-row:hover { background: #f6f8fc; }
+.adm-inbox-row .adm-avatar { height: 34px; width: 34px; font-size: 14px; }
+.adm-inbox-text { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.adm-inbox-top { align-items: center; display: flex; gap: 8px; min-width: 0; }
+.adm-inbox-top strong { font-size: 14px; font-weight: 600; min-width: 0; }
+.adm-inbox-top time { color: var(--adm-muted); font-size: 12px; margin-left: auto; white-space: nowrap; }
+.adm-inbox-preview { color: var(--adm-muted); font-size: 13px; }
+.adm-inbox-preview b { color: var(--adm-text); font-weight: 500; }
+.adm-inbox-item.is-unread { background: #f7f9ff; }
+.adm-inbox-item.is-unread .adm-inbox-top strong, .adm-inbox-item.is-unread .adm-inbox-preview b { font-weight: 800; }
+.adm-inbox-item.is-unread .adm-inbox-top time { color: var(--adm-primary); font-weight: 700; }
+.adm-inbox-dot { background: var(--adm-accent); border-radius: 50%; flex-shrink: 0; height: 8px; width: 8px; }
+.adm-inbox-replied { align-items: center; color: var(--adm-success); display: inline-flex; font-size: 11.5px; font-weight: 600; gap: 3px; white-space: nowrap; }
+.adm-inbox-chevron { color: var(--adm-muted); flex-shrink: 0; transition: transform .2s ease; }
+.adm-inbox-item.is-open { background: #fbfcfe; }
+.adm-inbox-item.is-open .adm-inbox-chevron { transform: rotate(180deg); }
+.adm-inbox-item .adm-message { padding: 0 18px 16px 64px; }
+.adm-inbox-item .adm-message .adm-message-from { margin: 0; }
+.adm-inbox-item .adm-message h3 { margin-top: 8px; }
+@media (max-width: 640px) {
+  .adm-inbox-row { padding: 12px 14px; }
+  .adm-inbox-item .adm-message { padding: 0 14px 14px; }
+  .adm-inbox-replied { display: none; }
+}

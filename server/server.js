@@ -127,6 +127,7 @@ async function initializeDatabase() {
   // Réponse de l'administrateur à un message de contact (envoyée par e-mail depuis le panneau admin).
   await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply TEXT');
   await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ');
+  await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ');
   await pool.query('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_name TEXT');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
   // Informations normalisées d'une offre (type de contrat, date limite, candidature, source, salaire)
@@ -920,7 +921,7 @@ app.post('/api/admin/test-email', requireAdmin, async (_request, response) => {
 });
 
 app.get('/api/messages', requireAdmin, async (_request, response) => {
-  const result = await pool.query('SELECT id, name, email, subject, message, created_at, reply, replied_at FROM messages ORDER BY created_at DESC');
+  const result = await pool.query('SELECT id, name, email, subject, message, created_at, reply, replied_at, read_at FROM messages ORDER BY created_at DESC');
   response.json(result.rows);
 });
 
@@ -948,8 +949,15 @@ app.post('/api/messages/:id/reply', requireAdmin, async (request, response) => {
     console.error('Réponse non envoyée :', error.message);
     return response.status(502).json({ error: `La réponse n’a pas pu être envoyée à ${original.email}. Détail : ${error.message}` });
   }
-  const saved = await pool.query('UPDATE messages SET reply = $1, replied_at = NOW() WHERE id = $2 RETURNING id, reply, replied_at', [reply, original.id]);
+  const saved = await pool.query('UPDATE messages SET reply = $1, replied_at = NOW(), read_at = COALESCE(read_at, NOW()) WHERE id = $2 RETURNING id, reply, replied_at', [reply, original.id]);
   response.json(saved.rows[0]);
+});
+
+// Message ouvert dans le panneau admin : il n'est plus compté comme « non lu ».
+app.patch('/api/messages/:id/read', requireAdmin, async (request, response) => {
+  const result = await pool.query('UPDATE messages SET read_at = COALESCE(read_at, NOW()) WHERE id = $1 RETURNING id, read_at', [request.params.id]);
+  if (!result.rows[0]) return response.status(404).json({ error: 'Message introuvable.' });
+  response.json(result.rows[0]);
 });
 
 app.delete('/api/messages/:id', requireAdmin, async (request, response) => {

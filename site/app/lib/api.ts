@@ -47,6 +47,7 @@ export type ContactMessage = {
   created_at?: string;
   reply?: string | null; // réponse envoyée par e-mail depuis le panneau admin
   replied_at?: string | null;
+  read_at?: string | null; // message ouvert dans le panneau admin
 };
 
 export function adminHeaders(): Record<string, string> {
