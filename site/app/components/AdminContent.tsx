@@ -310,7 +310,8 @@ function Dashboard() {
   }, [toast]);
 
   const stats = useMemo(() => {
-    const open = announcements.filter((item) => !isExpired(item));
+    // Même règle que les listes « Offres publiées » / « Offres expirées » : les compteurs correspondent toujours.
+    const open = announcements.filter((item) => offerStatus(item) === "open");
     return {
       open: open.length,
       expired: announcements.length - open.length,
@@ -385,7 +386,7 @@ function Dashboard() {
               <Icon size={18} />
               <span>{label}</span>
               {id === "messages" && stats.messages > 0 && <em className="adm-badge">{stats.messages}</em>}
-              {id === "expired" && stats.hidden > 0 && <em className="adm-badge adm-badge-muted">{stats.hidden}</em>}
+              {id === "expired" && stats.expired > 0 && <em className="adm-badge adm-badge-muted">{stats.expired}</em>}
             </button>
           ))}
         </nav>
@@ -834,12 +835,12 @@ function OffersTable({
   onEdit: (item: Announcement) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "open" | "grace">("all");
+  // Offres expirées : toutes celles dont la date limite est passée (encore visibles 24 h, ou déjà retirées).
+  const [filter, setFilter] = useState<"all" | "grace" | "hidden">("all");
   const needle = query.trim().toLowerCase();
-  const scoped = announcements.filter((item) => (mode === "expired" ? item.hidden : !item.hidden));
+  const scoped = announcements.filter((item) => (mode === "expired" ? offerStatus(item) !== "open" : offerStatus(item) === "open"));
   const rows = scoped.filter((item) => {
-    const status = offerStatus(item);
-    if (mode === "active" && filter !== "all" && status !== filter) return false;
+    if (mode === "expired" && filter !== "all" && offerStatus(item) !== filter) return false;
     return decodeEntities(`${item.title} ${item.company} ${item.location} ${item.category}`).toLowerCase().includes(needle);
   });
 
@@ -847,8 +848,8 @@ function OffersTable({
     <section className="adm-card adm-card-flush">
       {mode === "expired" && (
         <p className="adm-info">
-          <Archive size={16} /> Ces offres ne sont plus visibles sur le site public (24 h après leur date d’expiration).
-          Prolongez la date pour les remettre en ligne.
+          <Archive size={16} /> Une offre expirée reste visible sur le site 24 h après sa date limite, puis elle est
+          retirée. Prolongez la date pour la remettre en ligne.
         </p>
       )}
       <div className="adm-toolbar">
@@ -862,13 +863,13 @@ function OffersTable({
             aria-label="Rechercher une offre"
           />
         </label>
-        {mode === "active" && (
+        {mode === "expired" && (
           <div className="adm-segmented" role="group" aria-label="Filtrer">
             {(
               [
                 ["all", "Toutes"],
-                ["open", "En ligne"],
-                ["grace", "Expirées (24 h)"],
+                ["grace", "Encore visibles (24 h)"],
+                ["hidden", "Retirées du site"],
               ] as const
             ).map(([value, label]) => (
               <button key={value} type="button" className={filter === value ? "is-active" : undefined} onClick={() => setFilter(value)}>
