@@ -78,12 +78,9 @@ h1, h2, h3 { font-family: 'Space Grotesk', 'DM Sans', sans-serif; letter-spacing
 .pub-social-dark a:hover { background: var(--pub-gold); border-color: var(--pub-gold); color: var(--pub-navy); }
 
 /* ----- Accueil : bandeau ----- */
-.pub-hero { background:
-    radial-gradient(900px 380px at 85% -10%, rgba(217, 164, 0, .22), transparent 60%),
-    radial-gradient(700px 360px at -10% 110%, rgba(64, 132, 230, .28), transparent 60%),
-    linear-gradient(160deg, var(--pub-navy-2) 0%, var(--pub-navy) 55%, var(--pub-navy-3) 100%);
-  color: #fff; overflow: hidden; padding: 22px 0 20px; position: relative; }
-.pub-hero::after { background-image: radial-gradient(rgba(255, 255, 255, .08) 1px, transparent 1px); background-size: 22px 22px; content: ""; inset: 0; mask-image: linear-gradient(to bottom, #000, transparent 80%); pointer-events: none; position: absolute; }
+/* Fond uni avec un filet doré, sans halos ni grille de points (rendu plus « fait main »). */
+.pub-hero { background: linear-gradient(180deg, var(--pub-navy) 0%, var(--pub-navy-3) 100%);
+  border-bottom: 3px solid var(--pub-gold-2); color: #fff; overflow: hidden; padding: 22px 0 20px; position: relative; }
 .pub-hero .pub-container { position: relative; text-align: center; z-index: 1; }
 .pub-pill { align-items: center; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .18); border-radius: 999px; color: #e6edf8; display: inline-flex; font-size: 12px; font-weight: 600; gap: 8px; margin-bottom: 12px; padding: 5px 12px; }
 .pub-pill i { background: #41d67c; border-radius: 50%; box-shadow: 0 0 0 4px rgba(65, 214, 124, .2); display: inline-block; height: 7px; width: 7px; }

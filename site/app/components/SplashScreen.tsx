@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { SPLASH_SEEN_KEY as SEEN_KEY } from "../lib/splash";
-// Durée du chargement (logo qui tourne + barre qui se remplit). À garder identique aux durées de animations.css
-// (.splash : splash-out 2s ; .splash-bar-fill : splash-fill 2s).
+// Durée de l’écran avant que le voile remonte. À garder identique au délai de .splash dans animations.css (2s).
 const DURATION_MS = 2000;
-const EXIT_MS = 600; // fondu de sortie
+const EXIT_MS = 750; // le voile remonte
 
 // Décision prise au premier montage de la page (null = pas encore décidé), conservée pendant la visite.
 let shouldSplash: boolean | null = null;
@@ -14,14 +13,12 @@ let shouldSplash: boolean | null = null;
 // Le script qui décide d'afficher l'écran est dans lib/splash.ts (exécuté dans <head> par layout.tsx).
 
 /**
- * Écran d'accueil : logo qui tourne pendant 2 secondes, barre de chargement avec pourcentage sous le texte,
- * puis la page apparaît. Affiché une seule fois par visite (onglet).
+ * Écran d'accueil sobre : logo posé, nom qui se dévoile, filet doré tracé, puis le voile remonte (2 secondes). Affiché une seule fois par visite (onglet).
  * Les animations et la sortie sont en CSS (fonctionnent même sans JavaScript) ; le script mémorise la visite,
- * bloque le défilement pendant l'attente et affiche le pourcentage.
+ * et bloque le défilement pendant l'attente.
  */
 export default function SplashScreen() {
   const [done, setDone] = useState(false);
-  const percentRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -53,24 +50,12 @@ export default function SplashScreen() {
       .find((animation) => (animation as CSSAnimation).animationName === "splash-out");
     const started = performance.now() - (exitAnimation?.currentTime != null ? Number(exitAnimation.currentTime) : 0);
 
-    // Pourcentage affiché sous la barre, synchronisé avec son remplissage.
-    let frame = 0;
-    const tick = () => {
-      const progress = Math.min(1, (performance.now() - started) / DURATION_MS);
-      // Même courbe que la barre (accélération puis ralentissement), pour que le chiffre suive le remplissage.
-      const eased = 1 - Math.pow(1 - progress, 2.2);
-      if (percentRef.current) percentRef.current.textContent = `${Math.round(eased * 100)} %`;
-      if (progress < 1 && !cancelled) frame = window.requestAnimationFrame(tick);
-    };
-    frame = window.requestAnimationFrame(tick);
-
     const remaining = Math.max(0, DURATION_MS - (performance.now() - started));
     const releaseTimer = window.setTimeout(release, remaining);
     const removeTimer = window.setTimeout(() => !cancelled && setDone(true), remaining + EXIT_MS);
 
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(frame);
       window.clearTimeout(releaseTimer);
       window.clearTimeout(removeTimer);
       root.classList.remove("is-splashing");
@@ -83,27 +68,17 @@ export default function SplashScreen() {
     <>
       <div className="splash" role="status" aria-label="Chargement de Carrières RDC">
         <div className="splash-center">
-          <div className="splash-logo">
-            <span className="splash-ring" aria-hidden="true" />
-            {/* eslint-disable-next-line @next/next/no-img-element -- logo statique */}
-            <img src="/LOGO/Logo.png" alt="" />
-          </div>
-          <p className="splash-name">
-            Carrières <em>RDC</em>
+          {/* eslint-disable-next-line @next/next/no-img-element -- logo statique */}
+          <img className="splash-mark" src="/LOGO/Logo.png" alt="" />
+          <p className="splash-name splash-line">
+            <span>
+              Carrières <em>RDC</em>
+            </span>
           </p>
-          <p className="splash-tagline">Les opportunités de la RDC, au même endroit</p>
-
-          <div className="splash-loader" aria-hidden="true">
-            <div className="splash-bar">
-              <span className="splash-bar-fill" />
-            </div>
-            <div className="splash-loader-text">
-              <span>Chargement des offres</span>
-              <span ref={percentRef} className="splash-percent">
-                0 %
-              </span>
-            </div>
-          </div>
+          <span className="splash-rule" aria-hidden="true" />
+          <p className="splash-tagline splash-line">
+            <span>Les opportunités de la RDC, au même endroit</span>
+          </p>
         </div>
       </div>
     </>

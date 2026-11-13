@@ -9,7 +9,7 @@
 }
 
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes fade-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
 @keyframes pop-in { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
 @keyframes glow-drift {
@@ -30,8 +30,6 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .97); box-shadow:
 .pub-header.is-open .pub-mobile-panel { animation: fade-down .25s var(--ease-out) both; }
 
 /* ----- Bandeaux : contenu en cascade ----- */
-/* Halo doré qui dérive lentement derrière le titre de l'accueil */
-.pub-hero::before { animation: glow-drift 12s ease-in-out infinite; background: radial-gradient(closest-side, rgba(240, 185, 11, .22), transparent); content: ""; height: 420px; pointer-events: none; position: absolute; right: -80px; top: -160px; width: 520px; }
 .pub-hero h1, .pub-hero .pub-lead, .pub-hero .pub-search, .pub-hero .pub-chips > *,
 .pub-list-hero .pub-breadcrumb, .pub-list-hero h1, .pub-list-hero p, .pub-list-hero .pub-list-search,
 .pub-offer-hero .pub-breadcrumb, .pub-offer-hero-main > * { animation: fade-up .7s var(--ease-out) both; }
@@ -119,19 +117,19 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .97); box-shadow:
 }
 
 /* =====================================================================
-   Écran d'accueil (SplashScreen) : 8 s de chargement, puis fondu de sortie
+   Écran d’accueil (SplashScreen) — sobre, façon « identité de marque » :
+   logo posé, nom qui se dévoile ligne par ligne, filet doré tracé, puis le voile remonte.
+   Pas de rotation, de halo lumineux ni de pourcentage.
    ===================================================================== */
-@keyframes splash-spin { to { transform: rotate(360deg); } }
-@keyframes splash-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes splash-out { to { opacity: 0; visibility: hidden; } }
-@keyframes splash-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes splash-out { to { transform: translateY(-100%); visibility: hidden; } }
+@keyframes splash-rise { from { transform: translateY(105%); } to { transform: none; } }
+@keyframes splash-rule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes splash-settle { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 
 .splash {
   align-items: center;
-  animation: splash-out .6s ease 2s forwards; /* disparaît seul après 2 s, même sans JavaScript */
-  background:
-    radial-gradient(600px 400px at 50% 40%, rgba(240, 185, 11, .14), transparent 70%),
-    linear-gradient(160deg, var(--pub-navy-2), var(--pub-navy) 55%, var(--pub-navy-3));
+  animation: splash-out .75s cubic-bezier(.76, 0, .24, 1) 2s forwards; /* remonte seul après 2 s, même sans JavaScript */
+  background: var(--pub-navy);
   color: #fff;
   display: flex;
   inset: 0;
@@ -141,77 +139,42 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .97); box-shadow:
 }
 html.splash-seen .splash { display: none; }
 html.is-splashing { overflow: hidden; }
-/* La page d'accueil attend derrière l'écran : ses animations d'entrée démarrent à la sortie. */
+/* La page d’accueil attend derrière l’écran : ses animations d’entrée démarrent à la sortie. */
 html.is-splashing .pub-header, html.is-splashing .pub-hero * { animation-play-state: paused !important; }
 
-.splash-center { align-items: center; display: flex; flex-direction: column; text-align: center; animation: fade-up .7s var(--ease-out) both; }
-.splash-logo { height: 132px; position: relative; width: 132px; }
-.splash-logo img {
-  animation: splash-spin 2s linear infinite; /* un tour toutes les 2 secondes */
+.splash-center { align-items: center; display: flex; flex-direction: column; text-align: center; }
+.splash-mark {
+  animation: splash-settle .6s var(--ease-out) both;
   background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, .35);
-  height: 100%;
+  border-radius: 18px;
+  height: 92px;
   object-fit: contain;
-  padding: 10px;
-  width: 100%;
+  padding: 8px;
+  width: 92px;
 }
-.splash-ring {
-  animation: splash-spin 1.2s linear infinite reverse;
-  border: 3px solid transparent;
-  border-radius: 50%;
-  border-top-color: var(--pub-gold-2);
-  border-right-color: rgba(240, 185, 11, .35);
-  inset: -12px;
-  position: absolute;
-}
-.splash-name { font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin: 26px 0 4px; }
+/* Chaque ligne de texte monte depuis un cache : effet « typographie imprimée qui apparaît » */
+.splash-line { display: block; overflow: hidden; }
+.splash-line > span { animation: splash-rise .7s cubic-bezier(.2, .7, .2, 1) both; display: block; }
+.splash-name { font-family: "Space Grotesk", sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; margin: 22px 0 0; }
+.splash-name > span { animation-delay: .25s; }
 .splash-name em { color: var(--pub-gold-2); font-style: normal; }
-.splash-tagline { animation: splash-pulse 2s ease-in-out infinite; color: #c3d1e6; font-size: 14px; margin: 0; }
-
-/* Barre de chargement sous le texte, avec pourcentage */
-.splash-loader { margin-top: 30px; width: min(300px, 72vw); animation: fade-up .7s var(--ease-out) .35s both; }
-.splash-bar { background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; height: 8px; overflow: hidden; padding: 1px; }
-.splash-bar-fill {
-  animation: splash-fill 2s cubic-bezier(.33, .9, .55, 1) forwards;
-  background: linear-gradient(90deg, #c99400, var(--pub-gold-2) 60%, #ffe08a);
-  border-radius: 999px;
-  box-shadow: 0 0 14px rgba(240, 185, 11, .65);
-  display: block;
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-  transform: scaleX(0);
-  transform-origin: left;
-}
-/* Reflet qui balaie la barre */
-.splash-bar-fill::after { animation: splash-sheen 1.4s ease-in-out infinite; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); content: ""; inset: 0; position: absolute; transform: translateX(-100%); }
-@keyframes splash-sheen { to { transform: translateX(100%); } }
-.splash-loader-text { align-items: center; color: #a9bbd6; display: flex; font-size: 12px; justify-content: space-between; letter-spacing: .04em; margin-top: 10px; text-transform: uppercase; }
-.splash-percent { color: var(--pub-gold-2); font-family: "Space Grotesk", sans-serif; font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.splash-rule { animation: splash-rule .6s cubic-bezier(.65, 0, .35, 1) .65s both; background: var(--pub-gold-2); display: block; height: 2px; margin: 16px 0 14px; transform-origin: left; width: 56px; }
+.splash-tagline { color: #c3d1e6; font-size: 15px; margin: 0; }
+.splash-tagline > span { animation-delay: .8s; }
 @media (max-width: 620px) {
-  .splash-logo { height: 104px; width: 104px; }
-  .splash-name { font-size: 22px; }
+  .splash-mark { height: 76px; width: 76px; }
+  .splash-name { font-size: 28px; }
 }
 
 /* =====================================================================
-   Transition entre les pages (PageTransition) : voile + logo qui tourne
+   Transition entre les pages (PageTransition) : simple fil doré en haut de l’écran,
+   affiché seulement si la page suivante tarde. Pas de voile ni de logo qui tourne.
    ===================================================================== */
-@keyframes transition-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes transition-progress { from { transform: scaleX(0); } to { transform: scaleX(.85); } }
 @keyframes transition-out { to { opacity: 0; } }
-@keyframes transition-logo-in { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
-.page-transition {
-  align-items: center;
-  animation: transition-in .2s ease both;
-  backdrop-filter: blur(6px);
-  background: radial-gradient(400px 300px at 50% 50%, rgba(240, 185, 11, .12), transparent 70%), rgba(6, 33, 74, .72);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  position: fixed;
-  z-index: 900;
-}
-.page-transition.is-leaving { animation: transition-out .35s ease forwards; }
-.page-transition-logo { animation: transition-logo-in .3s var(--ease-spring) both; height: 92px; position: relative; width: 92px; }
-.page-transition-logo img { animation: splash-spin 1.4s linear infinite; background: #fff; border-radius: 50%; box-shadow: 0 14px 34px rgba(0, 0, 0, .35); height: 100%; object-fit: contain; padding: 8px; width: 100%; }
-.page-transition-logo .splash-ring { inset: -10px; }
+.page-transition { height: 3px; inset: 0 0 auto 0; pointer-events: none; position: fixed; z-index: 900; }
+.page-transition span { animation: transition-progress 6s cubic-bezier(.1, .7, .2, 1) both; background: var(--pub-gold-2); display: block; height: 100%; transform-origin: left; }
+@keyframes transition-finish { from { transform: scaleX(var(--from, 0)); } to { transform: scaleX(1); } }
+/* Fin du chargement : le fil se remplit jusqu’au bout, puis s’efface. */
+.page-transition.is-leaving { animation: transition-out .25s ease .25s forwards; }
+.page-transition.is-leaving span { animation: transition-finish .25s ease-out forwards; }
