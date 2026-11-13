@@ -719,6 +719,9 @@ app.delete('/api/my/organization/members/:id', requireUser, requireOrganizationO
 const PUBLIC_UNTIL_SQL = "((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')";
 const PUBLICLY_VISIBLE_SQL = `(deadline IS NULL OR NOW() < ${PUBLIC_UNTIL_SQL})`;
 // Une publication a une vignette si au moins une image est jointe.
+// Empreinte des pièces jointes : change dès qu'une image est remplacée, pour que les navigateurs ne gardent
+// pas l'ancienne version en cache (elle est ajoutée à l'adresse de l'image : …/cover?v=…).
+const MEDIA_VERSION_SQL = "left(md5(media::text), 10)";
 const HAS_COVER_SQL = "EXISTS (SELECT 1 FROM jsonb_array_elements(media) AS m WHERE m->>'type' LIKE 'image/%')";
 
 // Pièce jointe d'une publication (image ou PDF), servie comme un vrai fichier mis en cache par le navigateur,
@@ -762,7 +765,7 @@ app.get('/api/announcements/:id/cover', async (request, response) => {
 app.get('/api/announcements', async (request, response) => {
   const category = clean(request.query.category);
   const values = category ? [category] : [];
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY created_at DESC`, values);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover, ${MEDIA_VERSION_SQL} AS media_version FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY created_at DESC`, values);
   response.json(result.rows);
 });
 
@@ -789,7 +792,7 @@ app.get('/api/my/recommended-offers', requireUser, async (request, response) => 
 
 app.get('/api/announcements/:id', async (request, response) => {
   if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, media FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, media, ${MEDIA_VERSION_SQL} AS media_version FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   response.json(result.rows[0]);
 });

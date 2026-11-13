@@ -24,6 +24,7 @@ import { SOCIAL_NETWORKS } from "./SocialLinks";
 import {
   API_BASE,
   applyTarget,
+  mediaUrl,
   termsFor,
   type ApplyTarget,
   companyAvatar,
@@ -255,7 +256,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
               <h2>Documents</h2>
               {item.media.map((file, index) =>
                 file.type === "application/pdf" ? (
-                  <a className="pub-pdf" href={`${API_BASE}/announcements/${item.id}/media/${index}`} download={file.name} key={`${file.name}-${index}`}>
+                  <a className="pub-pdf" href={mediaUrl(item, index)} download={file.name} key={`${file.name}-${index}`}>
                     <FileText size={26} aria-hidden="true" />
                     <span>{file.name}</span>
                     <small>Télécharger</small>
@@ -265,7 +266,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
                   // eslint-disable-next-line @next/next/no-img-element -- image servie par l'API
                   <img
                     key={`${file.name}-${index}`}
-                    src={`${API_BASE}/announcements/${item.id}/media/${index}`}
+                    src={mediaUrl(item, index)}
                     alt={`Document de l’offre : ${file.name}`}
                     loading="lazy"
                     decoding="async"

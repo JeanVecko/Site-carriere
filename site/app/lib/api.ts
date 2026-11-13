@@ -19,6 +19,7 @@ export type Announcement = {
   media?: AnnouncementMedia[];
   media_count?: number;
   has_cover?: boolean;
+  media_version?: string; // empreinte des pièces jointes : change quand une image est remplacée
   views?: number;
   public_until?: string | null;
   hidden?: boolean;
@@ -49,6 +50,23 @@ export type ContactMessage = {
   replied_at?: string | null;
   read_at?: string | null; // message ouvert dans le panneau admin
 };
+
+// Adresse d'une pièce jointe (index) ou de la vignette ("cover"). Le « ?v= » change quand l'image est remplacée :
+// sans lui, le navigateur réafficherait l'ancienne image gardée en cache (jusqu'à 24 h).
+export function mediaUrl(item: Pick<Announcement, "id" | "media" | "media_version">, file: number | "cover"): string {
+  let version = item.media_version || "";
+  if (!version && item.media?.length) {
+    let hash = 0;
+    for (const entry of item.media) {
+      const data = entry.dataUrl || "";
+      hash = (hash * 31 + data.length) >>> 0;
+      for (let i = 0; i < data.length; i += 997) hash = (hash * 31 + data.charCodeAt(i)) >>> 0;
+    }
+    version = hash.toString(36);
+  }
+  const path = file === "cover" ? "cover" : `media/${file}`;
+  return `${API_BASE}/announcements/${item.id}/${path}${version ? `?v=${version}` : ""}`;
+}
 
 export function adminHeaders(): Record<string, string> {
   if (typeof window === "undefined") return {};

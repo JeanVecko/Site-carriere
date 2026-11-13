@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Building2, CalendarClock, MapPin, Megaphone } from "lucide-react";
-import { API_BASE, type Announcement, companyAvatar, decodeEntities, detailHref, formatDate, isExpired, timeAgo } from "../lib/api";
+import { type Announcement, companyAvatar, decodeEntities, detailHref, formatDate, isExpired, mediaUrl, timeAgo } from "../lib/api";
 
 // Carte visuelle d'une annonce (page Annonces) : vignette de l'image jointe, ou visuel de remplacement.
 export default function AnnouncementTile({ item }: { item: Announcement }) {
@@ -12,7 +12,7 @@ export default function AnnouncementTile({ item }: { item: Announcement }) {
         <span className="pub-tile-cover">
           {item.has_cover ? (
             // eslint-disable-next-line @next/next/no-img-element -- image servie par l'API
-            <img src={`${API_BASE}/announcements/${item.id}/cover`} alt="" loading="lazy" />
+            <img src={mediaUrl(item, "cover")} alt="" loading="lazy" />
           ) : (
             <span className={`pub-tile-placeholder tone-${avatar.tone}`} aria-hidden="true">
               <Megaphone size={26} />
