@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { SPLASH_SEEN_KEY as SEEN_KEY } from "../lib/splash";
-// Durée de l’écran avant que le voile remonte. À garder identique au délai de .splash dans animations.css (2s).
-const DURATION_MS = 2000;
+// Durée de l’écran avant que le voile remonte. À garder identique au délai de .splash dans animations.css (3s).
+const DURATION_MS = 3000;
 const EXIT_MS = 750; // le voile remonte
 
 // Décision prise au premier montage de la page (null = pas encore décidé), conservée pendant la visite.
@@ -13,7 +13,7 @@ let shouldSplash: boolean | null = null;
 // Le script qui décide d'afficher l'écran est dans lib/splash.ts (exécuté dans <head> par layout.tsx).
 
 /**
- * Écran d'accueil sobre : logo posé, nom qui se dévoile, filet doré tracé, puis le voile remonte (2 secondes). Affiché une seule fois par visite (onglet).
+ * Écran d'accueil : le logo seul tourne, puis le voile remonte (3 secondes). Affiché une seule fois par visite (onglet).
  * Les animations et la sortie sont en CSS (fonctionnent même sans JavaScript) ; le script mémorise la visite,
  * et bloque le défilement pendant l'attente.
  */
@@ -70,15 +70,6 @@ export default function SplashScreen() {
         <div className="splash-center">
           {/* eslint-disable-next-line @next/next/no-img-element -- logo statique */}
           <img className="splash-mark" src="/LOGO/Logo.png" alt="" />
-          <p className="splash-name splash-line">
-            <span>
-              Carrières <em>RDC</em>
-            </span>
-          </p>
-          <span className="splash-rule" aria-hidden="true" />
-          <p className="splash-tagline splash-line">
-            <span>Les opportunités de la RDC, au même endroit</span>
-          </p>
         </div>
       </div>
     </>

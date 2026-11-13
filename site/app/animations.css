@@ -118,17 +118,14 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .97); box-shadow:
 
 /* =====================================================================
    Écran d’accueil (SplashScreen) — sobre, façon « identité de marque » :
-   logo posé, nom qui se dévoile ligne par ligne, filet doré tracé, puis le voile remonte.
-   Pas de rotation, de halo lumineux ni de pourcentage.
+   le logo seul tourne sur lui-même, puis le voile remonte. Ni texte, ni halo, ni pourcentage.
    ===================================================================== */
 @keyframes splash-out { to { transform: translateY(-100%); visibility: hidden; } }
-@keyframes splash-rise { from { transform: translateY(105%); } to { transform: none; } }
-@keyframes splash-rule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes splash-settle { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 
 .splash {
   align-items: center;
-  animation: splash-out .75s cubic-bezier(.76, 0, .24, 1) 2s forwards; /* remonte seul après 2 s, même sans JavaScript */
+  animation: splash-out .75s cubic-bezier(.76, 0, .24, 1) 3s forwards; /* remonte seul après 3 s, même sans JavaScript */
   background: var(--pub-navy);
   color: #fff;
   display: flex;
@@ -143,28 +140,18 @@ html.is-splashing { overflow: hidden; }
 html.is-splashing .pub-header, html.is-splashing .pub-hero * { animation-play-state: paused !important; }
 
 .splash-center { align-items: center; display: flex; flex-direction: column; text-align: center; }
+/* Seul le logo, qui tourne sur lui-même ; pas de texte. */
+@keyframes splash-spin { to { transform: rotate(360deg); } }
 .splash-mark {
-  animation: splash-settle .6s var(--ease-out) both;
+  animation: splash-settle .5s var(--ease-out) both, splash-spin 1.6s linear .1s infinite;
   background: #fff;
-  border-radius: 18px;
-  height: 92px;
+  border-radius: 50%;
+  height: 120px;
   object-fit: contain;
-  padding: 8px;
-  width: 92px;
+  padding: 10px;
+  width: 120px;
 }
-/* Chaque ligne de texte monte depuis un cache : effet « typographie imprimée qui apparaît » */
-.splash-line { display: block; overflow: hidden; }
-.splash-line > span { animation: splash-rise .7s cubic-bezier(.2, .7, .2, 1) both; display: block; }
-.splash-name { font-family: "Space Grotesk", sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; margin: 22px 0 0; }
-.splash-name > span { animation-delay: .25s; }
-.splash-name em { color: var(--pub-gold-2); font-style: normal; }
-.splash-rule { animation: splash-rule .6s cubic-bezier(.65, 0, .35, 1) .65s both; background: var(--pub-gold-2); display: block; height: 2px; margin: 16px 0 14px; transform-origin: left; width: 56px; }
-.splash-tagline { color: #c3d1e6; font-size: 15px; margin: 0; }
-.splash-tagline > span { animation-delay: .8s; }
-@media (max-width: 620px) {
-  .splash-mark { height: 76px; width: 76px; }
-  .splash-name { font-size: 28px; }
-}
+@media (max-width: 620px) { .splash-mark { height: 96px; width: 96px; } }
 
 /* =====================================================================
    Transition entre les pages (PageTransition) : simple fil doré en haut de l’écran,
