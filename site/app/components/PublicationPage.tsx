@@ -24,6 +24,7 @@ import { SOCIAL_NETWORKS } from "./SocialLinks";
 import {
   API_BASE,
   applyTarget,
+  termsFor,
   type ApplyTarget,
   companyAvatar,
   daysLeft,
@@ -154,30 +155,26 @@ export default async function PublicationPage({ params, base }: PublicationProps
 
   const expired = isExpired(item);
   const remaining = daysLeft(item.deadline);
-  const apply = applyTarget(item.apply_contact, decodeEntities(item.title));
+  const apply = applyTarget(item.apply_contact, decodeEntities(item.title), item.category);
+  // Vocabulaire de la catégorie : une annonce (formation, événement…) se dit « S’inscrire », pas « Postuler ».
+  const terms = termsFor(item.category);
   const applyHref = apply?.href ?? null;
   // Lien web et WhatsApp : nouvel onglet ; e-mail et téléphone : l'application correspondante s'ouvre.
   const applyIsWeb = apply?.kind === "web" || apply?.kind === "whatsapp";
-  const APPLY_TEXT: Record<ApplyTarget["kind"], string> = {
-    web: "Accéder à la candidature",
-    email: "Envoyer ma candidature par e-mail",
-    whatsapp: "Postuler sur WhatsApp",
-    phone: "Appeler pour postuler",
-  };
+  const APPLY_TEXT: Record<ApplyTarget["kind"], string> = terms.applyText;
   const ApplyIcon = !apply ? Send : apply.kind === "web" ? ExternalLink : apply.kind === "phone" ? Phone : apply.kind === "whatsapp" ? WhatsAppIcon : Send;
   const isJob = item.category === "Offre d’emploi";
-  const isTender = item.category === "Appel d’offre";
   const categoryPage = CATEGORY_PAGES[item.category || ""] || { href: "/", label: "Accueil" };
   const avatar = companyAvatar(item.company);
   const title = decodeEntities(item.title);
 
   const facts = [
-    { icon: Building2, label: "Employeur", value: decodeEntities(item.company) },
+    { icon: Building2, label: terms.orgLabel, value: decodeEntities(item.company) },
     { icon: MapPin, label: "Lieu", value: decodeEntities(item.location) },
-    { icon: BriefcaseBusiness, label: "Type de contrat", value: item.contract_type || "" },
-    { icon: Banknote, label: "Salaire", value: item.salary || "" },
+    { icon: BriefcaseBusiness, label: terms.typeLabel, value: item.contract_type || "" },
+    { icon: Banknote, label: terms.priceLabel, value: item.salary || "" },
     { icon: CalendarDays, label: "Publiée le", value: formatDate(item.created_at) },
-    { icon: CalendarClock, label: "Date d’expiration", value: item.deadline ? formatDate(item.deadline) : "Non précisée" },
+    { icon: CalendarClock, label: item.category === "Annonce" ? terms.deadlineLabel : "Date d’expiration", value: item.deadline ? formatDate(item.deadline) : "Non précisée" },
   ].filter((fact) => fact.value);
 
   const similar = (await fetchAnnouncements())
@@ -189,9 +186,9 @@ export default async function PublicationPage({ params, base }: PublicationProps
       : expired
         ? { tone: "is-closed", text: "La date limite est dépassée" }
         : remaining === 0
-          ? { tone: "is-soon", text: "Dernier jour pour postuler" }
-          : { tone: remaining <= 7 ? "is-soon" : "is-open", text: `Plus que ${remaining} jour${remaining > 1 ? "s" : ""} pour postuler` };
-  const applyLabel = isTender ? "Soumissionner" : "Postuler";
+          ? { tone: "is-soon", text: `Dernier jour ${terms.actionPhrase}` }
+          : { tone: remaining <= 7 ? "is-soon" : "is-open", text: `Plus que ${remaining} jour${remaining > 1 ? "s" : ""} ${terms.actionPhrase}` };
+  const applyLabel = terms.action;
   const canApply = !expired && Boolean(item.apply_contact);
   // Bouton « Postuler » du bandeau et de la barre mobile : lien de candidature ou messagerie directement,
   // sinon (adresse de dépôt…) il descend vers l'encadré « Postuler ».
@@ -230,7 +227,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
                 <span className="pub-tag">{item.category}</span>
                 {item.contract_type && <span className="pub-tag pub-tag-gold">{item.contract_type}</span>}
                 {item.salary && <span className="pub-tag">{item.salary}</span>}
-                {expired ? <span className="pub-tag pub-tag-red">Offre expirée</span> : <span className="pub-tag pub-tag-green">En cours</span>}
+                {expired ? <span className="pub-tag pub-tag-red">{terms.noun === "annonce" ? "Annonce expirée" : "Offre expirée"}</span> : <span className="pub-tag pub-tag-green">En cours</span>}
               </div>
             </div>
             {canApply && (
@@ -246,7 +243,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
         <article className="pub-offer-card">
           {item.description && (
             <section className="pub-prose">
-              <h2>{isTender ? "Description de l’appel d’offre" : "Description du poste"}</h2>
+              <h2>{terms.descriptionHeading}</h2>
               {paragraphs(item.description).map((paragraph, index) => (
                 <p key={index}>{paragraph}</p>
               ))}
@@ -291,7 +288,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
         <aside className="pub-aside">
           <section className="pub-offer-card pub-apply" id="postuler" aria-labelledby="apply-title">
             <h2 id="apply-title">{applyLabel}</h2>
-            <p className="pub-apply-sub">Les candidatures sont envoyées directement à l’organisation.</p>
+            <p className="pub-apply-sub">{terms.actionSub}</p>
             {countdown && (
               <p className={`pub-countdown ${countdown.tone}`}>
                 <Hourglass size={16} aria-hidden="true" /> {countdown.text}
@@ -308,12 +305,12 @@ export default async function PublicationPage({ params, base }: PublicationProps
                     rel="noreferrer"
                   >
                     <ApplyIcon size={16} />
-                    {apply ? APPLY_TEXT[apply.kind] : "Postuler"}
+                    {apply ? APPLY_TEXT[apply.kind] : applyLabel}
                   </a>
                 )}
               </>
             ) : (
-              !expired && <p className="pub-apply-sub">Les modalités de candidature figurent dans la description ou le document joint.</p>
+              !expired && <p className="pub-apply-sub">{terms.noContact}</p>
             )}
           </section>
 
@@ -331,7 +328,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
           </section>
 
           <section className="pub-offer-card pub-share" aria-labelledby="share-title">
-            <h3 id="share-title" className="pub-card-title">Partager cette offre</h3>
+            <h3 id="share-title" className="pub-card-title">Partager cette {terms.noun === "appel d’offres" ? "publication" : terms.noun}</h3>
             <ShareButtons url={`${SITE_URL}${canonical}`} title={title} />
           </section>
 
@@ -346,13 +343,22 @@ export default async function PublicationPage({ params, base }: PublicationProps
               </p>
             </aside>
           )}
+          {item.category === "Annonce" && (
+            <aside className="pub-warning">
+              <ShieldAlert size={18} aria-hidden="true" />
+              <p>
+                <strong>Carrières RDC n’encaisse aucun paiement pour les organisateurs.</strong> Réglez les éventuels frais
+                uniquement auprès de l’organisateur, contre un reçu.
+              </p>
+            </aside>
+          )}
         </aside>
       </main>
 
       {similar.length > 0 && (
         <section className="pub-container pub-similar" aria-labelledby="similar-title">
           <div className="pub-list-head">
-            <h2 id="similar-title">Offres similaires</h2>
+            <h2 id="similar-title">{terms.similarTitle}</h2>
             <Link className="pub-link-btn" href={categoryPage.href}>
               Tout voir
             </Link>

@@ -129,6 +129,101 @@ export const WHATSAPP_CHANNEL_URL =
   process.env.NEXT_PUBLIC_WHATSAPP_CHANNEL_URL || "https://whatsapp.com/channel/0029VbC3FGn7z4kbQ6ZEck0Q";
 
 export const CONTRACT_TYPES =["CDI", "CDD", "Stage", "Consultance", "Temps partiel", "Intérim", "Bénévolat", "Autre"];
+// Pour une annonce (formation, événement…), le champ « type » décrit la nature de l'annonce, pas un contrat.
+export const ANNOUNCE_TYPES = ["Formation", "Séminaire / Conférence", "Événement", "Bourse d’études", "Concours", "Avis / Communiqué", "Autre"];
+
+// Vocabulaire propre à chaque catégorie (formulaire d'administration et page publique) :
+// une formation ou un événement ne se « postule » pas et n'a pas de « salaire ».
+export type CategoryTerms = {
+  typeLabel: string;
+  types: string[];
+  priceLabel: string;
+  pricePlaceholder: string;
+  deadlineLabel: string;
+  orgLabel: string;
+  titlePlaceholder: string;
+  descriptionLabel: string;
+  descriptionHeading: string;
+  contactLegend: string;
+  contactLabel: string;
+  contactPlaceholder: string;
+  action: string; // bouton principal
+  actionPhrase: string; // « pour postuler »
+  actionSub: string;
+  noContact: string;
+  noun: string; // « offre », « annonce »…
+  similarTitle: string;
+  applyText: Record<"web" | "email" | "whatsapp" | "phone", string>;
+};
+
+const JOB_TERMS: CategoryTerms = {
+  typeLabel: "Type de contrat",
+  types: CONTRACT_TYPES,
+  priceLabel: "Salaire",
+  pricePlaceholder: "Ex. 800 USD / mois",
+  deadlineLabel: "Date limite",
+  orgLabel: "Employeur",
+  titlePlaceholder: "Ex. Comptable senior",
+  descriptionLabel: "Résumé de l’offre * (missions, profil, documents demandés)",
+  descriptionHeading: "Description du poste",
+  contactLegend: "Candidature et source",
+  contactLabel: "Comment postuler",
+  contactPlaceholder: "E-mail, lien ou adresse de dépôt",
+  action: "Postuler",
+  actionPhrase: "pour postuler",
+  actionSub: "Les candidatures sont envoyées directement à l’organisation.",
+  noContact: "Les modalités de candidature figurent dans la description ou le document joint.",
+  noun: "offre",
+  similarTitle: "Offres similaires",
+  applyText: {
+    web: "Accéder à la candidature",
+    email: "Envoyer ma candidature par e-mail",
+    whatsapp: "Postuler sur WhatsApp",
+    phone: "Appeler pour postuler",
+  },
+};
+
+const CATEGORY_TERMS: Record<string, CategoryTerms> = {
+  "Offre d’emploi": JOB_TERMS,
+  "Appel d’offre": {
+    ...JOB_TERMS,
+    descriptionHeading: "Description de l’appel d’offre",
+    action: "Soumissionner",
+    actionPhrase: "pour soumissionner",
+    noun: "appel d’offres",
+    similarTitle: "Appels d’offres similaires",
+  },
+  Annonce: {
+    typeLabel: "Type d’annonce",
+    types: ANNOUNCE_TYPES,
+    priceLabel: "Frais de participation",
+    pricePlaceholder: "Ex. 200 USD — ou Gratuit",
+    deadlineLabel: "Date limite d’inscription",
+    orgLabel: "Organisateur",
+    titlePlaceholder: "Ex. Formation : facture normalisée et TVA en RDC",
+    descriptionLabel: "Description * (programme, public concerné, dates, horaires, lieu)",
+    descriptionHeading: "Description de l’annonce",
+    contactLegend: "Inscription et source",
+    contactLabel: "Inscription / contact",
+    contactPlaceholder: "Téléphone, e-mail ou lien d’inscription",
+    action: "S’inscrire",
+    actionPhrase: "pour s’inscrire",
+    actionSub: "Contactez directement l’organisateur pour vous inscrire ou vous renseigner.",
+    noContact: "Les modalités figurent dans la description ou l’affiche jointe.",
+    noun: "annonce",
+    similarTitle: "Annonces similaires",
+    applyText: {
+      web: "S’inscrire en ligne",
+      email: "Écrire à l’organisateur",
+      whatsapp: "Contacter sur WhatsApp",
+      phone: "Appeler l’organisateur",
+    },
+  },
+};
+
+export function termsFor(category?: string | null): CategoryTerms {
+  return CATEGORY_TERMS[category || ""] || JOB_TERMS;
+}
 
 export function slugify(value: string): string {
   return decodeEntities(value)
@@ -220,7 +315,8 @@ function congoPhone(text: string): string | null {
 }
 
 // Détermine où mène le bouton « Postuler » : lien web, e-mail, WhatsApp ou appel téléphonique.
-export function applyTarget(contact?: string, offerTitle?: string): ApplyTarget | null {
+export function applyTarget(contact?: string, offerTitle?: string, category?: string | null): ApplyTarget | null {
+  const isNotice = category === "Annonce";
   const value = String(contact || "").trim();
   const title = offerTitle ? decodeEntities(offerTitle) : "";
   const url = value.match(/\bhttps?:\/\/[^\s<>"']+/i)?.[0] ?? value.match(/\bwww\.[^\s<>"']+\.[a-z]{2,}[^\s<>"']*/i)?.[0];
@@ -231,14 +327,16 @@ export function applyTarget(contact?: string, offerTitle?: string): ApplyTarget 
   }
   const email = value.match(/[^\s<>()"',;:]+@[^\s<>()"',;:]+\.[a-z]{2,}/i)?.[0];
   if (email) {
-    const subject = title ? `?subject=${encodeURIComponent(`Candidature – ${title}`)}` : "";
+    const subject = title ? `?subject=${encodeURIComponent(`${isNotice ? "Inscription" : "Candidature"} – ${title}`)}` : "";
     return { href: `mailto:${email}${subject}`, kind: "email" };
   }
   const phone = congoPhone(value);
   if (phone) {
     // « WhatsApp » mentionné : conversation WhatsApp avec un message pré-rempli ; sinon, appel téléphonique.
     if (/whats\s?app/i.test(value)) {
-      const message = `Bonjour, je souhaite postuler à l’offre${title ? ` « ${title} »` : ""} vue sur Carrières RDC.`;
+      const message = isNotice
+        ? `Bonjour, je souhaite avoir des informations sur${title ? ` « ${title} »` : " votre annonce"} vue sur Carrières RDC.`
+        : `Bonjour, je souhaite postuler à l’offre${title ? ` « ${title} »` : ""} vue sur Carrières RDC.`;
       return { href: `https://wa.me/${phone}?text=${encodeURIComponent(message)}`, kind: "whatsapp" };
     }
     return { href: `tel:+${phone}`, kind: "phone" };

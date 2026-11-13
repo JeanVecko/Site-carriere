@@ -375,6 +375,8 @@ function validateAnnouncement(body) {
 }
 
 const CONTRACT_TYPES = ['CDI', 'CDD', 'Stage', 'Consultance', 'Temps partiel', 'Intérim', 'Bénévolat', 'Autre'];
+// Pour une annonce, le champ « type » décrit la nature de l'annonce (formation, événement…), pas un contrat.
+const ANNOUNCE_TYPES = ['Formation', 'Séminaire / Conférence', 'Événement', 'Bourse d’études', 'Concours', 'Avis / Communiqué', 'Autre'];
 
 // Valide une publication de l'admin. Renvoie { values } ou { error } avec un message précis.
 function validateAnnouncementWithMedia(body) {
@@ -394,7 +396,7 @@ function validateAnnouncementWithMedia(body) {
   if (!['Offre d’emploi', 'Annonce', 'Appel d’offre'].includes(category)) return { error: 'Catégorie invalide.' };
   if (description.length < 30) return { error: 'Ajoutez un résumé en texte d’au moins 30 caractères (missions, profil…), même si une image est jointe.' };
   if (category === 'Offre d’emploi' && !CONTRACT_TYPES.includes(contractType)) return { error: 'Choisissez le type de contrat.' };
-  if (contractType && !CONTRACT_TYPES.includes(contractType)) return { error: 'Type de contrat invalide.' };
+  if (contractType && !(category === 'Annonce' ? ANNOUNCE_TYPES : CONTRACT_TYPES).includes(contractType)) return { error: category === 'Annonce' ? 'Type d’annonce invalide.' : 'Type de contrat invalide.' };
   if (category !== 'Annonce' && !applyContact) return { error: 'Indiquez comment postuler ou soumissionner (e-mail, lien ou adresse).' };
   if (deadline && (!/^\d{4}-\d{2}-\d{2}$/.test(deadline) || Number.isNaN(Date.parse(deadline)))) return { error: 'Date limite invalide.' };
   if (sourceUrl && !/^https?:\/\//i.test(sourceUrl)) return { error: 'Le lien source doit commencer par http:// ou https://.' };

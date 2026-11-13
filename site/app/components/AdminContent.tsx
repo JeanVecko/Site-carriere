@@ -30,7 +30,7 @@ import {
 import {
   Announcement,
   AnnouncementMedia,
-  CONTRACT_TYPES,
+  termsFor,
   ContactMessage,
   adminHeaders,
   apiRequest,
@@ -720,6 +720,8 @@ function PublishForm({
 
   const isJob = category === "Offre d’emploi";
   const needsContact = category !== "Annonce";
+  const isNotice = category === "Annonce";
+  const terms = termsFor(category);
 
   return (
     <form className="adm-card adm-publish" onSubmit={handleSubmit}>
@@ -741,12 +743,12 @@ function PublishForm({
           </label>
           <label className="adm-field adm-span-2">
             <span>Intitulé *</span>
-            <input name="title" type="text" required placeholder="Ex. Comptable senior" defaultValue={text(initial?.title)} />
+            <input name="title" type="text" required placeholder={terms.titlePlaceholder} defaultValue={text(initial?.title)} />
           </label>
         </div>
         <div className="adm-row">
           <label className="adm-field">
-            <span>Organisation / employeur *</span>
+            <span>{isNotice ? "Organisateur *" : "Organisation / employeur *"}</span>
             <input name="company" type="text" required placeholder="Ex. Banque du Kivu" defaultValue={text(initial?.company)} />
           </label>
           <label className="adm-field">
@@ -757,24 +759,32 @@ function PublishForm({
       </fieldset>
 
       <fieldset>
-        <legend>Conditions</legend>
+        <legend>{isNotice ? "Détails" : "Conditions"}</legend>
         <div className="adm-row adm-row-3">
           <label className="adm-field">
-            <span>Type de contrat {isJob && "*"}</span>
-            <select name="contract_type" defaultValue={initial?.contract_type || ""} required={isJob}>
+            <span>
+              {terms.typeLabel} {isJob && "*"}
+            </span>
+            {/* key : la liste change avec la catégorie (types de contrat ou types d’annonce). */}
+            <select
+              key={terms.typeLabel}
+              name="contract_type"
+              defaultValue={terms.types.includes(initial?.contract_type || "") ? initial?.contract_type : ""}
+              required={isJob}
+            >
               <option value="">— Choisir —</option>
-              {CONTRACT_TYPES.map((type) => (
+              {terms.types.map((type) => (
                 <option key={type}>{type}</option>
               ))}
             </select>
           </label>
           <label className="adm-field">
-            <span>Date limite</span>
+            <span>{terms.deadlineLabel}</span>
             <input name="deadline" type="date" defaultValue={initial?.deadline || ""} />
           </label>
           <label className="adm-field">
-            <span>Salaire</span>
-            <input name="salary" type="text" placeholder="Ex. 800 USD / mois" defaultValue={text(initial?.salary)} />
+            <span>{terms.priceLabel}</span>
+            <input name="salary" type="text" placeholder={terms.pricePlaceholder} defaultValue={text(initial?.salary)} />
           </label>
         </div>
       </fieldset>
@@ -782,7 +792,7 @@ function PublishForm({
       <fieldset>
         <legend>Description</legend>
         <label className="adm-field">
-          <span>Résumé de l’offre * (missions, profil, documents demandés)</span>
+          <span>{terms.descriptionLabel}</span>
           <textarea
             name="description"
             rows={7}
@@ -795,15 +805,17 @@ function PublishForm({
       </fieldset>
 
       <fieldset>
-        <legend>Candidature et source</legend>
+        <legend>{terms.contactLegend}</legend>
         <div className="adm-row">
           <label className="adm-field">
-            <span>Comment postuler {needsContact && "*"}</span>
+            <span>
+              {terms.contactLabel} {needsContact && "*"}
+            </span>
             <input
               name="apply_contact"
               type="text"
               required={needsContact}
-              placeholder="E-mail, lien ou adresse de dépôt"
+              placeholder={terms.contactPlaceholder}
               defaultValue={text(initial?.apply_contact)}
             />
           </label>
