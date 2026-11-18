@@ -1,6 +1,6 @@
 ﻿import Link from "next/link";
 import {
-  ArrowRight, BadgeCheck, BellRing, Briefcase, FileText, Mail, MapPin, Megaphone, Search, Send, ShieldCheck, UserRound,
+  ArrowRight, BellRing, Mail, MapPin, Megaphone, Search, Send, UserRound,
 } from "lucide-react";
 import SiteHeader from "./components/SiteHeader";
 import SiteFooter from "./components/SiteFooter";
@@ -11,21 +11,6 @@ import { fetchAnnouncements } from "./lib/server";
 
 export const revalidate = 60;
 
-const DOMAINS = [
-  { title: "Offres d’emploi", text: "CDI, CDD, stages et consultances publiés par les employeurs de toute la RDC.", href: "/offres", icon: Briefcase, tone: "green", category: "Offre d’emploi" },
-  { title: "Annonces", text: "Formations, séminaires, bourses, concours et événements à ne pas manquer.", href: "/annonces", icon: Megaphone, tone: "orange", category: "Annonce" },
-  { title: "Appels d’offres", text: "Marchés et consultations ouverts aux entreprises et prestataires.", href: "/appels-offres", icon: FileText, tone: "violet", category: "Appel d’offre" },
-  { title: "Alertes e-mail", text: "Recevez chaque matin les nouvelles offres qui correspondent à vos critères.", href: "/alertes", icon: BellRing, tone: "lime" },
-  { title: "Publier une offre", text: "Entreprises, ONG, institutions : faites connaître vos offres partout en RDC.", href: "/recruteurs", icon: Send, tone: "blue" },
-];
-
-const REASONS = [
-  { title: "Offres vérifiées", text: "Chaque publication est relue avant sa mise en ligne, avec sa source et sa date limite.", icon: ShieldCheck },
-  { title: "Candidatures en direct", text: "Vous postulez directement auprès de l’employeur, sans intermédiaire.", icon: Send },
-  { title: "Gratuit pour les candidats", text: "Aucun frais pour consulter les offres ni pour postuler.", icon: BadgeCheck },
-  { title: "Partout en RDC", text: "Kinshasa, Lubumbashi, Goma, Kolwezi… et toutes les provinces.", icon: MapPin },
-];
-
 function cityOf(location?: string) {
   const city = (location || "").split(/[·,(/-]/)[0].trim();
   return city ? city.charAt(0).toUpperCase() + city.slice(1) : "";
@@ -34,8 +19,8 @@ function cityOf(location?: string) {
 export default async function Home() {
   const open = (await fetchAnnouncements()).filter((item) => !isExpired(item));
   const jobs = open.filter((item) => item.category === "Offre d’emploi");
-  // Les 10 dernières offres d'emploi encore ouvertes (l'API trie de la plus récente à la plus ancienne).
-  const latest = jobs.slice(0, 10);
+  // Les 5 dernières offres d’emploi encore ouvertes (l’API trie de la plus récente à la plus ancienne).
+  const latest = jobs.slice(0, 5);
   const companies = [...new Set(open.map((item) => item.company?.trim()).filter(Boolean))] as string[];
   const cityCounts = new Map<string, number>();
   for (const item of jobs) {
@@ -141,67 +126,6 @@ export default async function Home() {
             <button className="pub-btn pub-btn-dark" type="submit">Rechercher</button>
           </form>
         </div>
-
-        {/* ----- Rubriques ----- */}
-        <section className="pub-container home-domains" aria-labelledby="domains-title">
-          <header className="home-title">
-            <h2 id="domains-title">Nos rubriques</h2>
-            <p>Tout ce qu’il faut pour trouver un emploi, une formation ou un marché en RDC.</p>
-          </header>
-          <div className="home-domain-grid">
-            {DOMAINS.map((domain) => {
-              const Icon = domain.icon;
-              const count = domain.category ? open.filter((item) => item.category === domain.category).length : null;
-              return (
-                <Link key={domain.href} href={domain.href} className={`home-domain tone-${domain.tone}`}>
-                  <span className="home-domain-art" aria-hidden="true">
-                    <Icon size={54} strokeWidth={1.4} />
-                    {count !== null && <b>{count} en cours</b>}
-                  </span>
-                  <span className="home-domain-badge" aria-hidden="true"><Icon size={18} /></span>
-                  <strong>{domain.title}</strong>
-                  <p>{domain.text}</p>
-                  <small>En savoir plus <ArrowRight size={14} /></small>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ----- Recruteurs + confiance ----- */}
-        <section className="home-trust pub-recruit" id="recruteurs" aria-labelledby="trust-title">
-          <div className="home-trust-visual">
-            {/* eslint-disable-next-line @next/next/no-img-element -- logo statique */}
-            <img src="/LOGO/Logo.png" alt="" aria-hidden="true" />
-            <div className="home-trust-card">
-              <span>Vous recrutez ?</span>
-              <h2>
-                Touchez les bons <em>profils</em> partout en RDC
-              </h2>
-              <p>Nous publions vos offres sur le site, les relayons sur nos réseaux et les envoyons aux abonnés des alertes e-mail.</p>
-              <Link className="pub-btn pub-btn-gold pub-btn-sm" href="/recruteurs">
-                Publier une offre <Send size={14} />
-              </Link>
-            </div>
-          </div>
-          <div className="home-trust-list">
-            <h2 id="trust-title">Pourquoi nous faire confiance ?</h2>
-            <ul>
-              {REASONS.map((reason) => {
-                const Icon = reason.icon;
-                return (
-                  <li key={reason.title}>
-                    <span aria-hidden="true"><Icon size={20} /></span>
-                    <div>
-                      <strong>{reason.title}</strong>
-                      <p>{reason.text}</p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </section>
 
         {/* ----- Dernières offres ----- */}
         <section className="pub-container home-latest" aria-labelledby="latest-title">
