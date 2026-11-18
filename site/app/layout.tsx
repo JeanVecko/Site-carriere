@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./public.css";
 import "./admin.css";
 import "./animations.css";
+import "./theme.css";
 import PageTransition from "./components/PageTransition";
 import { SPLASH_PRE_PAINT_SCRIPT } from "./lib/splash";
 import { SITE_URL } from "./lib/server";
@@ -33,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
-          href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>

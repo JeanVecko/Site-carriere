@@ -62,10 +62,11 @@ export default function CategoryList({ category, initialItems }: { category: str
   const isGrid = category === "notices";
   // Liste fournie par le serveur (affichage immédiat), puis rafraîchie discrètement en arrière-plan.
   const [items, setItems] = useState<Announcement[] | null>(initialItems ?? null);
-  // Recherche lancée depuis la page d'accueil : /offres?q=comptable
-  const [search, setSearch] = useState(useSearchParams().get("q") ?? "");
-  const [contracts, setContracts] = useState<string[]>([]);
-  const [city, setCity] = useState("");
+  // Filtres lancés depuis la page d'accueil : /offres?q=comptable&ville=Kinshasa&contrat=CDI
+  const params = useSearchParams();
+  const [search, setSearch] = useState(params.get("q") ?? "");
+  const [contracts, setContracts] = useState<string[]>(params.get("contrat") ? [params.get("contrat")!] : []);
+  const [city, setCity] = useState(params.get("ville") ?? "");
   const [period, setPeriod] = useState<(typeof PERIODS)[number]["value"]>("all");
   const [sort, setSort] = useState<"recent" | "deadline">("recent");
   const [shown, setShown] = useState(PAGE_SIZE);

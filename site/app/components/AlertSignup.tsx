@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BellRing, CircleCheck, TriangleAlert } from "lucide-react";
 import { apiRequest, CONTRACT_TYPES } from "../lib/api";
 
@@ -14,6 +14,13 @@ export default function AlertSignup() {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("Offre d’emploi");
+  const emailInput = useRef<HTMLInputElement>(null);
+
+  // Adresse saisie dans l'inscription rapide de la page d'accueil : /alertes?email=…
+  useEffect(() => {
+    const email = new URLSearchParams(window.location.search).get("email");
+    if (email && emailInput.current && !emailInput.current.value) emailInput.current.value = email;
+  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,7 +44,7 @@ export default function AlertSignup() {
     <form className="pub-alert-form" onSubmit={handleSubmit}>
       <label className="pub-alert-field pub-alert-email">
         <span>Votre e-mail *</span>
-        <input name="email" type="email" required placeholder="exemple@gmail.com" autoComplete="email" />
+        <input ref={emailInput} name="email" type="email" required placeholder="exemple@gmail.com" autoComplete="email" />
       </label>
       <label className="pub-alert-field pub-alert-category">
         <span>Je cherche</span>
