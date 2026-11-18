@@ -519,3 +519,30 @@ h1, h2, h3 { font-family: 'Space Grotesk', 'DM Sans', sans-serif; letter-spacing
 
 /* Lien « À propos » : visible dans la barre seulement quand il y a la place. */
 @media (max-width: 1120px) { .pub-nav .pub-nav-extra { display: none; } }
+
+/* ----- Alertes e-mail ----- */
+.pub-alert-card { background: var(--pub-card); border: 1px solid var(--pub-border); border-radius: var(--pub-radius); box-shadow: var(--pub-shadow); padding: 26px; }
+.pub-alert-form { display: grid; gap: 14px 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pub-alert-field { display: flex; flex-direction: column; gap: 6px; }
+.pub-alert-field span { color: var(--pub-text); font-size: 13px; font-weight: 600; }
+.pub-alert-field input, .pub-alert-field select { background: #fff; border: 1px solid var(--pub-border); border-radius: 10px; color: var(--pub-text); font: inherit; font-size: 15px; min-height: 46px; padding: 0 12px; width: 100%; }
+.pub-alert-field input:focus, .pub-alert-field select:focus { border-color: var(--pub-navy-2); box-shadow: 0 0 0 3px rgba(15, 61, 128, .12); outline: none; }
+.pub-alert-email, .pub-alert-category, .pub-alert-keywords { grid-column: span 2; }
+/* Sans le champ « type de contrat » (annonces, appels d’offres), la ville prend sa place. */
+.pub-alert-form:not(:has(select[name="contract_type"])) .pub-alert-city { grid-column: span 2; }
+.pub-alert-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px 16px; grid-column: 1 / -1; }
+.pub-alert-actions small { color: var(--pub-muted); font-size: 13px; }
+.pub-alert-feedback { align-items: flex-start; border-radius: 10px; display: flex; font-size: 14px; gap: 8px; grid-column: 1 / -1; margin: 0; padding: 12px 14px; }
+.pub-alert-feedback svg { flex-shrink: 0; margin-top: 2px; }
+.pub-alert-feedback.is-ok { background: #eef7f1; color: #17643a; }
+.pub-alert-feedback.is-error { background: #fdf0ee; color: var(--pub-danger); }
+.pub-alert-result { align-items: flex-start; display: flex; flex-direction: column; gap: 12px; }
+.pub-alert-result p { font-size: 16px; line-height: 1.6; margin: 0; }
+.pub-alert-result.is-ok > svg { color: var(--pub-success); }
+.pub-alert-result.is-error > svg { color: var(--pub-danger); }
+@media (max-width: 760px) {
+  .pub-alert-card { padding: 18px; }
+  .pub-alert-form { grid-template-columns: minmax(0, 1fr); }
+  .pub-alert-email, .pub-alert-category, .pub-alert-keywords, .pub-alert-form .pub-alert-city { grid-column: auto; }
+  .pub-alert-actions .pub-btn { flex: 1 1 100%; justify-content: center; }
+}

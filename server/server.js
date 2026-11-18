@@ -128,6 +128,22 @@ async function initializeDatabase() {
   await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply TEXT');
   await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ');
   await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ');
+  // Alertes emploi par e-mail : une alerte par adresse, active seulement après confirmation (lien envoyé par e-mail).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS alert_subscriptions (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT '',
+      city TEXT NOT NULL DEFAULT '',
+      contract_type TEXT NOT NULL DEFAULT '',
+      keywords TEXT NOT NULL DEFAULT '',
+      token TEXT NOT NULL UNIQUE,
+      confirmed_at TIMESTAMPTZ,
+      last_sent_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS alert_subscriptions_email_idx ON alert_subscriptions (lower(email))');
   await pool.query('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_name TEXT');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
   // Informations normalisées d'une offre (type de contrat, date limite, candidature, source, salaire)
@@ -275,7 +291,7 @@ function emailConfiguration() {
   };
 }
 
-async function sendWithSmtp({ user, password }, { to, subject, text, replyTo }) {
+async function sendWithSmtp({ user, password }, { to, subject, text, replyTo, headers }) {
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(process.env.SMTP_PORT || 465),
@@ -291,14 +307,15 @@ async function sendWithSmtp({ user, password }, { to, subject, text, replyTo }) 
     subject,
     text,
     ...(replyTo ? { replyTo } : {}),
+    ...(headers ? { headers } : {}),
   });
 }
 
-async function sendWithResend({ apiKey, from }, { to, subject, text, replyTo }) {
+async function sendWithResend({ apiKey, from }, { to, subject, text, replyTo, headers }) {
   const result = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [to], subject, text, ...(replyTo ? { reply_to: replyTo } : {}) }),
+    body: JSON.stringify({ from, to: [to], subject, text, ...(replyTo ? { reply_to: replyTo } : {}), ...(headers ? { headers } : {}) }),
   });
   if (!result.ok) {
     const detail = await result.text().catch(() => '');
@@ -963,6 +980,153 @@ app.patch('/api/messages/:id/read', requireAdmin, async (request, response) => {
   const result = await pool.query('UPDATE messages SET read_at = COALESCE(read_at, NOW()) WHERE id = $1 RETURNING id, read_at', [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Message introuvable.' });
   response.json(result.rows[0]);
+});
+
+/* ----- Alertes emploi par e-mail ----- */
+// Le visiteur choisit ses critères ; il confirme son adresse par un lien (double validation), puis reçoit au plus
+// un e-mail par jour avec les nouvelles publications correspondantes. Chaque e-mail contient un lien de désabonnement.
+const ALERT_CATEGORIES = ['', 'Offre d’emploi', 'Annonce', 'Appel d’offre'];
+const ALERT_DETAIL_BASES = { 'Offre d’emploi': '/offre', Annonce: '/annonce', 'Appel d’offre': '/appel-offre' };
+const ALERT_DAILY_LIMIT = Number(process.env.ALERTS_DAILY_LIMIT || 90); // offre gratuite Resend : 100 e-mails par jour
+const EMAIL_PATTERN = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[a-z]{2,}$/i;
+const foldText = (value) => String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const alertSummary = (alert) =>
+  [alert.category === 'Offre d’emploi' ? 'Offres d’emploi' : alert.category === 'Annonce' ? 'Annonces' : alert.category === 'Appel d’offre' ? 'Appels d’offres' : 'Toutes les publications',
+    alert.city, alert.contract_type, alert.keywords ? `« ${alert.keywords} »` : ''].filter(Boolean).join(' · ');
+
+app.post('/api/alerts', async (request, response) => {
+  const email = clean(request.body.email).toLowerCase().slice(0, 160);
+  const category = clean(request.body.category);
+  const city = clean(request.body.city).slice(0, 60);
+  const contractType = clean(request.body.contract_type);
+  const keywords = clean(request.body.keywords).slice(0, 80);
+  if (!EMAIL_PATTERN.test(email)) return response.status(400).json({ error: 'Adresse e-mail invalide.' });
+  if (!ALERT_CATEGORIES.includes(category)) return response.status(400).json({ error: 'Catégorie invalide.' });
+  if (contractType && !CONTRACT_TYPES.includes(contractType)) return response.status(400).json({ error: 'Type de contrat invalide.' });
+
+  const existing = (await pool.query('SELECT id, created_at, confirmed_at FROM alert_subscriptions WHERE lower(email) = $1', [email])).rows[0];
+  // Anti-abus : pas plus d’un e-mail de confirmation par adresse toutes les 2 minutes.
+  if (existing && !existing.confirmed_at && Date.now() - new Date(existing.created_at).getTime() < 120_000) {
+    return response.json({ ok: true, pending: true });
+  }
+  const token = crypto.randomBytes(24).toString('hex');
+  // Toute modification des critères doit être reconfirmée par le propriétaire de l’adresse.
+  await pool.query(
+    `INSERT INTO alert_subscriptions (email, category, city, contract_type, keywords, token)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT ((lower(email))) DO UPDATE SET category = $2, city = $3, contract_type = $4, keywords = $5, token = $6,
+       confirmed_at = NULL, created_at = NOW()`,
+    [email, category, city, contractType, keywords, token]
+  );
+  const link = `${frontendUrl}/alertes/confirmer?token=${token}`;
+  try {
+    await sendTransactionalEmail({
+      to: email,
+      subject: 'Confirmez votre alerte emploi – Carrières RDC',
+      text: `Bonjour,\n\nVous avez demandé à recevoir les nouvelles publications de Carrières RDC correspondant à :\n${alertSummary({ category, city, contract_type: contractType, keywords })}\n\nConfirmez votre adresse en ouvrant ce lien :\n${link}\n\nVous recevrez au plus un e-mail par jour, et vous pourrez vous désabonner en un clic.\nSi vous n’êtes pas à l’origine de cette demande, ignorez simplement cet e-mail.\n\n—\nL’équipe Carrières RDC\n${frontendUrl}`,
+    });
+  } catch (error) {
+    console.error('Confirmation d’alerte non envoyée :', error.message);
+    return response.status(502).json({ error: 'L’e-mail de confirmation n’a pas pu être envoyé. Réessayez dans quelques minutes.' });
+  }
+  response.json({ ok: true });
+});
+
+app.post('/api/alerts/confirm', async (request, response) => {
+  const token = clean(request.body.token);
+  if (!/^[a-f0-9]{48}$/.test(token)) return response.status(400).json({ error: 'Lien de confirmation invalide.' });
+  // last_sent_at = maintenant : le premier e-mail ne contiendra que les publications à venir.
+  const result = await pool.query(
+    `UPDATE alert_subscriptions SET confirmed_at = COALESCE(confirmed_at, NOW()), last_sent_at = COALESCE(last_sent_at, NOW())
+     WHERE token = $1 RETURNING email, category, city, contract_type, keywords`,
+    [token]
+  );
+  const alert = result.rows[0];
+  if (!alert) return response.status(404).json({ error: 'Ce lien n’est plus valable. Créez une nouvelle alerte.' });
+  response.json({ ok: true, email: alert.email, summary: alertSummary(alert) });
+});
+
+app.post('/api/alerts/unsubscribe', async (request, response) => {
+  const token = clean(request.body.token);
+  if (!/^[a-f0-9]{48}$/.test(token)) return response.status(400).json({ error: 'Lien de désabonnement invalide.' });
+  await pool.query('DELETE FROM alert_subscriptions WHERE token = $1', [token]);
+  response.json({ ok: true }); // même réponse si l’alerte était déjà supprimée
+});
+
+let lastAlertRun = null;
+let alertRunInProgress = false;
+
+// Envoie à chaque abonné confirmé les nouvelles publications correspondant à ses critères (au plus 15 par e-mail).
+// Les abonnés sans nouveauté ne reçoivent rien ; au-delà de la limite quotidienne, les envois reprennent le lendemain.
+async function sendAlertDigests() {
+  const run = { started_at: new Date().toISOString(), checked: 0, sent: 0, failed: 0, limited: false };
+  const subscribers = (await pool.query(
+    'SELECT * FROM alert_subscriptions WHERE confirmed_at IS NOT NULL ORDER BY last_sent_at ASC NULLS FIRST LIMIT 2000'
+  )).rows;
+  for (const alert of subscribers) {
+    if (run.sent >= ALERT_DAILY_LIMIT) { run.limited = true; break; }
+    run.checked += 1;
+    const since = alert.last_sent_at || alert.confirmed_at;
+    const offers = (await pool.query(
+      `SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline
+       FROM announcements
+       WHERE created_at > $1 AND (deadline IS NULL OR deadline >= CURRENT_DATE)
+         AND ($2 = '' OR category = $2) AND ($3 = '' OR location ILIKE '%' || $3 || '%') AND ($4 = '' OR contract_type = $4)
+       ORDER BY created_at DESC LIMIT 60`,
+      [since, alert.category, alert.city, alert.contract_type]
+    )).rows;
+    const words = foldText(alert.keywords).split(/[\s,;]+/).filter((word) => word.length >= 2);
+    const matches = offers
+      .filter((offer) => !words.length || words.some((word) => foldText(`${offer.title} ${offer.company} ${offer.description}`).includes(word)))
+      .slice(0, 15);
+    if (!matches.length) continue;
+
+    const unsubscribe = `${frontendUrl}/alertes/desabonner?token=${alert.token}`;
+    const lines = matches.map((offer) => {
+      const deadline = offer.deadline ? ` — date limite : ${new Date(`${offer.deadline}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : '';
+      return `• ${offer.title}\n  ${offer.company}, ${offer.location}${deadline}\n  ${frontendUrl}${ALERT_DETAIL_BASES[offer.category] || '/offre'}/${offer.id}`;
+    });
+    const count = matches.length;
+    try {
+      await sendTransactionalEmail({
+        to: alert.email,
+        subject: `${count} nouvelle${count > 1 ? 's' : ''} publication${count > 1 ? 's' : ''} pour vous – Carrières RDC`,
+        text: `Bonjour,\n\nVoici les nouvelles publications correspondant à votre alerte (${alertSummary(alert)}) :\n\n${lines.join('\n\n')}\n\nToutes les offres : ${frontendUrl}/offres\n\n—\nCarrières RDC — les opportunités de la RDC, au même endroit.\nVous recevez cet e-mail car vous avez créé une alerte sur ${frontendUrl.replace(/^https?:\/\//, '')}.\nSe désabonner : ${unsubscribe}`,
+        headers: { 'List-Unsubscribe': `<${unsubscribe}>` },
+      });
+      await pool.query('UPDATE alert_subscriptions SET last_sent_at = NOW() WHERE id = $1', [alert.id]);
+      run.sent += 1;
+    } catch (error) {
+      run.failed += 1;
+      console.error(`Alerte non envoyée à ${alert.email} :`, error.message);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 600)); // limite de débit de Resend (2 envois par seconde)
+  }
+  run.finished_at = new Date().toISOString();
+  return run;
+}
+
+// Déclenché chaque matin par la tâche planifiée du site (secret partagé) ou par l’administrateur.
+// Répond tout de suite ; les envois continuent en arrière-plan.
+app.post('/api/alerts/digest', (request, response, next) => {
+  const secret = process.env.ALERTS_SECRET;
+  if (secret && request.get('x-alerts-secret') === secret) return next();
+  return requireAdmin(request, response, next);
+}, (_request, response) => {
+  if (alertRunInProgress) return response.status(202).json({ ok: true, already_running: true });
+  alertRunInProgress = true;
+  sendAlertDigests()
+    .then((run) => { lastAlertRun = run; console.log('Alertes envoyées :', JSON.stringify(run)); })
+    .catch((error) => { lastAlertRun = { error: error.message, finished_at: new Date().toISOString() }; console.error('Envoi des alertes interrompu :', error); })
+    .finally(() => { alertRunInProgress = false; });
+  response.status(202).json({ ok: true, started: true });
+});
+
+app.get('/api/alerts/stats', requireAdmin, async (_request, response) => {
+  const counts = (await pool.query(
+    'SELECT COUNT(*) FILTER (WHERE confirmed_at IS NOT NULL)::int AS confirmed, COUNT(*) FILTER (WHERE confirmed_at IS NULL)::int AS pending FROM alert_subscriptions'
+  )).rows[0];
+  response.json({ ...counts, daily_limit: ALERT_DAILY_LIMIT, running: alertRunInProgress, last_run: lastAlertRun });
 });
 
 app.delete('/api/messages/:id', requireAdmin, async (request, response) => {

@@ -512,6 +512,7 @@ function Dashboard() {
         {section === "messages" && (
           <>
             <EmailAlertTest />
+            <AlertsPanel />
             <MessagesList
               messages={messages}
               loading={loading}
@@ -1122,6 +1123,74 @@ function EmailAlertTest() {
       </div>
       <button type="button" className="adm-btn adm-btn-ghost" onClick={runTest} disabled={state.status === "pending"}>
         <Mail size={16} /> {state.status === "pending" ? "Envoi…" : "Tester l’alerte e-mail"}
+      </button>
+      {state.status === "ok" && (
+        <p className="adm-alert adm-alert-success" role="status">
+          <CircleCheck size={16} /> {state.text}
+        </p>
+      )}
+      {state.status === "error" && (
+        <p className="adm-alert adm-alert-error" role="alert">
+          <TriangleAlert size={16} /> {state.text}
+        </p>
+      )}
+    </section>
+  );
+}
+
+type AlertStats = {
+  confirmed: number;
+  pending: number;
+  daily_limit: number;
+  running: boolean;
+  last_run: { started_at?: string; finished_at?: string; checked?: number; sent?: number; failed?: number; limited?: boolean; error?: string } | null;
+};
+
+// Alertes emploi des visiteurs : nombre d'abonnés et envoi manuel (l'envoi automatique a lieu chaque matin).
+function AlertsPanel() {
+  const [stats, setStats] = useState<AlertStats | null>(null);
+  const [state, setState] = useState<{ status: "idle" | "pending" | "ok" | "error"; text: string }>({ status: "idle", text: "" });
+
+  const load = useCallback(async () => {
+    try {
+      setStats(await apiRequest<AlertStats>("/alerts/stats", { headers: adminHeaders() }));
+    } catch {
+      setStats(null); // API pas encore à jour : le panneau reste discret
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  async function sendNow() {
+    if (!window.confirm("Envoyer maintenant les nouvelles publications à tous les abonnés concernés ?")) return;
+    setState({ status: "pending", text: "" });
+    try {
+      await apiRequest("/alerts/digest", { method: "POST", headers: adminHeaders() });
+      setState({ status: "ok", text: "Envoi lancé. Les e-mails partent en arrière-plan ; actualisez dans une minute pour voir le bilan." });
+    } catch (error) {
+      setState({ status: "error", text: error instanceof Error ? error.message : "Envoi impossible." });
+    }
+  }
+
+  if (!stats) return null;
+  const run = stats.last_run;
+  return (
+    <section className="adm-card adm-email-test">
+      <div>
+        <h2>Alertes emploi des visiteurs</h2>
+        <p className="adm-muted-text">
+          {stats.confirmed} abonné{stats.confirmed > 1 ? "s" : ""} actif{stats.confirmed > 1 ? "s" : ""}
+          {stats.pending > 0 ? ` · ${stats.pending} en attente de confirmation` : ""} · envoi automatique chaque matin
+          (jusqu’à {stats.daily_limit} e-mails par jour).
+          {run?.finished_at &&
+            ` Dernier envoi : ${new Date(run.finished_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}, ${run.error ? `erreur (${run.error})` : `${run.sent ?? 0} e-mail(s) envoyé(s)${run.failed ? `, ${run.failed} échec(s)` : ""}${run.limited ? ", limite du jour atteinte" : ""}`}.`}
+        </p>
+      </div>
+      <button type="button" className="adm-btn adm-btn-ghost" onClick={sendNow} disabled={state.status === "pending" || stats.running}>
+        <Send size={16} /> {stats.running ? "Envoi en cours…" : "Envoyer maintenant"}
       </button>
       {state.status === "ok" && (
         <p className="adm-alert adm-alert-success" role="status">

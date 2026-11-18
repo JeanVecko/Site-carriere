@@ -60,6 +60,12 @@ export default function LegalPage() {
           fois la demande traitée. Vous pouvez demander leur suppression à tout moment via ce même formulaire.
         </p>
         <p>
+          Si vous créez une alerte e-mail, nous conservons votre adresse et vos critères (type de publication, ville,
+          contrat, mots-clés) uniquement pour vous envoyer les nouvelles publications correspondantes. L’alerte n’est
+          active qu’après confirmation de votre adresse. Chaque e-mail contient un lien de désabonnement : un clic
+          supprime définitivement votre adresse et vos critères.
+        </p>
+        <p>
           La fréquentation du site est mesurée de façon anonyme et sans cookies (nombre de visites et de
           consultations des offres).
         </p>

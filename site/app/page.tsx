@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { ArrowRight, CircleCheck, Megaphone, Search } from "lucide-react";
+import { ArrowRight, BellRing, CircleCheck, Megaphone, Search } from "lucide-react";
 import SiteHeader from "./components/SiteHeader";
 import SiteFooter from "./components/SiteFooter";
 import OfferRow from "./components/OfferRow";
@@ -96,9 +96,12 @@ export default async function Home() {
           <section className="pub-follow" style={{ marginBottom: 44 }} aria-labelledby="follow-title">
             <div>
               <h2 id="follow-title">Ne ratez aucune offre</h2>
-              <p>Suivez-nous sur nos plateformes pour recevoir les nouvelles offres dès leur publication.</p>
+              <p>Recevez-les par e-mail grâce à une alerte gratuite, ou suivez-nous sur nos plateformes.</p>
             </div>
             <div className="pub-follow-buttons">
+              <Link className="pub-btn pub-btn-gold" href="/alertes">
+                <BellRing size={16} aria-hidden="true" /> Créer une alerte e-mail
+              </Link>
               {ACTIVE_SOCIAL_NETWORKS.map((network) => (
                 <a key={network.name} className="pub-btn pub-btn-light" href={network.href} target="_blank" rel="noreferrer" aria-label={network.label}>
                   <svg viewBox="0 0 24 24" aria-hidden="true">
