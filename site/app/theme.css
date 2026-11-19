@@ -291,3 +291,53 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .98); box-shadow:
 .adm-login { background: radial-gradient(circle at 85% 15%, rgba(240, 185, 11, .18) 0, transparent 35%), linear-gradient(100deg, #ffffff 0%, #f3f6fb 45%, #e2eaf6 100%); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
 .adm-login-card { border: 1px solid #e4e9f1; border-top: 4px solid #f0b90b; box-shadow: 0 24px 60px rgba(9, 45, 99, .14); }
 .adm-login .adm-btn-primary { border-radius: 10px; }
+
+/* =====================================================================
+   Pages intérieures (Offres, Annonces, Appels d'offres, une offre, À propos, Recruteurs, Alertes) :
+   même bandeau clair à filet doré que l'accueil, cartes arrondies et recherche en carte blanche.
+   ===================================================================== */
+.pub-list-hero, .pub-offer-hero { background: linear-gradient(100deg, #ffffff 0%, #f3f6fb 45%, #e2eaf6 100%); border-bottom: 3px solid var(--pub-gold-2); border-radius: 0 0 28px 28px; clip-path: none; color: var(--pub-text); padding: 30px 0 34px; }
+.pub-list-hero h1, .pub-offer-hero h1 { color: var(--pub-dark); font-size: clamp(26px, 3.4vw, 40px); font-weight: 800; letter-spacing: -.025em; }
+.pub-list-hero p { color: var(--pub-muted); font-size: 15px; margin: 8px 0 18px; }
+.pub-breadcrumb-light { color: var(--pub-muted); }
+.pub-breadcrumb-light a:hover { color: var(--pub-navy); }
+.pub-breadcrumb-current { color: #946c00; font-weight: 600; }
+.pub-list-search { background: #fff; border: 1px solid var(--pub-border); border-radius: 16px; box-shadow: 0 18px 40px rgba(16, 24, 40, .1); padding: 6px; }
+.pub-list-search label { color: var(--pub-navy); }
+.pub-list-hero .pub-btn-light { background: #fff; border-color: #c6d0de; color: var(--pub-navy); }
+.pub-list-hero .pub-btn-light:hover { border-color: var(--pub-navy); }
+.pub-list-hero .pub-about-badges li { color: var(--pub-text); }
+.pub-list-hero .pub-about-badges svg { color: var(--pub-gold); }
+
+/* Bandeau d'une offre */
+.pub-offer-hero-text > p { color: var(--pub-muted); }
+.pub-offer-hero-text > p svg { color: var(--pub-gold); }
+.pub-offer-hero .pub-tag { background: #eef2f8; color: #33476a; }
+.pub-offer-hero .pub-tag-gold { background: var(--pub-gold-soft); color: #7a5a00; }
+.pub-offer-hero .pub-tag-green { background: #e3f4ea; color: var(--pub-success); }
+.pub-offer-hero .pub-tag-red { background: #fde9e4; color: var(--pub-danger); }
+.pub-avatar-lg { border-radius: 16px; box-shadow: 0 10px 24px rgba(16, 24, 40, .1); }
+
+/* Colonne des filtres, barre de résultats, cartes */
+.pub-filters, .pub-offer-card, .pub-tile, .pub-job, .pub-alert-card, .pub-about-card, .pub-about-intro, .pub-about-steps li, .pub-prose-page { border-radius: 16px; box-shadow: 0 2px 10px rgba(16, 24, 40, .05); }
+.pub-filters-head h2, .pub-card-title, .pub-apply h2 { color: var(--pub-dark); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 800; }
+.pub-filters legend { color: var(--pub-dark); }
+.pub-check:hover { background: var(--pub-gold-soft); }
+.pub-check em { background: #eef2f8; color: var(--pub-navy); }
+.pub-active-filters button { background: var(--pub-gold-soft); color: #7a5a00; }
+.pub-active-filters button:hover { background: #fbe9b5; }
+.pub-sort select { border-radius: 10px; }
+.pub-job { padding: 18px 20px; }
+.pub-job:hover, .pub-tile:hover, .pub-about-card.is-link:hover { border-color: #c9d6ea; box-shadow: 0 14px 30px rgba(16, 24, 40, .1); transform: translateY(-2px); }
+.pub-job-arrow { border-radius: 10px; }
+.pub-tile-placeholder b { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+.pub-about-facts dd { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+.pub-about-title, .pub-about-intro h2, .pub-about-card h2, .pub-about-card h3, .pub-about-steps h3, .pub-about-offer h2, .pub-about-contact h2 { color: var(--pub-dark); font-weight: 800; }
+.pub-about-title::after { background: var(--pub-gold); border-radius: 2px; content: ""; display: block; height: 3px; margin-top: 10px; width: 40px; }
+.pub-about-icon { border-radius: 50%; }
+.pub-similar .pub-list-head h2 { color: var(--pub-dark); font-weight: 800; }
+
+@media (max-width: 620px) {
+  .pub-list-hero, .pub-offer-hero { border-radius: 0 0 20px 20px; padding: 22px 0 26px; }
+  .pub-list-search { padding: 4px; }
+}
