@@ -1009,7 +1009,7 @@ function OffersTable({
                           <Eye size={16} />
                         </Link>
                       )}
-                      <Link className="adm-icon-btn" href={`/admin/bilan?id=${encodeURIComponent(String(item.id))}`} target="_blank" title="Bilan pour le recruteur" aria-label={`Bilan de ${item.title}`}>
+                      <Link className="adm-icon-btn" href={`/admin/bilan?id=${encodeURIComponent(String(item.id))}`} title="Bilan pour le recruteur" aria-label={`Bilan de ${item.title}`}>
                         <FileBarChart size={16} />
                       </Link>
                       <button type="button" className="adm-icon-btn is-danger" onClick={() => onDelete(item)} title="Supprimer" aria-label={`Supprimer ${item.title}`}>
