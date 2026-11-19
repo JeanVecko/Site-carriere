@@ -194,7 +194,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
   // Bouton « Postuler » du bandeau et de la barre mobile : lien de candidature ou messagerie directement,
   // sinon (adresse de dépôt…) il descend vers l'encadré « Postuler ».
   const ctaProps = applyHref
-    ? { href: applyHref, ...(applyIsWeb ? { target: "_blank", rel: "noreferrer" } : {}) }
+    ? { href: applyHref, "data-apply": apply?.kind, ...(applyIsWeb ? { target: "_blank", rel: "noreferrer" } : {}) }
     : { href: "#postuler" };
   const CtaIcon = ApplyIcon;
 
@@ -302,6 +302,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
                   <a
                     className="pub-btn pub-btn-gold pub-btn-block"
                     href={applyHref}
+                    data-apply={apply?.kind}
                     target={applyIsWeb ? "_blank" : undefined}
                     rel="noreferrer"
                   >

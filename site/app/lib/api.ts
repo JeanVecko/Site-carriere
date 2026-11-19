@@ -21,6 +21,7 @@ export type Announcement = {
   has_cover?: boolean;
   media_version?: string; // empreinte des pièces jointes : change quand une image est remplacée
   views?: number;
+  apply_clicks?: number;
   public_until?: string | null;
   hidden?: boolean;
   contract_type?: string;

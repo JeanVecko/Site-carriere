@@ -154,6 +154,18 @@ async function initializeDatabase() {
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS salary TEXT NOT NULL DEFAULT ''");
   // Nombre de consultations de chaque offre (affiché dans le panneau admin)
   await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS views INTEGER NOT NULL DEFAULT 0');
+  // Nombre de clics sur « Postuler » (ou « S’inscrire ») : ouverture du lien, de l’e-mail ou du WhatsApp du recruteur
+  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS apply_clicks INTEGER NOT NULL DEFAULT 0');
+  // Journal anonyme (ni IP ni cookie) des vues et des clics, pour le bilan envoyé aux recruteurs : jour, provenance, canal.
+  await pool.query(`CREATE TABLE IF NOT EXISTS announcement_events (
+    id BIGSERIAL PRIMARY KEY,
+    announcement_id BIGINT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'direct',
+    channel TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS announcement_events_offer_idx ON announcement_events (announcement_id, created_at)');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -818,7 +830,7 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
   const result = await pool.query(
     `SELECT a.id, a.title, a.category, a.company, a.location, a.description, a.contract_type,
             to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
-            jsonb_array_length(a.media) AS media_count, a.views, a.created_at,
+            jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.created_at,
             ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa') AS public_until,
             NOT (a.deadline IS NULL OR NOW() < ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden,
             u.email AS author_email, o.name AS organization_name
@@ -882,25 +894,81 @@ app.patch('/api/announcements/:id/deadline', requireAdmin, async (request, respo
   response.json(result.rows[0]);
 });
 
-// Compteur de vues : appelé par la page d'une offre. Un même visiteur (adresse IP) n'est compté
-// qu'une fois par offre et par période de 30 minutes ; les robots d'indexation sont ignorés.
-const recentViews = new Map();
-const VIEW_WINDOW_MS = 30 * 60 * 1000;
+// Compteurs de vues et de clics « Postuler » : appelés par la page d'une offre. Un même visiteur (adresse IP,
+// gardée seulement en mémoire) n'est compté qu'une fois par offre et par période de 30 minutes ; les robots sont ignorés.
+const recentHits = new Map();
+const HIT_WINDOW_MS = 30 * 60 * 1000;
 const BOT_PATTERN = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|preview|curl|wget|python|headless/i;
-app.post('/api/announcements/:id/view', async (request, response) => {
+const EVENT_SOURCES = ['direct', 'site', 'facebook', 'whatsapp', 'google', 'linkedin', 'tiktok', 'email', 'autre'];
+const APPLY_CHANNELS = ['web', 'email', 'whatsapp', 'phone'];
+
+function isFreshHit(request, id, kind) {
+  if (BOT_PATTERN.test(request.get('user-agent') || '')) return false;
+  const ip = String(request.get('x-forwarded-for') || request.socket.remoteAddress || '').split(',')[0].trim();
+  const key = `${kind}:${ip}:${id}`;
+  const now = Date.now();
+  if (now - (recentHits.get(key) || 0) < HIT_WINDOW_MS) return false;
+  recentHits.set(key, now);
+  if (recentHits.size > 50000) {
+    for (const [entry, time] of recentHits) if (now - time >= HIT_WINDOW_MS) recentHits.delete(entry);
+  }
+  return true;
+}
+
+async function recordHit(request, response, kind) {
   const id = request.params.id;
   if (!/^\d+$/.test(id)) return response.status(404).end();
-  if (BOT_PATTERN.test(request.get('user-agent') || '')) return response.status(204).end();
-  const ip = String(request.get('x-forwarded-for') || request.socket.remoteAddress || '').split(',')[0].trim();
-  const key = `${ip}:${id}`;
-  const now = Date.now();
-  if (now - (recentViews.get(key) || 0) < VIEW_WINDOW_MS) return response.status(204).end();
-  recentViews.set(key, now);
-  if (recentViews.size > 50000) {
-    for (const [entry, time] of recentViews) if (now - time >= VIEW_WINDOW_MS) recentViews.delete(entry);
+  if (!isFreshHit(request, id, kind)) return response.status(204).end();
+  // Provenance et canal passés dans l'adresse (?source=facebook&channel=email) : requête simple, sans pré-vol CORS.
+  const source = EVENT_SOURCES.includes(request.query.source) ? request.query.source : 'direct';
+  const channel = kind === 'apply' && APPLY_CHANNELS.includes(request.query.channel) ? request.query.channel : '';
+  const column = kind === 'apply' ? 'apply_clicks' : 'views';
+  const updated = await pool.query(`UPDATE announcements SET ${column} = ${column} + 1 WHERE id = $1 RETURNING id`, [id]);
+  if (updated.rows[0]) {
+    await pool.query('INSERT INTO announcement_events (announcement_id, kind, source, channel) VALUES ($1, $2, $3, $4)', [id, kind, source, channel]);
   }
-  await pool.query('UPDATE announcements SET views = views + 1 WHERE id = $1', [id]);
   response.status(204).end();
+}
+
+app.post('/api/announcements/:id/view', (request, response) => recordHit(request, response, 'view'));
+app.post('/api/announcements/:id/apply', (request, response) => recordHit(request, response, 'apply'));
+
+// Bilan d'une offre pour le recruteur : totaux, détail par jour, provenance des visiteurs et canal de candidature.
+app.get('/api/admin/announcements/:id/report', requireAdmin, async (request, response) => {
+  const id = request.params.id;
+  if (!/^\d+$/.test(id)) return response.status(404).json({ error: 'Offre introuvable.' });
+  const offer = await pool.query(
+    `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
+            created_at, views, apply_clicks FROM announcements WHERE id = $1`,
+    [id]
+  );
+  if (!offer.rows[0]) return response.status(404).json({ error: 'Offre introuvable.' });
+  const [days, sources, channels, first] = await Promise.all([
+    pool.query(
+      `SELECT to_char((created_at AT TIME ZONE 'Africa/Kinshasa')::date, 'YYYY-MM-DD') AS day,
+              COUNT(*) FILTER (WHERE kind = 'view')::int AS views, COUNT(*) FILTER (WHERE kind = 'apply')::int AS applies
+       FROM announcement_events WHERE announcement_id = $1 GROUP BY 1 ORDER BY 1`,
+      [id]
+    ),
+    pool.query(
+      `SELECT source, COUNT(*) FILTER (WHERE kind = 'view')::int AS views, COUNT(*) FILTER (WHERE kind = 'apply')::int AS applies
+       FROM announcement_events WHERE announcement_id = $1 GROUP BY source ORDER BY 2 DESC, 3 DESC`,
+      [id]
+    ),
+    pool.query(
+      `SELECT channel, COUNT(*)::int AS applies FROM announcement_events
+       WHERE announcement_id = $1 AND kind = 'apply' GROUP BY channel ORDER BY 2 DESC`,
+      [id]
+    ),
+    pool.query('SELECT MIN(created_at) AS since FROM announcement_events WHERE announcement_id = $1', [id]),
+  ]);
+  response.json({
+    offer: offer.rows[0],
+    days: days.rows,
+    sources: sources.rows,
+    channels: channels.rows,
+    tracked_since: first.rows[0]?.since || null,
+  });
 });
 
 app.delete('/api/announcements/:id', requireAdmin, async (request, response) => {

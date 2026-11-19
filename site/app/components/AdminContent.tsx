@@ -26,6 +26,8 @@ import {
   CalendarPlus,
   Pencil,
   ChevronDown,
+  MousePointerClick,
+  FileBarChart,
 } from "lucide-react";
 import {
   Announcement,
@@ -327,6 +329,7 @@ function Dashboard() {
       expired: announcements.length - open.length,
       hidden: announcements.filter((item) => item.hidden).length,
       views: announcements.reduce((total, item) => total + Number(item.views || 0), 0),
+      applies: announcements.reduce((total, item) => total + Number(item.apply_clicks || 0), 0),
       messages: messages.length,
       unread: messages.filter((message) => !message.read_at).length,
       // Offres expirées pas encore vues dans la rubrique « Offres expirées » (mémorisé dans ce navigateur).
@@ -551,7 +554,7 @@ function DashboardHome({
   loading,
   goTo,
 }: {
-  stats: { open: number; expired: number; hidden: number; views: number; messages: number };
+  stats: { open: number; expired: number; hidden: number; views: number; applies: number; messages: number };
   announcements: Announcement[];
   messages: ContactMessage[];
   loading: boolean;
@@ -565,6 +568,7 @@ function DashboardHome({
     { label: "Offres en ligne", value: stats.open, icon: BriefcaseBusiness, tone: "blue" },
     { label: "Offres expirées", value: stats.expired, icon: CalendarClock, tone: "amber" },
     { label: "Consultations d’offres", value: stats.views, icon: Eye, tone: "green" },
+    { label: "Clics « Postuler »", value: stats.applies, icon: MousePointerClick, tone: "blue" },
     { label: "Messages reçus", value: stats.messages, icon: Mail, tone: "violet" },
   ];
 
@@ -952,6 +956,7 @@ function OffersTable({
                 <th>Expiration</th>
                 <th>Statut</th>
                 <th className="adm-num">Vues</th>
+                <th className="adm-num" title="Clics sur Postuler / S’inscrire, et part des visiteurs qui ont cliqué">Candidats</th>
                 <th className="adm-actions-col">Actions</th>
               </tr>
             </thead>
@@ -976,6 +981,10 @@ function OffersTable({
                       <span className={`adm-status is-${status}`}>{STATUS_LABELS[status]}</span>
                     </td>
                     <td className="adm-num">{Number(item.views || 0).toLocaleString("fr-FR")}</td>
+                    <td className="adm-num">
+                      {Number(item.apply_clicks || 0).toLocaleString("fr-FR")}
+                      <small>{applyRate(item)}</small>
+                    </td>
                     <td className="adm-actions-col">
                       <button
                         type="button"
@@ -1000,6 +1009,9 @@ function OffersTable({
                           <Eye size={16} />
                         </Link>
                       )}
+                      <Link className="adm-icon-btn" href={`/admin/bilan?id=${encodeURIComponent(String(item.id))}`} target="_blank" title="Bilan pour le recruteur" aria-label={`Bilan de ${item.title}`}>
+                        <FileBarChart size={16} />
+                      </Link>
                       <button type="button" className="adm-icon-btn is-danger" onClick={() => onDelete(item)} title="Supprimer" aria-label={`Supprimer ${item.title}`}>
                         <Trash2 size={16} />
                       </button>
@@ -1016,6 +1028,13 @@ function OffersTable({
       </p>
     </section>
   );
+}
+
+// Part des visiteurs qui ont cliqué sur « Postuler » (ex. « 9 % »), vide tant qu'il n'y a pas de vues.
+function applyRate(item: Announcement): string {
+  const views = Number(item.views || 0);
+  if (!views) return "";
+  return `${Math.round((Number(item.apply_clicks || 0) / views) * 100)} %`;
 }
 
 /* ----- Prolongation de la date d'expiration ----- */

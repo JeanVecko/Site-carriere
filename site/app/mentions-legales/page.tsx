@@ -67,7 +67,7 @@ export default function LegalPage() {
         </p>
         <p>
           La fréquentation du site est mesurée de façon anonyme et sans cookies (nombre de visites et de
-          consultations des offres).
+          consultations des offres, clics sur « Postuler » et site d’où vient la visite).
         </p>
 
         <h2>Contact</h2>

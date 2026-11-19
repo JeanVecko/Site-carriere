@@ -9,7 +9,9 @@ const icon = (name: string) => SOCIAL_NETWORKS.find((network) => network.name ==
 // Boutons de partage d'une offre (WhatsApp, Facebook, copie du lien).
 export default function ShareButtons({ url, title }: { url: string; title: string }) {
   const [copied, setCopied] = useState(false);
-  const text = `${title} — ${url}`;
+  // Liens partagés marqués ?src=… : le bilan du recruteur sait que la visite vient de WhatsApp ou de Facebook.
+  const tagged = (src: string) => `${url}${url.includes("?") ? "&" : "?"}src=${src}`;
+  const text = `${title} — ${tagged("whatsapp")}`;
 
   async function copy() {
     try {
@@ -29,7 +31,7 @@ export default function ShareButtons({ url, title }: { url: string; title: strin
         </svg>
         WhatsApp
       </a>
-      <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`} target="_blank" rel="noreferrer">
+      <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(tagged("facebook"))}`} target="_blank" rel="noreferrer">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path fill="currentColor" d={icon("Facebook")} />
         </svg>
