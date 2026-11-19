@@ -38,11 +38,6 @@ h1, h2, h3, .pub-brand strong, .pub-avatar, .pub-stats strong { font-family: 'Pl
 .pub-btn-sm { font-size: 13px; padding: 8px 14px; }
 
 /* ----- Barre d'infos et en-tête ----- */
-.pub-topbar { background: var(--pub-dark); color: #c9d6ea; font-size: 12px; }
-.pub-topbar .pub-container { align-items: center; display: flex; gap: 10px 28px; justify-content: space-between; padding-bottom: 7px; padding-top: 7px; }
-.pub-topbar span, .pub-topbar a { align-items: center; display: inline-flex; gap: 7px; }
-.pub-topbar svg { color: var(--pub-gold-2); }
-.pub-topbar a:hover { color: #fff; }
 .pub-header { background: rgba(255, 255, 255, .97); }
 html.is-scrolled .pub-header { background: rgba(255, 255, 255, .98); box-shadow: 0 6px 24px rgba(16, 24, 40, .07); }
 .pub-brand strong { color: var(--pub-dark); }
@@ -204,7 +199,6 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .98); box-shadow:
   .home-newsletter-form { grid-column: 1 / -1; }
 }
 @media (max-width: 620px) {
-  .pub-topbar { display: none; }
   .home-hero { border-radius: 0 0 20px 20px; padding: 32px 0 80px; }
   .home-hero-visual { display: none; }
   .home-hero-actions .pub-btn { flex: 1; }
@@ -232,10 +226,6 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .98); box-shadow:
    Mobile : on garde le même design (barre d'infos, panneau des offres, carte d'alerte)
    ===================================================================== */
 @media (max-width: 620px) {
-  .pub-topbar { display: block; }
-  .pub-topbar .pub-container { gap: 22px; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
-  .pub-topbar .pub-container::-webkit-scrollbar { display: none; }
-  .pub-topbar span, .pub-topbar a { flex-shrink: 0; }
 
   .home-hero { padding: 28px 0 84px; }
   .home-hero h1 { font-size: 34px; }

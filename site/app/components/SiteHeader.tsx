@@ -3,8 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BadgeCheck, BellRing, LayoutDashboard, Megaphone, Menu, Phone, ShieldCheck, X } from "lucide-react";
-import { CONTACT_PHONE } from "../lib/api";
+import { LayoutDashboard, Megaphone, Menu, X } from "lucide-react";
 import SocialLinks from "./SocialLinks";
 
 const LINKS = [
@@ -70,16 +69,6 @@ export default function SiteHeader({ active }: { active?: string } = {}) {
   ));
 
   return (
-    <>
-    {/* Barre d'informations au-dessus de l'en-tête (masquée sur mobile) */}
-    <div className="pub-topbar">
-      <div className="pub-container">
-        <span><ShieldCheck size={14} aria-hidden="true" /> Offres vérifiées avant publication</span>
-        <span><BadgeCheck size={14} aria-hidden="true" /> Gratuit pour les candidats</span>
-        <Link href="/alertes"><BellRing size={14} aria-hidden="true" /> Alertes e-mail chaque matin</Link>
-        <a href={`tel:${CONTACT_PHONE.replace(/[^d+]/g, "")}`}><Phone size={14} aria-hidden="true" /> Contact : {CONTACT_PHONE}</a>
-      </div>
-    </div>
     <header className={`pub-header${open ? " is-open" : ""}`}>
       <div className="pub-container pub-header-inner">
         <Brand />
@@ -122,6 +111,5 @@ export default function SiteHeader({ active }: { active?: string } = {}) {
         </Link>
       </div>
     </header>
-    </>
   );
 }
