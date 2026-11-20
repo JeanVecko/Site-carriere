@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Copy, Eye, MousePointerClick, Percent, Printer } from "lucide-react";
-import { adminHeaders, apiRequest, decodeEntities, detailHref, formatDate } from "../lib/api";
+import { adminHeaders, apiRequest, decodeEntities, detailHref, formatDate, recruiterHeaders } from "../lib/api";
 
 // Adresse publique du site, pour le lien de l’offre dans le bilan (www.carrieresrdc.com en ligne).
 const SITE_URL = "https://www.carrieresrdc.com";
@@ -49,27 +49,34 @@ const CHANNEL_LABELS: Record<string, string> = {
 const number = (value: number) => Number(value || 0).toLocaleString("fr-FR");
 const rate = (views: number, applies: number) => (views ? `${Math.round((applies / views) * 100)} %` : "—");
 
-/** Bilan d'une offre à envoyer au recruteur : vues, clics « Postuler », provenance, canal. Imprimable en PDF. */
-export default function AdminReport({ id }: { id: string }) {
+/** Bilan d'une offre à envoyer au recruteur : vues, clics « Postuler », provenance, canal. Imprimable en PDF.
+ *  mode « recruiter » : le même bilan, ouvert par le recruteur depuis son espace (ses offres seulement). */
+export default function AdminReport({ id, mode = "admin" }: { id: string; mode?: "admin" | "recruiter" }) {
+  const recruiter = mode === "recruiter";
+  const backHref = recruiter ? "/espace-recruteur" : "/admin#offres";
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    apiRequest<Report>(`/admin/announcements/${encodeURIComponent(id)}/report`, { headers: adminHeaders() })
+    const path = recruiter ? `/recruiter/offers/${encodeURIComponent(id)}/report` : `/admin/announcements/${encodeURIComponent(id)}/report`;
+    apiRequest<Report>(path, { headers: recruiter ? recruiterHeaders() : adminHeaders() })
       .then(setReport)
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Bilan indisponible."));
-  }, [id]);
+  }, [id, recruiter]);
 
   if (!id || error) {
     return (
       <main className="adm-report">
         <p className="adm-report-error">
-          {error || "Offre non précisée."} Connectez-vous à l’administration puis ouvrez le bilan depuis la liste des offres.
+          {error || "Offre non précisée."}{" "}
+          {recruiter
+            ? "Connectez-vous à votre espace recruteur puis ouvrez le bilan depuis la liste de vos offres."
+            : "Connectez-vous à l’administration puis ouvrez le bilan depuis la liste des offres."}
         </p>
-        <Link className="adm-btn adm-btn-ghost" href="/admin">
-          <ArrowLeft size={16} /> Administration
+        <Link className="adm-btn adm-btn-ghost" href={recruiter ? "/espace-recruteur" : "/admin"}>
+          <ArrowLeft size={16} /> {recruiter ? "Espace recruteur" : "Administration"}
         </Link>
       </main>
     );
@@ -109,7 +116,7 @@ export default function AdminReport({ id }: { id: string }) {
   return (
     <main className="adm-report">
       <div className="adm-report-actions">
-        <Link className="adm-btn adm-btn-ghost" href="/admin#offres">
+        <Link className="adm-btn adm-btn-ghost" href={backHref}>
           <ArrowLeft size={16} /> Retour
         </Link>
         <button type="button" className="adm-btn adm-btn-ghost" onClick={copySummary}>

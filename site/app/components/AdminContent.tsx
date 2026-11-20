@@ -28,12 +28,14 @@ import {
   ChevronDown,
   MousePointerClick,
   FileBarChart,
+  Building2,
 } from "lucide-react";
 import {
   Announcement,
   AnnouncementMedia,
   termsFor,
   ContactMessage,
+  Recruiter,
   adminHeaders,
   apiRequest,
   decodeEntities,
@@ -42,17 +44,19 @@ import {
   isExpired,
 } from "../lib/api";
 import { CategorySplitChart, PublicationsChart, TopViewsChart } from "./AdminCharts";
+import AdminRecruiters from "./AdminRecruiters";
 
 const TOKEN_KEY = "carrieres-admin-token";
 const AUTH_EVENT = "carrieres-admin-auth";
 
-type Section = "dashboard" | "publish" | "offers" | "expired" | "messages";
+type Section = "dashboard" | "publish" | "offers" | "expired" | "recruiters" | "messages";
 
 const SECTIONS: Array<{ id: Section; label: string; icon: typeof LayoutDashboard }> = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { id: "publish", label: "Publier", icon: CirclePlus },
   { id: "offers", label: "Offres publiées", icon: BriefcaseBusiness },
   { id: "expired", label: "Offres expirées", icon: Archive },
+  { id: "recruiters", label: "Recruteurs", icon: Building2 },
   { id: "messages", label: "Messages", icon: Inbox },
 ];
 
@@ -64,6 +68,7 @@ const SECTION_HASHES: Record<Section, string> = {
   publish: "publier",
   offers: "offres",
   expired: "expirees",
+  recruiters: "recruteurs",
   messages: "messages",
 };
 const SCROLL_KEY = "carrieres-admin-scroll";
@@ -220,6 +225,7 @@ function Dashboard() {
   const pendingScroll = useRef<number | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [recruiters, setRecruiters] = useState<Recruiter[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -241,12 +247,15 @@ function Dashboard() {
     setLoading(true);
     setLoadError("");
     try {
-      const [offers, inbox] = await Promise.all([
+      const [offers, inbox, partners] = await Promise.all([
         apiRequest<Announcement[]>("/admin/announcements", { headers: adminHeaders() }),
         apiRequest<ContactMessage[]>("/messages", { headers: adminHeaders() }),
+        // Liste vide si l'API déployée ne connaît pas encore les espaces recruteur
+        apiRequest<Recruiter[]>("/admin/recruiters", { headers: adminHeaders() }).catch(() => [] as Recruiter[]),
       ]);
       setAnnouncements(offers);
       setMessages(inbox);
+      setRecruiters(partners);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Impossible de charger les données.";
       // Session expirée : retour à l'écran de connexion.
@@ -483,6 +492,7 @@ function Dashboard() {
           <PublishForm
             key={editing ? String(editing.id) : "new"}
             initial={editing}
+            recruiters={recruiters}
             onCategoryChange={setFormCategory}
             onCancel={() => {
               setEditing(null);
@@ -511,6 +521,9 @@ function Dashboard() {
               setSection("publish");
             }}
           />
+        )}
+        {section === "recruiters" && (
+          <AdminRecruiters recruiters={recruiters} loading={loading} onChange={setRecruiters} notify={setToast} />
         )}
         {section === "messages" && (
           <>
@@ -665,11 +678,13 @@ function DashboardHome({
 
 function PublishForm({
   initial,
+  recruiters,
   onSaved,
   onCancel,
   onCategoryChange,
 }: {
   initial?: Announcement | null;
+  recruiters: Recruiter[];
   onSaved: (mode: "created" | "updated", category: string) => Promise<void>;
   onCancel?: () => void;
   onCategoryChange?: (category: string) => void;
@@ -698,6 +713,17 @@ function PublishForm({
       const files = mediaInput?.files || null;
       const media = await filesToMedia(files);
       const values = Object.fromEntries(new FormData(form));
+      // Espace recruteur : enregistré à part, seulement s'il a changé.
+      const owner = String(values.organization_id ?? "");
+      delete values.organization_id;
+      const saveOwner = async (id: number | string) => {
+        if (owner === String(initial?.organization_id ?? "")) return;
+        await apiRequest(`/admin/announcements/${id}/recruiter`, {
+          method: "PATCH",
+          headers: adminHeaders(),
+          body: JSON.stringify({ organization_id: owner || null }),
+        });
+      };
       if (initial) {
         // Sans nouveau fichier, les pièces jointes actuelles sont conservées.
         await apiRequest(`/announcements/${initial.id}`, {
@@ -705,13 +731,15 @@ function PublishForm({
           headers: adminHeaders(),
           body: JSON.stringify({ ...values, media, keep_media: !files || files.length === 0 }),
         });
+        await saveOwner(initial.id!);
         await onSaved("updated", category);
       } else {
-        await apiRequest("/announcements", {
+        const created = await apiRequest<{ id: number | string }>("/announcements", {
           method: "POST",
           headers: adminHeaders(),
           body: JSON.stringify({ ...values, media }),
         });
+        await saveOwner(created.id);
         form.reset();
         setCategory("Offre d’emploi");
         await onSaved("created", String(values.category || category));
@@ -761,6 +789,22 @@ function PublishForm({
             <input name="location" type="text" required placeholder="Ex. Kinshasa · Gombe" defaultValue={text(initial?.location)} />
           </label>
         </div>
+        {recruiters.length > 0 && (
+          <div className="adm-row">
+            <label className="adm-field">
+              <span>Espace recruteur</span>
+              <select name="organization_id" defaultValue={initial?.organization_id ? String(initial.organization_id) : ""}>
+                <option value="">Aucun (offre non rattachée)</option>
+                {recruiters.map((recruiter) => (
+                  <option key={String(recruiter.id)} value={String(recruiter.id)}>
+                    {recruiter.name}
+                  </option>
+                ))}
+              </select>
+              <small>Le recruteur choisi voit les statistiques de cette offre dans son espace.</small>
+            </label>
+          </div>
+        )}
       </fieldset>
 
       <fieldset>
@@ -971,6 +1015,7 @@ function OffersTable({
                         {decodeEntities(item.company)} · {decodeEntities(item.location)}
                         {item.contract_type ? ` · ${item.contract_type}` : ""}
                       </span>
+                      {item.organization_name && <small className="adm-owner">Espace : {item.organization_name}</small>}
                     </td>
                     <td>{item.category}</td>
                     <td>

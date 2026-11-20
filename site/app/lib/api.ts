@@ -30,7 +30,24 @@ export type Announcement = {
   source_url?: string;
   salary?: string;
   author_email?: string;
+  organization_id?: number | string | null; // espace recruteur auquel l'offre est rattachée
   organization_name?: string;
+};
+
+// Espace recruteur ouvert par l'administrateur (société + contact).
+export type Recruiter = {
+  id: number | string;
+  name: string;
+  account_status: string;
+  created_at: string;
+  user_id?: number | string | null;
+  email?: string | null;
+  contact?: string;
+  activated_at?: string | null;
+  last_login_at?: string | null;
+  offers: number;
+  views: number;
+  applies: number;
 };
 
 export type AnnouncementMedia = {
@@ -67,6 +84,19 @@ export function mediaUrl(item: Pick<Announcement, "id" | "media" | "media_versio
   }
   const path = file === "cover" ? "cover" : `media/${file}`;
   return `${API_BASE}/announcements/${item.id}/${path}${version ? `?v=${version}` : ""}`;
+}
+
+// Session du recruteur : gardée dans le navigateur (tous les onglets) pendant 30 jours au plus.
+export const RECRUITER_TOKEN_KEY = "carrieres-recruteur-token";
+export function recruiterHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  let token: string | null = null;
+  try {
+    token = localStorage.getItem(RECRUITER_TOKEN_KEY);
+  } catch {
+    token = null;
+  }
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export function adminHeaders(): Record<string, string> {

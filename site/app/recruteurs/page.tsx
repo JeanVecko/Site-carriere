@@ -80,6 +80,9 @@ export default function RecruitersPage() {
                 <Mail size={16} /> Envoyer par e-mail
               </a>
             </div>
+            <p className="rec-hero-link">
+              Déjà partenaire ? <Link href="/espace-recruteur">Accédez à votre espace recruteur</Link> pour suivre les résultats de vos offres.
+            </p>
             <ul className="pub-about-badges">
               <li><Clock size={15} aria-hidden="true" /> En ligne en moins de 24 h</li>
               <li><Gift size={15} aria-hidden="true" /> 3 premiers mois offerts</li>

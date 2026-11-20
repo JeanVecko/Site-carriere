@@ -50,6 +50,7 @@ export default function SiteFooter({ withContact = false }: { withContact?: bool
             <li><Link href="/annonces">Annonces</Link></li>
             <li><Link href="/appels-offres">Appels d’offres</Link></li>
             <li><Link href="/recruteurs">Publier une offre</Link></li>
+            <li><Link href="/espace-recruteur">Espace recruteur</Link></li>
             <li><Link href="/alertes">Alertes e-mail</Link></li>
             <li><Link href="/a-propos">À propos</Link></li>
           </ul>

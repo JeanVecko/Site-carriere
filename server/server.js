@@ -833,7 +833,7 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
             jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.created_at,
             ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa') AS public_until,
             NOT (a.deadline IS NULL OR NOW() < ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden,
-            u.email AS author_email, o.name AS organization_name
+            u.email AS author_email, a.organization_id, o.name AS organization_name
      FROM announcements a
      LEFT JOIN users u ON u.id = a.owner_id
      LEFT JOIN organizations o ON o.id = a.organization_id
@@ -934,15 +934,16 @@ app.post('/api/announcements/:id/view', (request, response) => recordHit(request
 app.post('/api/announcements/:id/apply', (request, response) => recordHit(request, response, 'apply'));
 
 // Bilan d'une offre pour le recruteur : totaux, détail par jour, provenance des visiteurs et canal de candidature.
-app.get('/api/admin/announcements/:id/report', requireAdmin, async (request, response) => {
-  const id = request.params.id;
-  if (!/^\d+$/.test(id)) return response.status(404).json({ error: 'Offre introuvable.' });
+// Avec organizationId, l'offre doit appartenir à cette société (espace recruteur) ; sinon renvoie null.
+async function offerReport(id, organizationId = null) {
+  if (!/^\d+$/.test(String(id))) return null;
   const offer = await pool.query(
     `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
-            created_at, views, apply_clicks FROM announcements WHERE id = $1`,
-    [id]
+            created_at, views, apply_clicks FROM announcements
+     WHERE id = $1 AND ($2::bigint IS NULL OR organization_id = $2::bigint)`,
+    [id, organizationId]
   );
-  if (!offer.rows[0]) return response.status(404).json({ error: 'Offre introuvable.' });
+  if (!offer.rows[0]) return null;
   const [days, sources, channels, first] = await Promise.all([
     pool.query(
       `SELECT to_char((created_at AT TIME ZONE 'Africa/Kinshasa')::date, 'YYYY-MM-DD') AS day,
@@ -962,14 +963,275 @@ app.get('/api/admin/announcements/:id/report', requireAdmin, async (request, res
     ),
     pool.query('SELECT MIN(created_at) AS since FROM announcement_events WHERE announcement_id = $1', [id]),
   ]);
-  response.json({
+  return {
     offer: offer.rows[0],
     days: days.rows,
     sources: sources.rows,
     channels: channels.rows,
     tracked_since: first.rows[0]?.since || null,
-  });
+  };
+}
+
+app.get('/api/admin/announcements/:id/report', requireAdmin, async (request, response) => {
+  const report = await offerReport(request.params.id);
+  if (!report) return response.status(404).json({ error: 'Offre introuvable.' });
+  response.json(report);
 });
+
+/* ===================== Espace recruteur (sur invitation) =====================
+   Seul l'administrateur crée un accès : une société (organizations) et son contact (users, rôle recruteur).
+   Le recruteur reçoit un lien d'activation (copié sur WhatsApp ou envoyé par e-mail), choisit son mot de passe,
+   puis consulte les statistiques des offres que l'administrateur a rattachées à sa société. Il ne publie pas
+   lui-même : il propose une offre, qui arrive dans les messages de l'administrateur. */
+
+const ACCESS_LINK_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
+const safe = (handler) => (request, response, next) => Promise.resolve(handler(request, response, next)).catch(next);
+
+// Lien d'accès à usage unique (7 jours). Les anciens liens non utilisés de ce compte sont annulés.
+async function createAccessLink(userId) {
+  await pool.query("UPDATE auth_tokens SET used_at = NOW() WHERE user_id = $1 AND kind = 'password_reset' AND used_at IS NULL", [userId]);
+  const token = await createAuthToken(userId, 'password_reset', ACCESS_LINK_LIFETIME_MS);
+  return `${frontendUrl}/espace-recruteur/activer?token=${token}`;
+}
+
+async function sendAccessLinkEmail({ email, organization, contact, link, first }) {
+  await sendTransactionalEmail({
+    to: email,
+    replyTo: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    subject: first ? `Votre espace recruteur Carrières RDC — ${organization}` : 'Votre nouveau lien d’accès Carrières RDC',
+    text: `Bonjour${contact ? ` ${contact}` : ''},\n\n${first
+      ? `Nous avons ouvert un espace recruteur pour ${organization} sur Carrières RDC. Vous y suivrez les consultations de vos offres, les clics sur « Postuler » et la provenance des visiteurs, et vous pourrez nous proposer de nouvelles offres.`
+      : `Voici un nouveau lien pour accéder à l’espace recruteur de ${organization} et choisir votre mot de passe.`}\n\nChoisissez votre mot de passe en ouvrant ce lien (valable 7 jours, utilisable une seule fois) :\n${link}\n\nEnsuite, connectez-vous sur ${frontendUrl}/espace-recruteur avec l’adresse ${email}.\n\n—\nL’équipe Carrières RDC\n${frontendUrl}`,
+  });
+}
+
+const RECRUITER_LIST_SQL = `
+  SELECT o.id, o.name, o.account_status, o.created_at,
+         u.id AS user_id, u.email, COALESCE(u.data->>'contact', '') AS contact, u.email_verified_at AS activated_at,
+         NULLIF(u.data->>'last_login_at', '') AS last_login_at,
+         COALESCE(s.offers, 0)::int AS offers, COALESCE(s.views, 0)::int AS views, COALESCE(s.applies, 0)::int AS applies
+  FROM organizations o
+  LEFT JOIN LATERAL (
+    SELECT * FROM users WHERE organization_id = o.id AND role = 'recruteur' ORDER BY (organization_role = 'owner') DESC, id LIMIT 1
+  ) u ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*) AS offers, SUM(views) AS views, SUM(apply_clicks) AS applies FROM announcements WHERE organization_id = o.id
+  ) s ON TRUE`;
+
+app.get('/api/admin/recruiters', requireAdmin, safe(async (_request, response) => {
+  const result = await pool.query(`${RECRUITER_LIST_SQL} ORDER BY lower(o.name)`);
+  response.json(result.rows);
+}));
+
+// Ouverture d'un accès : société + contact, et un lien d'activation renvoyé à l'administrateur.
+app.post('/api/admin/recruiters', requireAdmin, safe(async (request, response) => {
+  const organization = clean(request.body.organization).slice(0, 120);
+  const email = clean(request.body.email).toLowerCase().slice(0, 160);
+  const contact = clean(request.body.contact).slice(0, 120);
+  if (!organization) return response.status(400).json({ error: 'Indiquez le nom de la société ou de l’organisation.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return response.status(400).json({ error: 'Adresse e-mail invalide.' });
+  if (email === process.env.ADMIN_EMAIL.toLowerCase()) return response.status(400).json({ error: 'Cette adresse est celle de l’administrateur.' });
+  const taken = await pool.query('SELECT 1 FROM users WHERE lower(email) = $1', [email]);
+  if (taken.rows[0]) return response.status(409).json({ error: 'Un compte existe déjà avec cette adresse e-mail.' });
+
+  const org = await findOrCreateOrganization({ name: organization });
+  // Mot de passe inutilisable tant que le recruteur n'a pas choisi le sien avec le lien d'activation.
+  const unusable = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+  const user = await pool.query(
+    `INSERT INTO users (role, email, password_hash, data, organization_id, organization_role)
+     VALUES ('recruteur', $1, $2, $3, $4, 'owner') RETURNING id`,
+    [email, unusable, JSON.stringify({ contact }), org.id]
+  );
+  const link = await createAccessLink(user.rows[0].id);
+  let emailError = '';
+  if (request.body.send_email) {
+    await sendAccessLinkEmail({ email, organization: org.name, contact, link, first: true }).catch((error) => { emailError = error.message; });
+  }
+  const created = await pool.query(`${RECRUITER_LIST_SQL} WHERE o.id = $1`, [org.id]);
+  response.status(201).json({ recruiter: created.rows[0], link, emailed: Boolean(request.body.send_email) && !emailError, email_error: emailError });
+}));
+
+async function recruiterOrganization(id) {
+  if (!/^\d+$/.test(String(id))) return null;
+  return (await pool.query(`${RECRUITER_LIST_SQL} WHERE o.id = $1`, [id])).rows[0] || null;
+}
+
+// Nouveau lien d'accès (premier lien expiré ou mot de passe oublié) ; l'ancien lien cesse de fonctionner.
+app.post('/api/admin/recruiters/:id/link', requireAdmin, safe(async (request, response) => {
+  const recruiter = await recruiterOrganization(request.params.id);
+  if (!recruiter?.user_id) return response.status(404).json({ error: 'Recruteur introuvable.' });
+  const link = await createAccessLink(recruiter.user_id);
+  let emailError = '';
+  if (request.body?.send_email) {
+    await sendAccessLinkEmail({ email: recruiter.email, organization: recruiter.name, contact: recruiter.contact, link, first: !recruiter.activated_at })
+      .catch((error) => { emailError = error.message; });
+  }
+  response.json({ link, emailed: Boolean(request.body?.send_email) && !emailError, email_error: emailError });
+}));
+
+app.patch('/api/admin/recruiters/:id/status', requireAdmin, safe(async (request, response) => {
+  const status = clean(request.body.status);
+  if (!['active', 'suspended'].includes(status)) return response.status(400).json({ error: 'Statut invalide.' });
+  const recruiter = await recruiterOrganization(request.params.id);
+  if (!recruiter) return response.status(404).json({ error: 'Recruteur introuvable.' });
+  await pool.query('UPDATE organizations SET account_status = $1 WHERE id = $2', [status, recruiter.id]);
+  response.json(await recruiterOrganization(recruiter.id));
+}));
+
+// Suppression de l'accès : les offres restent publiées, simplement détachées de la société.
+app.delete('/api/admin/recruiters/:id', requireAdmin, safe(async (request, response) => {
+  const recruiter = await recruiterOrganization(request.params.id);
+  if (!recruiter) return response.status(404).json({ error: 'Recruteur introuvable.' });
+  await pool.query('UPDATE announcements SET organization_id = NULL WHERE organization_id = $1', [recruiter.id]);
+  await pool.query('DELETE FROM users WHERE organization_id = $1', [recruiter.id]);
+  await pool.query('DELETE FROM organizations WHERE id = $1', [recruiter.id]);
+  response.status(204).end();
+}));
+
+// Rattache une offre à l'espace d'un recruteur (ou la détache avec organization_id = null).
+app.patch('/api/admin/announcements/:id/recruiter', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
+  const value = request.body.organization_id;
+  const organizationId = value === null || value === '' || value === undefined ? null : String(value);
+  if (organizationId !== null) {
+    if (!/^\d+$/.test(organizationId) || !(await pool.query('SELECT 1 FROM organizations WHERE id = $1', [organizationId])).rows[0]) {
+      return response.status(400).json({ error: 'Recruteur introuvable.' });
+    }
+  }
+  const result = await pool.query(
+    `UPDATE announcements a SET organization_id = $2 WHERE a.id = $1
+     RETURNING a.id, a.organization_id, (SELECT name FROM organizations WHERE id = $2) AS organization_name`,
+    [request.params.id, organizationId]
+  );
+  if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
+  response.json(result.rows[0]);
+}));
+
+// Tentatives de connexion échouées, gardées en mémoire : 8 essais par adresse et par quart d'heure.
+const failedLogins = new Map();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+function tooManyLogins(key) {
+  const entry = failedLogins.get(key);
+  if (!entry || Date.now() - entry.since > LOGIN_WINDOW_MS) return false;
+  return entry.count >= 8;
+}
+function noteFailedLogin(key) {
+  const entry = failedLogins.get(key);
+  if (!entry || Date.now() - entry.since > LOGIN_WINDOW_MS) failedLogins.set(key, { count: 1, since: Date.now() });
+  else entry.count += 1;
+  if (failedLogins.size > 10000) failedLogins.clear();
+}
+
+function recruiterSession(user) {
+  return {
+    token: jwt.sign({ id: user.id, email: user.email, role: 'recruteur', organization_id: user.organization_id }, jwtSecret, { expiresIn: '30d' }),
+    email: user.email,
+  };
+}
+async function noteLogin(userId) {
+  await pool.query(`UPDATE users SET data = data || jsonb_build_object('last_login_at', NOW()::text) WHERE id = $1`, [userId]);
+}
+
+const PASSWORD_RULE = 'Le mot de passe doit contenir au moins 8 caractères.';
+
+// Activation (ou nouveau mot de passe) avec le lien envoyé par l'administrateur.
+app.post('/api/recruiter/activate', safe(async (request, response) => {
+  const token = clean(request.body.token);
+  const password = typeof request.body.password === 'string' ? request.body.password : '';
+  if (password.length < 8 || password.length > 200) return response.status(400).json({ error: PASSWORD_RULE });
+  const found = await pool.query(
+    `SELECT t.id AS token_id, u.id, u.email, u.organization_id, u.account_status, o.account_status AS organization_status
+     FROM auth_tokens t JOIN users u ON u.id = t.user_id LEFT JOIN organizations o ON o.id = u.organization_id
+     WHERE t.token_hash = $1 AND t.kind = 'password_reset' AND t.used_at IS NULL AND t.expires_at > NOW() AND u.role = 'recruteur'`,
+    [hashToken(token)]
+  );
+  const user = found.rows[0];
+  if (!token || !user) return response.status(400).json({ error: 'Ce lien n’est plus valable (déjà utilisé ou expiré). Demandez un nouveau lien à Carrières RDC.' });
+  if (user.account_status !== 'active' || user.organization_status !== 'active') return response.status(403).json({ error: 'Cet accès est suspendu. Contactez Carrières RDC.' });
+  await pool.query('UPDATE auth_tokens SET used_at = NOW() WHERE id = $1', [user.token_id]);
+  await pool.query('UPDATE users SET password_hash = $2, email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = $1', [user.id, await bcrypt.hash(password, 12)]);
+  await noteLogin(user.id);
+  response.json(recruiterSession(user));
+}));
+
+app.post('/api/recruiter/login', safe(async (request, response) => {
+  const email = clean(request.body.email).toLowerCase();
+  const password = typeof request.body.password === 'string' ? request.body.password : '';
+  if (!email || !password) return response.status(400).json({ error: 'Renseignez votre e-mail et votre mot de passe.' });
+  if (tooManyLogins(email)) return response.status(429).json({ error: 'Trop de tentatives. Réessayez dans un quart d’heure.' });
+  const found = await pool.query(
+    `SELECT u.id, u.email, u.password_hash, u.organization_id, u.account_status, u.email_verified_at, o.account_status AS organization_status
+     FROM users u LEFT JOIN organizations o ON o.id = u.organization_id WHERE lower(u.email) = $1 AND u.role = 'recruteur'`,
+    [email]
+  );
+  const user = found.rows[0];
+  if (!user || !user.email_verified_at || !(await bcrypt.compare(password, user.password_hash))) {
+    noteFailedLogin(email);
+    return response.status(401).json({ error: 'E-mail ou mot de passe incorrect.' });
+  }
+  if (user.account_status !== 'active' || user.organization_status !== 'active') return response.status(403).json({ error: 'Cet accès est suspendu. Contactez Carrières RDC.' });
+  failedLogins.delete(email);
+  await noteLogin(user.id);
+  response.json(recruiterSession(user));
+}));
+
+function requireRecruiter(request, response, next) {
+  requireUser(request, response, () => {
+    if (request.user.role !== 'recruteur' || !request.user.organization_id) return response.status(403).json({ error: 'Espace réservé aux recruteurs.' });
+    next();
+  });
+}
+
+// Tableau de bord du recruteur : sa société et les offres rattachées, avec leurs statistiques.
+app.get('/api/recruiter/me', requireRecruiter, safe(async (request, response) => {
+  const [organization, offers] = await Promise.all([
+    pool.query(`SELECT o.name, COALESCE(u.data->>'contact', '') AS contact FROM organizations o JOIN users u ON u.id = $2 WHERE o.id = $1`, [request.user.organization_id, request.user.id]),
+    pool.query(
+      `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, created_at,
+              views, apply_clicks,
+              NOT (deadline IS NULL OR NOW() < ((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden
+       FROM announcements WHERE organization_id = $1 ORDER BY created_at DESC`,
+      [request.user.organization_id]
+    ),
+  ]);
+  response.json({ email: request.user.email, organization: organization.rows[0]?.name || '', contact: organization.rows[0]?.contact || '', offers: offers.rows });
+}));
+
+app.get('/api/recruiter/offers/:id/report', requireRecruiter, safe(async (request, response) => {
+  const report = await offerReport(request.params.id, request.user.organization_id);
+  if (!report) return response.status(404).json({ error: 'Offre introuvable dans votre espace.' });
+  response.json(report);
+}));
+
+app.post('/api/recruiter/password', requireRecruiter, safe(async (request, response) => {
+  const current = typeof request.body.current === 'string' ? request.body.current : '';
+  const next = typeof request.body.password === 'string' ? request.body.password : '';
+  if (next.length < 8 || next.length > 200) return response.status(400).json({ error: PASSWORD_RULE });
+  const row = (await pool.query('SELECT password_hash FROM users WHERE id = $1', [request.user.id])).rows[0];
+  if (!row || !(await bcrypt.compare(current, row.password_hash))) return response.status(400).json({ error: 'Mot de passe actuel incorrect.' });
+  await pool.query('UPDATE users SET password_hash = $2 WHERE id = $1', [request.user.id, await bcrypt.hash(next, 12)]);
+  response.json({ ok: true });
+}));
+
+// Proposition d'offre : arrive dans les messages de l'administrateur, qui la vérifie et la publie.
+app.post('/api/recruiter/proposals', requireRecruiter, safe(async (request, response) => {
+  const title = clean(request.body.title).slice(0, 160);
+  const details = clean(request.body.details).slice(0, 8000);
+  if (!title || details.length < 20) return response.status(400).json({ error: 'Indiquez l’intitulé du poste et quelques détails (au moins 20 caractères).' });
+  const organization = (await pool.query('SELECT name FROM organizations WHERE id = $1', [request.user.organization_id])).rows[0]?.name || 'Recruteur';
+  const subject = `Offre proposée : ${title}`.slice(0, 180);
+  const result = await pool.query(
+    'INSERT INTO messages (name, email, subject, message) VALUES ($1, $2, $3, $4) RETURNING id, created_at',
+    [`${organization} (espace recruteur)`, request.user.email, subject, details]
+  );
+  response.status(201).json(result.rows[0]);
+  sendTransactionalEmail({
+    to: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    replyTo: request.user.email,
+    subject: `Nouvelle offre proposée par ${organization} : ${title}`.slice(0, 180),
+    text: `${organization} (${request.user.email}) propose une offre depuis son espace recruteur.\n\nIntitulé : ${title}\n\n${details}\n\n—\nÀ vérifier et publier depuis ${frontendUrl}/admin`,
+  }).catch((error) => console.error('Alerte e-mail non envoyée :', error.message));
+}));
 
 app.delete('/api/announcements/:id', requireAdmin, async (request, response) => {
   await pool.query('DELETE FROM announcements WHERE id = $1', [request.params.id]);
