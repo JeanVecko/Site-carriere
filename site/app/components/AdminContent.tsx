@@ -29,6 +29,7 @@ import {
   MousePointerClick,
   FileBarChart,
   Building2,
+  Share2,
 } from "lucide-react";
 import {
   Announcement,
@@ -45,6 +46,7 @@ import {
 } from "../lib/api";
 import { CategorySplitChart, PublicationsChart, TopViewsChart } from "./AdminCharts";
 import AdminRecruiters from "./AdminRecruiters";
+import AdminShareKit from "./AdminShareKit";
 
 const TOKEN_KEY = "carrieres-admin-token";
 const AUTH_EVENT = "carrieres-admin-auth";
@@ -230,6 +232,7 @@ function Dashboard() {
   const [loadError, setLoadError] = useState("");
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [extending, setExtending] = useState<Announcement | null>(null);
+  const [sharing, setSharing] = useState<Announcement | null>(null);
   const [editing, setEditing] = useState<Announcement | null>(null);
   // Catégorie choisie dans le formulaire de publication (pour le titre de la page).
   const [formCategory, setFormCategory] = useState("Offre d’emploi");
@@ -516,6 +519,7 @@ function Dashboard() {
             loading={loading}
             onDelete={deleteAnnouncement}
             onExtend={setExtending}
+            onShare={setSharing}
             onEdit={(item) => {
               setEditing(item);
               setSection("publish");
@@ -544,6 +548,8 @@ function Dashboard() {
           </>
         )}
       </div>
+
+      {sharing && <AdminShareKit item={sharing} onClose={() => setSharing(null)} />}
 
       {extending && (
         <ExtendDialog item={extending} onClose={() => setExtending(null)} onSave={(deadline) => extendDeadline(extending, deadline)} />
@@ -932,6 +938,7 @@ function OffersTable({
   loading,
   onDelete,
   onExtend,
+  onShare,
   onEdit,
 }: {
   mode: "active" | "expired";
@@ -939,6 +946,7 @@ function OffersTable({
   loading: boolean;
   onDelete: (item: Announcement) => void;
   onExtend: (item: Announcement) => void;
+  onShare: (item: Announcement) => void;
   onEdit: (item: Announcement) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -1031,6 +1039,17 @@ function OffersTable({
                       <small>{applyRate(item)}</small>
                     </td>
                     <td className="adm-actions-col">
+                      {status !== "hidden" && (
+                        <button
+                          type="button"
+                          className="adm-icon-btn is-accent"
+                          onClick={() => onShare(item)}
+                          title="Diffuser sur les réseaux (texte et image)"
+                          aria-label={`Diffuser ${item.title}`}
+                        >
+                          <Share2 size={16} />
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="adm-icon-btn"
