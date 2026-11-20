@@ -656,7 +656,7 @@ html.is-scrolled .pub-header-inner { height: 60px; }
 }
 
 /* ===================== Application installable ===================== */
-.pub-install { align-items: center; animation: fade-up .4s ease both; background: #fff; border: 1px solid var(--pub-border); border-radius: 18px; bottom: 16px; box-shadow: 0 18px 44px rgba(9, 45, 99, .22); display: flex; gap: 12px; left: 50%; max-width: 520px; padding: 12px 12px 12px 14px; position: fixed; transform: translateX(-50%); width: calc(100% - 32px); z-index: 60; }
+.pub-install { align-items: center; animation: install-in .4s ease both; background: #fff; border: 1px solid var(--pub-border); border-radius: 18px; bottom: 16px; box-shadow: 0 18px 44px rgba(9, 45, 99, .22); display: flex; gap: 12px; left: 50%; max-width: 520px; padding: 12px 12px 12px 14px; position: fixed; transform: translateX(-50%); width: calc(100% - 32px); z-index: 60; }
 .pub-install img { border-radius: 12px; box-shadow: 0 4px 12px rgba(9, 45, 99, .15); flex-shrink: 0; }
 .pub-install-text { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
 .pub-install-text strong { color: var(--pub-dark); font-size: 14.5px; }
@@ -665,7 +665,8 @@ html.is-scrolled .pub-header-inner { height: 60px; }
 .pub-install .pub-btn { flex-shrink: 0; padding: 9px 14px; }
 .pub-install-close { background: none; border: 0; border-radius: 8px; color: var(--pub-muted); cursor: pointer; flex-shrink: 0; padding: 6px; }
 .pub-install-close:hover { background: #f1f4f9; }
-@keyframes fade-up { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* Nom propre à l'invitation : « fade-up » est déjà l'animation des titres (animations.css). */
+@keyframes install-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 html[data-theme="dark"] .pub-install { background: #121f38; border-color: #233453; box-shadow: 0 18px 44px rgba(0, 0, 0, .5); }
 html[data-theme="dark"] .pub-install-close:hover { background: #1b2c4d; }
 
