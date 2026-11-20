@@ -24,6 +24,7 @@ export default function AdminShareKit({ item, onClose }: { item: Announcement; o
   const text = texts[network];
   const id = encodeURIComponent(String(item.id));
   const images = [
+    { format: "wide", label: "Horizontal 16:9 · Facebook, YouTube, LinkedIn", file: `carrieres-rdc-${item.id}-horizontal.png` },
     { format: "square", label: "Carré · Facebook", file: `carrieres-rdc-${item.id}-carre.png` },
     { format: "story", label: "Vertical · statut WhatsApp, TikTok", file: `carrieres-rdc-${item.id}-story.png` },
   ];

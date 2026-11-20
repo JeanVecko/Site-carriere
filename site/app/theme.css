@@ -490,6 +490,8 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .98); box-shadow:
 .adm-kit-image img { background: #092d63; border-radius: 8px; display: block; width: 100%; }
 .adm-kit-image.is-square img { aspect-ratio: 1 / 1; }
 .adm-kit-image.is-story img { aspect-ratio: 9 / 16; }
+.adm-kit-image.is-wide { grid-column: 1 / -1; }
+.adm-kit-image.is-wide img { aspect-ratio: 16 / 9; }
 .adm-kit-image figcaption { display: flex; flex-direction: column; gap: 6px; }
 .adm-kit-image figcaption span { color: var(--adm-muted, #5d6b82); font-size: 12px; font-weight: 600; }
 .adm-kit-image .adm-btn { font-size: 13px; justify-content: center; padding: 7px 10px; }

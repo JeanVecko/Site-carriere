@@ -5,7 +5,8 @@ import { decodeEntities, formatDate } from "../../../lib/api";
 import { fetchAnnouncement } from "../../../lib/server";
 
 // Image prête à publier pour une offre (kit de diffusion de l'admin) :
-// /api/kit/42?format=square (1080 × 1080, Facebook) ou ?format=story (1080 × 1920, statut WhatsApp, TikTok).
+// /api/kit/42?format=square (1080 × 1080, Facebook), ?format=story (1080 × 1920, statut WhatsApp, TikTok)
+// ou ?format=wide (1920 × 1080, 16:9 : Facebook, YouTube, LinkedIn, écrans).
 const NAVY = "#092d63";
 const NAVY_2 = "#0f3d80";
 const GOLD = "#d9a400";
@@ -52,11 +53,13 @@ function siteFonts(): Promise<Font[]> {
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const story = new URL(request.url).searchParams.get("format") === "story";
+  const format = new URL(request.url).searchParams.get("format");
+  const story = format === "story";
+  const wide = format === "wide";
   const [item, logo, fonts] = await Promise.all([fetchAnnouncement(id), logoDataUrl(), siteFonts()]);
   if (!item) return new Response("Offre introuvable ou retirée du site.", { status: 404 });
 
-  const width = 1080;
+  const width = wide ? 1920 : 1080;
   const height = story ? 1920 : 1080;
   const title = clip(decodeEntities(item.title), story ? 110 : 90);
   const company = clip(decodeEntities(item.company), 60);
@@ -72,7 +75,101 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     ["Salaire", salary],
   ].filter(([, value]) => value);
 
-  const filename = `carrieres-rdc-${item.id}-${story ? "story" : "carre"}.png`;
+  const filename = `carrieres-rdc-${item.id}-${story ? "story" : wide ? "horizontal" : "carre"}.png`;
+  const label = LABELS[item.category || ""] || "PUBLICATION";
+  const cta = isTender ? "Dossier complet sur" : item.category === "Annonce" ? "Détails sur" : "Postulez sur";
+  const options = {
+    width,
+    height,
+    fonts,
+    headers: { "Content-Disposition": `inline; filename="${filename}"`, "Cache-Control": "public, max-age=60" },
+  };
+
+  if (wide) {
+    // 16:9 : informations à gauche, date limite et adresse du site dans un panneau à droite.
+    const wideTitle = title.length > 70 ? 72 : title.length > 40 ? 88 : 104;
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY} 60%, ${NAVY_2} 100%)`,
+            color: "#fff",
+            fontFamily: fonts.length ? "Jakarta" : "sans-serif",
+            fontWeight: 500,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", width: 1260, padding: "80px 70px 80px 100px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
+              {logo && (
+                <div style={{ display: "flex", background: "#fff", borderRadius: 22, padding: 8 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={logo} width={92} height={92} alt="" />
+                </div>
+              )}
+              <div style={{ display: "flex", fontSize: 50, fontWeight: 700 }}>
+                Carrières <span style={{ color: GOLD, marginLeft: 12 }}>RDC</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center" }}>
+              <div style={{ display: "flex" }}>
+                <div style={{ display: "flex", background: GOLD, color: NAVY, fontSize: 34, fontWeight: 700, padding: "12px 30px", borderRadius: 999 }}>
+                  {label}
+                </div>
+              </div>
+              <div style={{ display: "flex", fontSize: wideTitle, fontWeight: 800, lineHeight: 1.06, letterSpacing: -2, marginTop: 36 }}>{title}</div>
+              <div style={{ display: "flex", fontSize: 50, color: GOLD, fontWeight: 700, marginTop: 28 }}>{company}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "14px 44px", marginTop: 34 }}>
+                {rows.map(([name, value]) => (
+                  <div key={name} style={{ display: "flex", fontSize: 38, color: SOFT }}>
+                    <span style={{ color: "#fff", fontWeight: 700, marginRight: 14 }}>{name} :</span>
+                    {value}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              gap: 40,
+              width: 660,
+              padding: "80px 90px 80px 70px",
+              background: "rgba(255,255,255,.06)",
+              borderLeft: `4px solid ${GOLD}`,
+            }}
+          >
+            {deadline && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  border: `3px solid ${GOLD}`,
+                  borderRadius: 26,
+                  padding: "30px 28px",
+                  background: "rgba(255,255,255,.08)",
+                }}
+              >
+                <div style={{ display: "flex", fontSize: 34, fontWeight: 700 }}>{isTender ? "Soumission avant le" : "Date limite"}</div>
+                <div style={{ display: "flex", fontSize: 44, fontWeight: 800, color: GOLD }}>{deadline}</div>
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", fontSize: 38, fontWeight: 700 }}>{cta}</div>
+              <div style={{ display: "flex", fontSize: 42, fontWeight: 800, color: GOLD }}>www.carrieresrdc.com</div>
+            </div>
+          </div>
+        </div>
+      ),
+      options
+    );
+  }
+
   return new ImageResponse(
     (
       <div
@@ -107,7 +204,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center" }}>
           <div style={{ display: "flex" }}>
             <div style={{ display: "flex", background: GOLD, color: NAVY, fontSize: story ? 30 : 30, fontWeight: 700, padding: "12px 28px", borderRadius: 999 }}>
-              {LABELS[item.category || ""] || "PUBLICATION"}
+              {label}
             </div>
           </div>
           <div style={{ display: "flex", fontSize: titleSize, fontWeight: 800, lineHeight: 1.08, letterSpacing: -1.5, marginTop: story ? 32 : 34 }}>{title}</div>
@@ -154,16 +251,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             fontSize: story ? 34 : 32,
           }}
         >
-          <div style={{ display: "flex", fontWeight: 700 }}>{isTender ? "Dossier complet sur" : item.category === "Annonce" ? "Détails sur" : "Postulez sur"}</div>
+          <div style={{ display: "flex", fontWeight: 700 }}>{cta}</div>
           <div style={{ display: "flex", color: GOLD, fontWeight: 700 }}>www.carrieresrdc.com</div>
         </div>
       </div>
     ),
-    {
-      width,
-      height,
-      fonts,
-      headers: { "Content-Disposition": `inline; filename="${filename}"`, "Cache-Control": "public, max-age=60" },
-    }
+    options
   );
 }
