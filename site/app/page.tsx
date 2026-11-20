@@ -6,7 +6,7 @@ import SiteHeader from "./components/SiteHeader";
 import SiteFooter from "./components/SiteFooter";
 import OfferRow from "./components/OfferRow";
 import SplashScreen from "./components/SplashScreen";
-import { companyAvatar, CONTRACT_TYPES, isExpired } from "./lib/api";
+import { CONTRACT_TYPES, isExpired } from "./lib/api";
 import { fetchAnnouncements } from "./lib/server";
 
 export const revalidate = 60;
@@ -55,28 +55,8 @@ export default async function Home() {
               </div>
             </div>
 
+            {/* Une seule carte, sobre : les dernières offres sont listées juste en dessous. */}
             <div className="home-hero-visual">
-              <div className="home-hero-panel" aria-hidden="true">
-                {/* eslint-disable-next-line @next/next/no-img-element -- logo statique */}
-                <img className="home-hero-watermark" src="/LOGO/Logo.png" alt="" />
-                <div className="home-stack">
-                  {latest.slice(0, 3).map((item, index) => {
-                    const avatar = companyAvatar(item.company);
-                    return (
-                      <div key={String(item.id)} className={`home-stack-card is-${index}`}>
-                        <span className={`pub-avatar tone-${avatar.tone}`}>{avatar.initial}</span>
-                        <div>
-                          <strong>{item.title}</strong>
-                          <small>
-                            {item.company}
-                            {item.location ? ` · ${item.location}` : ""}
-                          </small>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
               <div className="home-hero-card">
                 <span className="home-hero-card-icon" aria-hidden="true"><BellRing size={22} /></span>
                 <strong>Ne ratez aucune offre</strong>
