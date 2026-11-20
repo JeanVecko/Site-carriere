@@ -21,7 +21,6 @@ export default async function Home() {
   const jobs = open.filter((item) => item.category === "Offre d’emploi");
   // Les 5 dernières offres d’emploi encore ouvertes (l’API trie de la plus récente à la plus ancienne).
   const latest = jobs.slice(0, 5);
-  const companies = [...new Set(open.map((item) => item.company?.trim()).filter(Boolean))] as string[];
   const cityCounts = new Map<string, number>();
   for (const item of jobs) {
     const city = cityOf(item.location);
@@ -128,18 +127,6 @@ export default async function Home() {
             </Link>
           </div>
         </section>
-
-        {/* ----- Organisations ----- */}
-        {companies.length >= 3 && (
-          <section className="pub-container home-band" aria-label="Organisations qui publient sur Carrières RDC">
-            <span>Ils publient sur Carrières RDC</span>
-            <ul>
-              {companies.slice(0, 6).map((name) => (
-                <li key={name}>{name}</li>
-              ))}
-            </ul>
-          </section>
-        )}
 
         {/* ----- Inscription rapide aux alertes, à cheval sur le pied de page ----- */}
         <section className="pub-container home-newsletter pub-follow" aria-labelledby="newsletter-title">
