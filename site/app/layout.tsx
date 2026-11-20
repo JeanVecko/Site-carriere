@@ -4,8 +4,10 @@ import "./public.css";
 import "./admin.css";
 import "./animations.css";
 import "./theme.css";
+import "./dark.css";
 import PageTransition from "./components/PageTransition";
 import { SPLASH_PRE_PAINT_SCRIPT } from "./lib/splash";
+import { THEME_PRE_PAINT_SCRIPT } from "./lib/theme";
 import { SITE_URL } from "./lib/server";
 
 export const metadata: Metadata = {
@@ -31,6 +33,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         {/* Décide, avant l'affichage, si l'écran de chargement de l'accueil doit apparaître (évite tout clignotement). */}
         <script dangerouslySetInnerHTML={{ __html: SPLASH_PRE_PAINT_SCRIPT }} />
+        {/* Thème clair / sombre choisi par le visiteur, appliqué avant l'affichage. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_PRE_PAINT_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link

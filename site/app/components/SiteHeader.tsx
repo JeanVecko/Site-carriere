@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Megaphone, Menu, X } from "lucide-react";
 import SocialLinks from "./SocialLinks";
+import ThemeToggle from "./ThemeToggle";
 
 const LINKS = [
   { href: "/offres", label: "Offres d’emploi", extra: false },
@@ -82,6 +83,7 @@ export default function SiteHeader({ active }: { active?: string } = {}) {
             </Link>
           )}
           <SocialLinks />
+          <ThemeToggle />
           <Link className="pub-btn pub-btn-gold" href="/recruteurs">
             <Megaphone size={16} /> Publier une offre
           </Link>
