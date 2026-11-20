@@ -539,3 +539,8 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .98); box-shadow:
   /* Nom long sur deux lignes : coins arrondis plutôt que pilule */
   .pub-company { border-radius: 10px; }
 }
+
+/* Interrupteur « Bilan auto » (rubrique Recruteurs de l'admin) */
+.adm-toggle { align-items: center; background: #f1f4f9; border: 1px solid #d5dde8; border-radius: 999px; color: var(--adm-muted, #5d6b82); cursor: pointer; display: inline-flex; font: inherit; font-size: 12.5px; font-weight: 700; gap: 6px; padding: 5px 11px; white-space: nowrap; }
+.adm-toggle.is-on { background: #e9f7ef; border-color: #bfe5cd; color: #1d6b3d; }
+.adm-toggle:hover { border-color: var(--adm-primary, #092d63); }

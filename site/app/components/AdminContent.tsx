@@ -30,6 +30,7 @@ import {
   FileBarChart,
   Building2,
   Share2,
+  MailCheck,
 } from "lucide-react";
 import {
   Announcement,
@@ -387,6 +388,26 @@ function Dashboard() {
     }
   }
 
+  async function sendReport(item: Announcement) {
+    const recruiter = recruiters.find((entry) => String(entry.id) === String(item.organization_id));
+    const final = offerStatus(item) !== "open";
+    const question = final
+      ? `Envoyer le bilan final de « ${decodeEntities(item.title)} » à ${recruiter?.email || "son recruteur"} ?`
+      : `Envoyer le point de diffusion de « ${decodeEntities(item.title)} » (offre en cours) à ${recruiter?.email || "son recruteur"} ?`;
+    if (!window.confirm(question)) return;
+    try {
+      const result = await apiRequest<{ to: string }>(`/admin/announcements/${item.id}/send-report`, {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify({ final }),
+      });
+      setToast({ type: "success", text: `Bilan envoyé à ${result.to}.` });
+      if (final) await loadAll();
+    } catch (error) {
+      setToast({ type: "error", text: error instanceof Error ? error.message : "Envoi impossible." });
+    }
+  }
+
   async function extendDeadline(item: Announcement, deadline: string) {
     await apiRequest(`/announcements/${item.id}/deadline`, {
       method: "PATCH",
@@ -520,6 +541,7 @@ function Dashboard() {
             onDelete={deleteAnnouncement}
             onExtend={setExtending}
             onShare={setSharing}
+            onSendReport={sendReport}
             onEdit={(item) => {
               setEditing(item);
               setSection("publish");
@@ -939,6 +961,7 @@ function OffersTable({
   onDelete,
   onExtend,
   onShare,
+  onSendReport,
   onEdit,
 }: {
   mode: "active" | "expired";
@@ -947,6 +970,7 @@ function OffersTable({
   onDelete: (item: Announcement) => void;
   onExtend: (item: Announcement) => void;
   onShare: (item: Announcement) => void;
+  onSendReport: (item: Announcement) => void;
   onEdit: (item: Announcement) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -1032,6 +1056,7 @@ function OffersTable({
                     </td>
                     <td>
                       <span className={`adm-status is-${status}`}>{STATUS_LABELS[status]}</span>
+                      {item.report_sent_at && <small>Bilan envoyé le {formatDate(item.report_sent_at)}</small>}
                     </td>
                     <td className="adm-num">{Number(item.views || 0).toLocaleString("fr-FR")}</td>
                     <td className="adm-num">
@@ -1076,6 +1101,17 @@ function OffersTable({
                       <Link className="adm-icon-btn" href={`/admin/bilan?id=${encodeURIComponent(String(item.id))}`} title="Bilan pour le recruteur" aria-label={`Bilan de ${item.title}`}>
                         <FileBarChart size={16} />
                       </Link>
+                      {item.organization_id && (
+                        <button
+                          type="button"
+                          className="adm-icon-btn"
+                          onClick={() => onSendReport(item)}
+                          title="Envoyer le bilan par e-mail au recruteur"
+                          aria-label={`Envoyer le bilan de ${item.title} au recruteur`}
+                        >
+                          <MailCheck size={16} />
+                        </button>
+                      )}
                       <button type="button" className="adm-icon-btn is-danger" onClick={() => onDelete(item)} title="Supprimer" aria-label={`Supprimer ${item.title}`}>
                         <Trash2 size={16} />
                       </button>

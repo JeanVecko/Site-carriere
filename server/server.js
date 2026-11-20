@@ -166,6 +166,8 @@ async function initializeDatabase() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   await pool.query('CREATE INDEX IF NOT EXISTS announcement_events_offer_idx ON announcement_events (announcement_id, created_at)');
+  // Bilan e-mail envoyé au recruteur le lendemain de la date limite (une seule fois par offre)
+  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS report_sent_at TIMESTAMPTZ');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -175,6 +177,7 @@ async function initializeDatabase() {
   await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_status TEXT NOT NULL DEFAULT 'active'");
   await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_limits JSONB NOT NULL DEFAULT '{\"activeJobs\": 3, \"members\": 2}'::jsonb");
   await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'active'");
+  await pool.query('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS auto_reports BOOLEAN NOT NULL DEFAULT TRUE');
   await pool.query(`
     DO $$
     BEGIN
@@ -830,7 +833,7 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
   const result = await pool.query(
     `SELECT a.id, a.title, a.category, a.company, a.location, a.description, a.contract_type,
             to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
-            jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.created_at,
+            jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.created_at, a.report_sent_at,
             ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa') AS public_until,
             NOT (a.deadline IS NULL OR NOW() < ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden,
             u.email AS author_email, a.organization_id, o.name AS organization_name
@@ -1006,7 +1009,7 @@ async function sendAccessLinkEmail({ email, organization, contact, link, first }
 }
 
 const RECRUITER_LIST_SQL = `
-  SELECT o.id, o.name, o.account_status, o.created_at,
+  SELECT o.id, o.name, o.account_status, o.auto_reports, o.created_at,
          u.id AS user_id, u.email, COALESCE(u.data->>'contact', '') AS contact, u.email_verified_at AS activated_at,
          NULLIF(u.data->>'last_login_at', '') AS last_login_at,
          COALESCE(s.offers, 0)::int AS offers, COALESCE(s.views, 0)::int AS views, COALESCE(s.applies, 0)::int AS applies
@@ -1105,6 +1108,127 @@ app.patch('/api/admin/announcements/:id/recruiter', requireAdmin, safe(async (re
   );
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   response.json(result.rows[0]);
+}));
+
+/* ===================== Bilan envoyé par e-mail au recruteur =====================
+   Automatique le lendemain de la date limite d'une offre rattachée à un espace recruteur (tâche du matin, avec
+   les alertes), ou à la demande depuis l'admin. Un seul envoi automatique par offre (report_sent_at). */
+
+const REPORT_SOURCE_LABELS = {
+  direct: 'Accès direct / applications', site: 'Navigation sur Carrières RDC', facebook: 'Facebook', whatsapp: 'WhatsApp',
+  google: 'Google', linkedin: 'LinkedIn', tiktok: 'TikTok', email: 'Alertes et messageries e-mail', autre: 'Autres sites',
+};
+const REPORT_CHANNEL_LABELS = { web: 'Lien de candidature', email: 'E-mail', whatsapp: 'WhatsApp', phone: 'Appel téléphonique', '': 'Non précisé' };
+const frNumber = (value) => Number(value || 0).toLocaleString('fr-FR');
+const frDate = (value) => new Date(`${String(value).slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+// Destinataire du bilan : le contact de la société à laquelle l'offre est rattachée.
+async function reportRecipient(offerId) {
+  const result = await pool.query(
+    `SELECT o.id AS organization_id, o.name AS organization, o.account_status, o.auto_reports,
+            u.email, COALESCE(u.data->>'contact', '') AS contact
+     FROM announcements a JOIN organizations o ON o.id = a.organization_id
+     LEFT JOIN LATERAL (
+       SELECT * FROM users WHERE organization_id = o.id AND role = 'recruteur' ORDER BY (organization_role = 'owner') DESC, id LIMIT 1
+     ) u ON TRUE
+     WHERE a.id = $1`,
+    [offerId]
+  );
+  return result.rows[0] || null;
+}
+
+function reportEmailText({ report, recipient, final }) {
+  const { offer } = report;
+  const views = Number(offer.views || 0);
+  const applies = Number(offer.apply_clicks || 0);
+  const rate = views ? `${Math.round((applies / views) * 100)} %` : '—';
+  const sources = report.sources.filter((row) => row.views > 0).slice(0, 4)
+    .map((row) => `${REPORT_SOURCE_LABELS[row.source] || row.source} ${frNumber(row.views)}`).join(', ');
+  const channels = report.channels.slice(0, 4).map((row) => `${REPORT_CHANNEL_LABELS[row.channel] || row.channel} ${frNumber(row.applies)}`).join(', ');
+  const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Kinshasa' });
+  const intro = final && offer.deadline
+    ? `Votre offre « ${offer.title} » est arrivée à sa date limite le ${frDate(offer.deadline)}. Voici son bilan de diffusion sur Carrières RDC :`
+    : `Voici le point sur la diffusion de votre offre « ${offer.title} » sur Carrières RDC, au ${today} :`;
+  return [
+    `Bonjour${recipient.contact ? ` ${recipient.contact}` : ''},`,
+    '',
+    intro,
+    '',
+    `• ${frNumber(views)} consultation${views > 1 ? 's' : ''} de l’offre`,
+    `• ${frNumber(applies)} clic${applies > 1 ? 's' : ''} sur « Postuler »${views ? ` (${rate} des visiteurs)` : ''}`,
+    sources ? `• Provenance des visiteurs : ${sources}` : null,
+    channels ? `• Contact des candidats : ${channels}` : null,
+    '',
+    'Bilan complet, jour par jour (imprimable en PDF) :',
+    `${frontendUrl}/espace-recruteur/bilan?id=${offer.id}`,
+    `(connectez-vous avec l’adresse ${recipient.email})`,
+    '',
+    final
+      ? `Vous recrutez encore ? Proposez-nous votre prochaine offre depuis votre espace : ${frontendUrl}/espace-recruteur`
+      : `Votre espace recruteur : ${frontendUrl}/espace-recruteur`,
+    '',
+    'Un clic sur « Postuler » correspond à l’ouverture du lien, de l’e-mail, du WhatsApp ou du numéro de candidature de l’offre. Chiffres anonymes, robots exclus.',
+    '',
+    '—',
+    'L’équipe Carrières RDC',
+    frontendUrl,
+  ].filter((line) => line !== null).join('\n');
+}
+
+async function sendOfferReportEmail(offerId, { final }) {
+  const recipient = await reportRecipient(offerId);
+  if (!recipient) throw Object.assign(new Error('Cette offre n’est rattachée à aucun espace recruteur.'), { status: 400 });
+  if (!recipient.email) throw Object.assign(new Error('Ce recruteur n’a pas d’adresse e-mail.'), { status: 400 });
+  if (recipient.account_status !== 'active') throw Object.assign(new Error('L’accès de ce recruteur est suspendu.'), { status: 400 });
+  const report = await offerReport(offerId);
+  if (!report) throw Object.assign(new Error('Offre introuvable.'), { status: 404 });
+  await sendTransactionalEmail({
+    to: recipient.email,
+    replyTo: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    subject: `${final ? 'Bilan' : 'Point'} de votre offre « ${report.offer.title} » — Carrières RDC`.slice(0, 180),
+    text: reportEmailText({ report, recipient, final }),
+  });
+  if (final) await pool.query('UPDATE announcements SET report_sent_at = NOW() WHERE id = $1', [offerId]);
+  return { to: recipient.email };
+}
+
+// Bilans dus : date limite passée (heure de Kinshasa) depuis 7 jours au plus, pas encore envoyés, recruteur actif.
+async function sendDueOfferReports() {
+  const due = await pool.query(
+    `SELECT a.id FROM announcements a JOIN organizations o ON o.id = a.organization_id
+     WHERE a.report_sent_at IS NULL AND a.deadline IS NOT NULL AND o.account_status = 'active' AND o.auto_reports
+       AND a.deadline < (NOW() AT TIME ZONE 'Africa/Kinshasa')::date
+       AND a.deadline >= (NOW() AT TIME ZONE 'Africa/Kinshasa')::date - 7
+     ORDER BY a.deadline LIMIT 50`
+  );
+  const run = { reports_due: due.rows.length, reports_sent: 0, reports_failed: 0 };
+  for (const { id } of due.rows) {
+    try {
+      await sendOfferReportEmail(id, { final: true });
+      run.reports_sent += 1;
+    } catch (error) {
+      run.reports_failed += 1;
+      console.error(`Bilan de l’offre ${id} non envoyé :`, error.message);
+    }
+  }
+  return run;
+}
+
+app.post('/api/admin/announcements/:id/send-report', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Offre introuvable.' });
+  try {
+    const sent = await sendOfferReportEmail(request.params.id, { final: Boolean(request.body?.final) });
+    response.json({ ok: true, ...sent });
+  } catch (error) {
+    response.status(error.status || 502).json({ error: error.status ? error.message : `E-mail non envoyé : ${error.message}` });
+  }
+}));
+
+app.patch('/api/admin/recruiters/:id/auto-reports', requireAdmin, safe(async (request, response) => {
+  const recruiter = await recruiterOrganization(request.params.id);
+  if (!recruiter) return response.status(404).json({ error: 'Recruteur introuvable.' });
+  await pool.query('UPDATE organizations SET auto_reports = $2 WHERE id = $1', [recruiter.id, Boolean(request.body?.enabled)]);
+  response.json(await recruiterOrganization(recruiter.id));
 }));
 
 // Tentatives de connexion échouées, gardées en mémoire : 8 essais par adresse et par quart d'heure.
@@ -1446,6 +1570,7 @@ app.post('/api/alerts/digest', (request, response, next) => {
   if (alertRunInProgress) return response.status(202).json({ ok: true, already_running: true });
   alertRunInProgress = true;
   sendAlertDigests()
+    .then(async (run) => ({ ...run, ...(await sendDueOfferReports().catch((error) => ({ reports_error: error.message }))) }))
     .then((run) => { lastAlertRun = run; console.log('Alertes envoyées :', JSON.stringify(run)); })
     .catch((error) => { lastAlertRun = { error: error.message, finished_at: new Date().toISOString() }; console.error('Envoi des alertes interrompu :', error); })
     .finally(() => { alertRunInProgress = false; });

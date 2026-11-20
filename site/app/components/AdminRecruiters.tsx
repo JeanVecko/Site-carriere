@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Ban, Building2, CircleCheck, Copy, KeyRound, Link2, Send, Trash2, TriangleAlert, UserPlus } from "lucide-react";
+import { Ban, Building2, CircleCheck, Copy, KeyRound, Link2, MailCheck, MailX, Send, Trash2, TriangleAlert, UserPlus } from "lucide-react";
 import { Recruiter, adminHeaders, apiRequest, formatDate } from "../lib/api";
 
 type Notify = (toast: { type: "success" | "error"; text: string }) => void;
@@ -80,6 +80,21 @@ export default function AdminRecruiters({
     }
   }
 
+  async function toggleReports(recruiter: Recruiter) {
+    const enabled = recruiter.auto_reports === false;
+    try {
+      const updated = await apiRequest<Recruiter>(`/admin/recruiters/${recruiter.id}/auto-reports`, {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ enabled }),
+      });
+      onChange(recruiters.map((entry) => (entry.id === recruiter.id ? updated : entry)));
+      notify({ type: "success", text: enabled ? "Bilans automatiques activés." : "Bilans automatiques désactivés." });
+    } catch (toggleError) {
+      notify({ type: "error", text: toggleError instanceof Error ? toggleError.message : "Modification impossible." });
+    }
+  }
+
   async function remove(recruiter: Recruiter) {
     if (!window.confirm(`Supprimer l’espace de ${recruiter.name} ? Le compte est effacé définitivement ; ses offres restent publiées, sans rattachement.`)) return;
     try {
@@ -100,7 +115,7 @@ export default function AdminRecruiters({
         <p className="adm-info adm-info-inline">
           <Building2 size={16} /> Seuls les recruteurs que vous invitez ont un espace. Ils y suivent les statistiques des offres
           que vous leur rattachez (dans le formulaire de l’offre) et peuvent vous proposer de nouvelles offres. Vous restez
-          le seul à publier.
+          le seul à publier. Le lendemain de la date limite d’une offre, le recruteur reçoit son bilan par e-mail.
         </p>
         <fieldset>
           <legend>Ouvrir un espace recruteur</legend>
@@ -149,6 +164,7 @@ export default function AdminRecruiters({
                   <th className="adm-num">Offres</th>
                   <th className="adm-num">Vues</th>
                   <th className="adm-num">Clics « Postuler »</th>
+                  <th>Bilan auto</th>
                   <th className="adm-actions-col">Actions</th>
                 </tr>
               </thead>
@@ -177,6 +193,18 @@ export default function AdminRecruiters({
                       <td className="adm-num">{recruiter.offers}</td>
                       <td className="adm-num">{Number(recruiter.views || 0).toLocaleString("fr-FR")}</td>
                       <td className="adm-num">{Number(recruiter.applies || 0).toLocaleString("fr-FR")}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className={`adm-toggle${recruiter.auto_reports === false ? "" : " is-on"}`}
+                          onClick={() => void toggleReports(recruiter)}
+                          title="Bilan envoyé par e-mail le lendemain de la date limite de chaque offre"
+                          aria-pressed={recruiter.auto_reports !== false}
+                        >
+                          {recruiter.auto_reports === false ? <MailX size={15} /> : <MailCheck size={15} />}
+                          {recruiter.auto_reports === false ? "Désactivé" : "Activé"}
+                        </button>
+                      </td>
                       <td className="adm-actions-col">
                         {recruiter.user_id && (
                           <button

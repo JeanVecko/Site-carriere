@@ -31,6 +31,7 @@ export type Announcement = {
   salary?: string;
   author_email?: string;
   organization_id?: number | string | null; // espace recruteur auquel l'offre est rattachée
+  report_sent_at?: string | null; // bilan final envoyé par e-mail au recruteur
   organization_name?: string;
 };
 
@@ -39,6 +40,7 @@ export type Recruiter = {
   id: number | string;
   name: string;
   account_status: string;
+  auto_reports?: boolean; // bilan envoyé automatiquement le lendemain de la date limite
   created_at: string;
   user_id?: number | string | null;
   email?: string | null;
