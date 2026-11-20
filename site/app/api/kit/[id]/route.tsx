@@ -65,7 +65,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const contract = item.contract_type && item.contract_type !== "Autre" ? item.contract_type : "";
   const salary = item.salary ? clip(decodeEntities(item.salary), 50) : "";
   const deadline = item.deadline ? formatDate(item.deadline) : "";
-  const titleSize = story ? (title.length > 60 ? 84 : 100) : title.length > 60 ? 64 : title.length > 35 ? 76 : 88;
+  const titleSize = story ? (title.length > 60 ? 66 : title.length > 35 ? 76 : 88) : title.length > 60 ? 64 : title.length > 35 ? 76 : 88;
   const rows = [
     ["Lieu", location],
     [item.category === "Annonce" ? "Type" : "Contrat", contract],
@@ -83,7 +83,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           flexDirection: "column",
           background: `linear-gradient(160deg, ${NAVY} 0%, ${NAVY} 55%, ${NAVY_2} 100%)`,
           color: "#fff",
-          padding: story ? "110px 80px" : "70px 72px",
+          // Format vertical : TikTok et les statuts WhatsApp couvrent le haut (onglets), la droite (boutons) et le bas
+          // (légende) de l'image. Tout le texte reste dans la zone centrale toujours visible.
+          padding: story ? "220px 200px 600px 80px" : "70px 72px",
           fontFamily: fonts.length ? "Jakarta" : "sans-serif",
           fontWeight: 500,
         }}
@@ -93,10 +95,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             {logo && (
               <div style={{ display: "flex", background: "#fff", borderRadius: 20, padding: 8 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={logo} width={story ? 96 : 80} height={story ? 96 : 80} alt="" />
+                <img src={logo} width={story ? 84 : 80} height={story ? 84 : 80} alt="" />
               </div>
             )}
-            <div style={{ display: "flex", fontSize: story ? 50 : 42, fontWeight: 700 }}>
+            <div style={{ display: "flex", fontSize: story ? 44 : 42, fontWeight: 700 }}>
               Carrières <span style={{ color: GOLD, marginLeft: 12 }}>RDC</span>
             </div>
           </div>
@@ -104,15 +106,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center" }}>
           <div style={{ display: "flex" }}>
-            <div style={{ display: "flex", background: GOLD, color: NAVY, fontSize: story ? 36 : 30, fontWeight: 700, padding: "12px 28px", borderRadius: 999 }}>
+            <div style={{ display: "flex", background: GOLD, color: NAVY, fontSize: story ? 30 : 30, fontWeight: 700, padding: "12px 28px", borderRadius: 999 }}>
               {LABELS[item.category || ""] || "PUBLICATION"}
             </div>
           </div>
-          <div style={{ display: "flex", fontSize: titleSize, fontWeight: 800, lineHeight: 1.08, letterSpacing: -1.5, marginTop: story ? 44 : 34 }}>{title}</div>
-          <div style={{ display: "flex", fontSize: story ? 52 : 44, color: GOLD, fontWeight: 700, marginTop: story ? 34 : 26 }}>{company}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: story ? 18 : 12, marginTop: story ? 50 : 36 }}>
+          <div style={{ display: "flex", fontSize: titleSize, fontWeight: 800, lineHeight: 1.08, letterSpacing: -1.5, marginTop: story ? 32 : 34 }}>{title}</div>
+          <div style={{ display: "flex", fontSize: story ? 42 : 44, color: GOLD, fontWeight: 700, marginTop: story ? 24 : 26 }}>{company}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: story ? 12 : 12, marginTop: story ? 32 : 36 }}>
             {rows.map(([label, value]) => (
-              <div key={label} style={{ display: "flex", fontSize: story ? 40 : 32, color: SOFT }}>
+              <div key={label} style={{ display: "flex", fontSize: story ? 34 : 32, color: SOFT }}>
                 <span style={{ color: "#fff", fontWeight: 700, marginRight: 14 }}>{label} :</span>
                 {value}
               </div>
@@ -129,10 +131,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               background: "rgba(255,255,255,.1)",
               border: `3px solid ${GOLD}`,
               borderRadius: 24,
-              fontSize: story ? 44 : 34,
+              fontSize: story ? 34 : 34,
               fontWeight: 700,
-              padding: story ? "30px 24px" : "22px 24px",
-              marginBottom: story ? 50 : 34,
+              padding: story ? "22px 18px" : "22px 24px",
+              marginBottom: story ? 30 : 34,
             }}
           >
             {isTender ? "Soumission avant le " : "Date limite : "}
@@ -144,12 +146,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           style={{
             display: "flex",
             flexDirection: story ? "column" : "row",
-            alignItems: "center",
+            alignItems: story ? "flex-start" : "center",
             justifyContent: "space-between",
-            gap: story ? 18 : 0,
+            gap: story ? 8 : 0,
             borderTop: `3px solid ${GOLD}`,
-            paddingTop: story ? 40 : 28,
-            fontSize: story ? 40 : 32,
+            paddingTop: story ? 24 : 28,
+            fontSize: story ? 34 : 32,
           }}
         >
           <div style={{ display: "flex", fontWeight: 700 }}>{isTender ? "Dossier complet sur" : item.category === "Annonce" ? "Détails sur" : "Postulez sur"}</div>
