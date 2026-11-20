@@ -483,3 +483,36 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .98); box-shadow:
   .adm-kit-body { grid-template-columns: 1fr; }
   .adm-kit-text textarea { min-height: 220px; }
 }
+
+/* ===================== Effet vitré derrière les offres =====================
+   Des halos bleu marine et dorés sont posés derrière la liste ; chaque offre est une plaque de verre dépoli
+   (fond blanc translucide + flou de l'arrière-plan). Sans prise en charge du flou : fond presque opaque. */
+.pub-jobs { isolation: isolate; position: relative; }
+.pub-jobs::before {
+  background:
+    radial-gradient(260px 200px at 12% 90px, rgba(15, 61, 128, .30), transparent 70%),
+    radial-gradient(240px 190px at 88% 230px, rgba(240, 185, 11, .32), transparent 70%),
+    radial-gradient(300px 220px at 55% 420px, rgba(29, 95, 180, .22), transparent 70%);
+  background-repeat: repeat-y;
+  background-size: 100% 520px;
+  content: "";
+  filter: blur(6px);
+  inset: -24px -16px;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+.pub-job {
+  background: rgba(255, 255, 255, .9);
+  border: 1px solid rgba(255, 255, 255, .75);
+  box-shadow: 0 10px 30px rgba(9, 45, 99, .08), inset 0 1px 0 rgba(255, 255, 255, .9);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .pub-job {
+    -webkit-backdrop-filter: blur(16px) saturate(170%);
+    backdrop-filter: blur(16px) saturate(170%);
+    background: rgba(255, 255, 255, .58);
+  }
+}
+.pub-job:hover { background: rgba(255, 255, 255, .78); border-color: rgba(217, 164, 0, .55); box-shadow: 0 16px 38px rgba(9, 45, 99, .14), inset 0 1px 0 #fff; }
+.pub-job .pub-job-arrow { background: rgba(255, 255, 255, .6); }

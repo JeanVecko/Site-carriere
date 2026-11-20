@@ -124,8 +124,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               <div style={{ display: "flex", flexWrap: "wrap", gap: "14px 44px", marginTop: 34 }}>
                 {rows.map(([name, value]) => (
                   <div key={name} style={{ display: "flex", fontSize: 38, color: SOFT }}>
-                    <span style={{ color: "#fff", fontWeight: 700, marginRight: 14 }}>{name} :</span>
-                    {value}
+                    <span style={{ color: "#fff", fontWeight: 700, marginRight: 14, flexShrink: 0 }}>{name} :</span>
+                    <span style={{ display: "flex", flex: 1 }}>{value}</span>
                   </div>
                 ))}
               </div>
@@ -181,8 +181,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           background: `linear-gradient(160deg, ${NAVY} 0%, ${NAVY} 55%, ${NAVY_2} 100%)`,
           color: "#fff",
           // Format vertical : TikTok et les statuts WhatsApp couvrent le haut (onglets), la droite (boutons) et le bas
-          // (légende) de l'image. Tout le texte reste dans la zone centrale toujours visible.
-          padding: story ? "220px 200px 600px 80px" : "70px 72px",
+          // (légende) de l'image. Le texte forme un seul bloc, centré verticalement dans la zone toujours visible.
+          justifyContent: story ? "center" : "flex-start",
+          padding: story ? "180px 200px 420px 80px" : "70px 72px",
           fontFamily: fonts.length ? "Jakarta" : "sans-serif",
           fontWeight: 500,
         }}
@@ -201,7 +202,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: story ? 0 : 1, justifyContent: "center", margin: story ? "70px 0 60px" : 0 }}>
           <div style={{ display: "flex" }}>
             <div style={{ display: "flex", background: GOLD, color: NAVY, fontSize: story ? 30 : 30, fontWeight: 700, padding: "12px 28px", borderRadius: 999 }}>
               {label}
@@ -212,8 +213,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           <div style={{ display: "flex", flexDirection: "column", gap: story ? 12 : 12, marginTop: story ? 32 : 36 }}>
             {rows.map(([label, value]) => (
               <div key={label} style={{ display: "flex", fontSize: story ? 34 : 32, color: SOFT }}>
-                <span style={{ color: "#fff", fontWeight: 700, marginRight: 14 }}>{label} :</span>
-                {value}
+                <span style={{ color: "#fff", fontWeight: 700, marginRight: 14, flexShrink: 0 }}>{label} :</span>
+                <span style={{ display: "flex", flex: 1 }}>{value}</span>
               </div>
             ))}
           </div>
