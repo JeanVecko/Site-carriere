@@ -17,6 +17,8 @@ type Report = {
     location: string;
     contract_type: string;
     deadline: string | null;
+    featured_from?: string | null;
+    featured_until?: string | null;
     created_at: string;
     views: number;
     apply_clicks: number;
@@ -146,6 +148,9 @@ export default function AdminReport({ id, mode = "admin" }: { id: string; mode?:
           <div><dt>Publiée le</dt><dd>{formatDate(offer.created_at)}</dd></div>
           <div><dt>Date limite</dt><dd>{offer.deadline ? formatDate(offer.deadline) : "Non précisée"}</dd></div>
           <div><dt>Chiffres au</dt><dd>{today}</dd></div>
+          {offer.featured_from && offer.featured_until && (
+            <div><dt>À la une</dt><dd>du {formatDate(offer.featured_from)} au {formatDate(offer.featured_until)}</dd></div>
+          )}
         </dl>
 
         <section className="adm-report-kpis" aria-label="Résultats">

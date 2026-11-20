@@ -32,6 +32,9 @@ export type Announcement = {
   author_email?: string;
   organization_id?: number | string | null; // espace recruteur auquel l'offre est rattachée
   report_sent_at?: string | null; // bilan final envoyé par e-mail au recruteur
+  featured?: boolean; // offre « à la une » aujourd'hui (en tête des listes, badge doré)
+  featured_from?: string | null;
+  featured_until?: string | null; // dernier jour à la une (inclus)
   organization_name?: string;
 };
 

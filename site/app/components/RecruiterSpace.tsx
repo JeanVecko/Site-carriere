@@ -36,6 +36,8 @@ type Offer = {
   location: string;
   contract_type: string;
   deadline: string | null;
+  featured?: boolean;
+  featured_until?: string | null;
   created_at: string;
   views: number;
   apply_clicks: number;
@@ -234,6 +236,7 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
                       <small>
                         Publiée le {formatDate(offer.created_at)} ·{" "}
                         <em className={offer.hidden ? "rec-off" : "rec-on"}>{offer.hidden ? "Retirée du site" : "En ligne"}</em>
+                        {offer.featured && offer.featured_until && <> · <em className="rec-featured">★ À la une jusqu’au {formatDate(offer.featured_until)}</em></>}
                       </small>
                     </td>
                     <td className="rec-labeled" data-label="Date limite">{offer.deadline ? formatDate(offer.deadline) : "Non précisée"}</td>

@@ -31,6 +31,7 @@ import {
   Building2,
   Share2,
   MailCheck,
+  Star,
 } from "lucide-react";
 import {
   Announcement,
@@ -234,6 +235,7 @@ function Dashboard() {
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [extending, setExtending] = useState<Announcement | null>(null);
   const [sharing, setSharing] = useState<Announcement | null>(null);
+  const [featuring, setFeaturing] = useState<Announcement | null>(null);
   const [editing, setEditing] = useState<Announcement | null>(null);
   // Catégorie choisie dans le formulaire de publication (pour le titre de la page).
   const [formCategory, setFormCategory] = useState("Offre d’emploi");
@@ -386,6 +388,23 @@ function Dashboard() {
     } catch (error) {
       setToast({ type: "error", text: error instanceof Error ? error.message : "Suppression impossible." });
     }
+  }
+
+  // Mise « à la une » (ou retrait) d'une offre jusqu'à une date incluse.
+  async function saveFeatured(item: Announcement, until: string | null) {
+    const result = await apiRequest<{ warning?: string; active_featured?: number }>(`/admin/announcements/${item.id}/featured`, {
+      method: "PATCH",
+      headers: adminHeaders(),
+      body: JSON.stringify({ until }),
+    });
+    setFeaturing(null);
+    refreshPublicSite();
+    setToast(
+      result.warning
+        ? { type: "error", text: result.warning }
+        : { type: "success", text: until ? `« À la une » jusqu’au ${formatDate(until)}.` : "Offre retirée de la une." }
+    );
+    await loadAll();
   }
 
   async function sendReport(item: Announcement) {
@@ -542,6 +561,7 @@ function Dashboard() {
             onExtend={setExtending}
             onShare={setSharing}
             onSendReport={sendReport}
+            onFeature={setFeaturing}
             onEdit={(item) => {
               setEditing(item);
               setSection("publish");
@@ -572,6 +592,15 @@ function Dashboard() {
       </div>
 
       {sharing && <AdminShareKit item={sharing} onClose={() => setSharing(null)} />}
+
+      {featuring && (
+        <FeatureDialog
+          item={featuring}
+          activeCount={announcements.filter((entry) => entry.featured && offerStatus(entry) === "open").length}
+          onClose={() => setFeaturing(null)}
+          onSave={(until) => saveFeatured(featuring, until)}
+        />
+      )}
 
       {extending && (
         <ExtendDialog item={extending} onClose={() => setExtending(null)} onSave={(deadline) => extendDeadline(extending, deadline)} />
@@ -962,6 +991,7 @@ function OffersTable({
   onExtend,
   onShare,
   onSendReport,
+  onFeature,
   onEdit,
 }: {
   mode: "active" | "expired";
@@ -971,6 +1001,7 @@ function OffersTable({
   onExtend: (item: Announcement) => void;
   onShare: (item: Announcement) => void;
   onSendReport: (item: Announcement) => void;
+  onFeature: (item: Announcement) => void;
   onEdit: (item: Announcement) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -1056,6 +1087,7 @@ function OffersTable({
                     </td>
                     <td>
                       <span className={`adm-status is-${status}`}>{STATUS_LABELS[status]}</span>
+                      {item.featured && item.featured_until && <small className="adm-featured-note">★ À la une jusqu’au {formatDate(item.featured_until)}</small>}
                       {item.report_sent_at && <small>Bilan envoyé le {formatDate(item.report_sent_at)}</small>}
                     </td>
                     <td className="adm-num">{Number(item.views || 0).toLocaleString("fr-FR")}</td>
@@ -1064,6 +1096,17 @@ function OffersTable({
                       <small>{applyRate(item)}</small>
                     </td>
                     <td className="adm-actions-col">
+                      {status === "open" && (
+                        <button
+                          type="button"
+                          className={`adm-icon-btn${item.featured ? " is-featured" : ""}`}
+                          onClick={() => onFeature(item)}
+                          title={item.featured ? "À la une : modifier ou retirer" : "Mettre à la une"}
+                          aria-label={`Mettre à la une ${item.title}`}
+                        >
+                          <Star size={16} />
+                        </button>
+                      )}
                       {status !== "hidden" && (
                         <button
                           type="button"
@@ -1135,6 +1178,108 @@ function applyRate(item: Announcement): string {
   const views = Number(item.views || 0);
   if (!views) return "";
   return `${Math.round((Number(item.apply_clicks || 0) / views) * 100)} %`;
+}
+
+/* ----- Mise « à la une » ----- */
+
+const FEATURED_LIMIT = 3;
+
+function FeatureDialog({
+  item,
+  activeCount,
+  onClose,
+  onSave,
+}: {
+  item: Announcement;
+  activeCount: number;
+  onClose: () => void;
+  onSave: (until: string | null) => Promise<void>;
+}) {
+  const [now] = useState(() => new Date());
+  const today = toIsoDate(now);
+  // « 7 jours » = aujourd'hui compris : dernier jour dans 6 jours.
+  const plus = (days: number) => toIsoDate(new Date(now.getTime() + (days - 1) * 86_400_000));
+  const [value, setValue] = useState(item.featured && item.featured_until ? item.featured_until : plus(7));
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const others = activeCount - (item.featured ? 1 : 0);
+
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [onClose]);
+
+  async function run(until: string | null) {
+    if (until && until < today) return setError("Choisissez une date à partir d’aujourd’hui.");
+    setPending(true);
+    setError("");
+    try {
+      await onSave(until);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Enregistrement impossible.");
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="adm-modal-backdrop" onClick={onClose}>
+      <form
+        className="adm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="feature-title"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void run(value);
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 id="feature-title">
+          <Star size={18} /> {item.featured ? "Offre à la une" : "Mettre à la une"}
+        </h2>
+        <p className="adm-modal-text">
+          « {decodeEntities(item.title)} » passe en tête des listes, avec un badge doré, et en premier dans les alertes
+          e-mail. Elle redevient normale d’elle-même après le dernier jour.
+        </p>
+        <div className="adm-segmented" role="group" aria-label="Durée">
+          {[7, 14, 30].map((days) => (
+            <button key={days} type="button" className={value === plus(days) ? "is-active" : undefined} onClick={() => setValue(plus(days))}>
+              {days} jours
+            </button>
+          ))}
+        </div>
+        <label className="adm-field">
+          <span>Dernier jour à la une (inclus)</span>
+          <input type="date" min={today} value={value} onChange={(event) => setValue(event.target.value)} required />
+        </label>
+        {others >= FEATURED_LIMIT && !item.featured && (
+          <p className="adm-alert adm-alert-error">
+            <TriangleAlert size={16} /> {others} offres sont déjà à la une. Au-delà de {FEATURED_LIMIT}, la mise en avant perd de sa valeur.
+          </p>
+        )}
+        {error && (
+          <p className="adm-alert adm-alert-error" role="alert">
+            <TriangleAlert size={16} /> {error}
+          </p>
+        )}
+        <div className="adm-form-actions">
+          {item.featured ? (
+            <button type="button" className="adm-btn adm-btn-ghost" onClick={() => void run(null)} disabled={pending}>
+              Retirer de la une
+            </button>
+          ) : (
+            <button type="button" className="adm-btn adm-btn-ghost" onClick={onClose}>
+              Annuler
+            </button>
+          )}
+          <button type="submit" className="adm-btn adm-btn-primary" disabled={pending}>
+            <Star size={16} /> {pending ? "Enregistrement…" : item.featured ? "Modifier la date" : "Mettre à la une"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
 
 /* ----- Prolongation de la date d'expiration ----- */

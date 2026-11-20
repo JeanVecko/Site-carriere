@@ -168,6 +168,9 @@ async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS announcement_events_offer_idx ON announcement_events (announcement_id, created_at)');
   // Bilan e-mail envoyé au recruteur le lendemain de la date limite (une seule fois par offre)
   await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS report_sent_at TIMESTAMPTZ');
+  // Offre « à la une » (mise en avant payante) du featured_from au featured_until inclus
+  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_from DATE');
+  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_until DATE');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -749,6 +752,9 @@ app.delete('/api/my/organization/members/:id', requireUser, requireOrganizationO
 // (affichée « Expirée »). Ensuite elle n'est plus visible que par l'administrateur.
 // Heure de référence : Kinshasa. Fin de visibilité = (date limite + 2 jours) à 00:00.
 const PUBLIC_UNTIL_SQL = "((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')";
+// Offre « à la une » aujourd'hui (heure de Kinshasa) : affichée en tête des listes, avec un badge.
+const FEATURED_SQL = "(featured_until IS NOT NULL AND featured_until >= (NOW() AT TIME ZONE 'Africa/Kinshasa')::date)";
+const FEATURED_LIMIT = 3;
 const PUBLICLY_VISIBLE_SQL = `(deadline IS NULL OR NOW() < ${PUBLIC_UNTIL_SQL})`;
 // Une publication a une vignette si au moins une image est jointe.
 // Empreinte des pièces jointes : change dès qu'une image est remplacée, pour que les navigateurs ne gardent
@@ -797,7 +803,7 @@ app.get('/api/announcements/:id/cover', async (request, response) => {
 app.get('/api/announcements', async (request, response) => {
   const category = clean(request.query.category);
   const values = category ? [category] : [];
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover, ${MEDIA_VERSION_SQL} AS media_version FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY created_at DESC`, values);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY ${FEATURED_SQL} DESC, created_at DESC`, values);
   response.json(result.rows);
 });
 
@@ -824,7 +830,7 @@ app.get('/api/my/recommended-offers', requireUser, async (request, response) => 
 
 app.get('/api/announcements/:id', async (request, response) => {
   if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, media, ${MEDIA_VERSION_SQL} AS media_version FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, media, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   response.json(result.rows[0]);
 });
@@ -834,6 +840,7 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
     `SELECT a.id, a.title, a.category, a.company, a.location, a.description, a.contract_type,
             to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
             jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.created_at, a.report_sent_at,
+            ${FEATURED_SQL} AS featured, to_char(a.featured_from, 'YYYY-MM-DD') AS featured_from, to_char(a.featured_until, 'YYYY-MM-DD') AS featured_until,
             ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa') AS public_until,
             NOT (a.deadline IS NULL OR NOW() < ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden,
             u.email AS author_email, a.organization_id, o.name AS organization_name
@@ -942,7 +949,8 @@ async function offerReport(id, organizationId = null) {
   if (!/^\d+$/.test(String(id))) return null;
   const offer = await pool.query(
     `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
-            created_at, views, apply_clicks FROM announcements
+            created_at, views, apply_clicks, to_char(featured_from, 'YYYY-MM-DD') AS featured_from,
+            to_char(featured_until, 'YYYY-MM-DD') AS featured_until FROM announcements
      WHERE id = $1 AND ($2::bigint IS NULL OR organization_id = $2::bigint)`,
     [id, organizationId]
   );
@@ -1231,6 +1239,36 @@ app.patch('/api/admin/recruiters/:id/auto-reports', requireAdmin, safe(async (re
   response.json(await recruiterOrganization(recruiter.id));
 }));
 
+// Mise « à la une » d'une offre par l'administrateur (après paiement du recruteur, hors du site), jusqu'à une date
+// incluse ; until = null la retire de la une. Au-delà de FEATURED_LIMIT offres en même temps, un avertissement est renvoyé.
+app.patch('/api/admin/announcements/:id/featured', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Offre introuvable.' });
+  const until = request.body?.until ? clean(request.body.until) : null;
+  if (until && (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until)))) return response.status(400).json({ error: 'Date invalide.' });
+  const result = await pool.query(
+    until
+      ? `UPDATE announcements SET featured_until = $2::date,
+           featured_from = CASE WHEN ${FEATURED_SQL} THEN featured_from ELSE (NOW() AT TIME ZONE 'Africa/Kinshasa')::date END
+         WHERE id = $1 AND $2::date >= (NOW() AT TIME ZONE 'Africa/Kinshasa')::date
+         RETURNING id, to_char(featured_from, 'YYYY-MM-DD') AS featured_from, to_char(featured_until, 'YYYY-MM-DD') AS featured_until`
+      : `UPDATE announcements SET featured_until = NULL, featured_from = NULL WHERE id = $1
+         RETURNING id, featured_from, featured_until`,
+    until ? [request.params.id, until] : [request.params.id]
+  );
+  if (!result.rows[0]) {
+    const exists = await pool.query('SELECT 1 FROM announcements WHERE id = $1', [request.params.id]);
+    if (!exists.rows[0]) return response.status(404).json({ error: 'Offre introuvable.' });
+    return response.status(400).json({ error: 'La date de fin doit être aujourd’hui ou plus tard.' });
+  }
+  const active = (await pool.query(`SELECT COUNT(*)::int AS count FROM announcements WHERE ${FEATURED_SQL} AND ${PUBLICLY_VISIBLE_SQL}`)).rows[0].count;
+  response.json({
+    ...result.rows[0],
+    featured: Boolean(until),
+    active_featured: active,
+    warning: active > FEATURED_LIMIT ? `${active} offres sont à la une en même temps : au-delà de ${FEATURED_LIMIT}, la mise en avant perd de sa valeur.` : '',
+  });
+}));
+
 // Tentatives de connexion échouées, gardées en mémoire : 8 essais par adresse et par quart d'heure.
 const failedLogins = new Map();
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
@@ -1312,7 +1350,7 @@ app.get('/api/recruiter/me', requireRecruiter, safe(async (request, response) =>
     pool.query(`SELECT o.name, COALESCE(u.data->>'contact', '') AS contact FROM organizations o JOIN users u ON u.id = $2 WHERE o.id = $1`, [request.user.organization_id, request.user.id]),
     pool.query(
       `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, created_at,
-              views, apply_clicks,
+              views, apply_clicks, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until,
               NOT (deadline IS NULL OR NOW() < ((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden
        FROM announcements WHERE organization_id = $1 ORDER BY created_at DESC`,
       [request.user.organization_id]
@@ -1522,11 +1560,12 @@ async function sendAlertDigests() {
     run.checked += 1;
     const since = alert.last_sent_at || alert.confirmed_at;
     const offers = (await pool.query(
-      `SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline
+      `SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
+              ${FEATURED_SQL} AS featured
        FROM announcements
        WHERE created_at > $1 AND (deadline IS NULL OR deadline >= CURRENT_DATE)
          AND ($2 = '' OR category = $2) AND ($3 = '' OR location ILIKE '%' || $3 || '%') AND ($4 = '' OR contract_type = $4)
-       ORDER BY created_at DESC LIMIT 60`,
+       ORDER BY ${FEATURED_SQL} DESC, created_at DESC LIMIT 60`,
       [since, alert.category, alert.city, alert.contract_type]
     )).rows;
     const words = foldText(alert.keywords).split(/[\s,;]+/).filter((word) => word.length >= 2);
@@ -1538,7 +1577,7 @@ async function sendAlertDigests() {
     const unsubscribe = `${frontendUrl}/alertes/desabonner?token=${alert.token}`;
     const lines = matches.map((offer) => {
       const deadline = offer.deadline ? ` — date limite : ${new Date(`${offer.deadline}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : '';
-      return `• ${offer.title}\n  ${offer.company}, ${offer.location}${deadline}\n  ${frontendUrl}${ALERT_DETAIL_BASES[offer.category] || '/offre'}/${offer.id}`;
+      return `• ${offer.featured ? '⭐ À LA UNE — ' : ''}${offer.title}\n  ${offer.company}, ${offer.location}${deadline}\n  ${frontendUrl}${ALERT_DETAIL_BASES[offer.category] || '/offre'}/${offer.id}`;
     });
     const count = matches.length;
     try {

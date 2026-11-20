@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, CalendarClock, MapPin, Megaphone } from "lucide-react";
+import { Building2, CalendarClock, MapPin, Megaphone, Star } from "lucide-react";
 import { type Announcement, companyAvatar, decodeEntities, detailHref, formatDate, isExpired, mediaUrl, timeAgo } from "../lib/api";
 
 // Carte visuelle d'une annonce (page Annonces) : vignette de l'image jointe, ou visuel de remplacement.
@@ -8,7 +8,7 @@ export default function AnnouncementTile({ item }: { item: Announcement }) {
   const avatar = companyAvatar(item.company);
   return (
     <li>
-      <Link className={`pub-tile${expired ? " is-expired" : ""}`} href={detailHref(item)}>
+      <Link className={`pub-tile${expired ? " is-expired" : ""}${item.featured && !expired ? " is-featured" : ""}`} href={detailHref(item)}>
         <span className="pub-tile-cover">
           {item.has_cover ? (
             // eslint-disable-next-line @next/next/no-img-element -- image servie par l'API
@@ -20,6 +20,11 @@ export default function AnnouncementTile({ item }: { item: Announcement }) {
             </span>
           )}
           {expired && <span className="pub-tile-badge">Expirée</span>}
+          {item.featured && !expired && (
+            <span className="pub-tile-badge pub-tile-featured">
+              <Star size={12} aria-hidden="true" /> À la une
+            </span>
+          )}
         </span>
         <span className="pub-tile-body">
           <span className="pub-tile-date" suppressHydrationWarning>

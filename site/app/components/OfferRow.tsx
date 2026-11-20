@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Building2, CalendarClock, Clock, MapPin } from "lucide-react";
+import { ArrowRight, Building2, CalendarClock, Clock, MapPin, Star } from "lucide-react";
 import { type Announcement, companyAvatar, decodeEntities, detailHref, formatDate, isExpired, timeAgo } from "../lib/api";
 
 // Fiche d'une offre dans une liste (accueil et pages de catégorie).
@@ -8,7 +8,7 @@ export default function OfferRow({ item, showCategory = false }: { item: Announc
   const avatar = companyAvatar(item.company);
   return (
     <li>
-      <Link className={`pub-job${expired ? " is-expired" : ""}`} href={detailHref(item)}>
+      <Link className={`pub-job${expired ? " is-expired" : ""}${item.featured && !expired ? " is-featured" : ""}`} href={detailHref(item)}>
         <span className={`pub-avatar tone-${avatar.tone}`} aria-hidden="true">
           {avatar.initial}
         </span>
@@ -26,6 +26,11 @@ export default function OfferRow({ item, showCategory = false }: { item: Announc
             </span>
           </span>
           <span className="pub-tags">
+            {item.featured && !expired && (
+              <span className="pub-tag pub-tag-featured">
+                <Star size={12} aria-hidden="true" /> À la une
+              </span>
+            )}
             {showCategory && item.category && <span className="pub-tag">{item.category}</span>}
             {item.contract_type && <span className="pub-tag pub-tag-gold">{item.contract_type}</span>}
             {expired && <span className="pub-tag pub-tag-red">Expirée</span>}

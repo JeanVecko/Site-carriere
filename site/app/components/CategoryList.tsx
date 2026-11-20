@@ -99,6 +99,8 @@ export default function CategoryList({ category, initialItems }: { category: str
       // Offres encore ouvertes d'abord ; les offres expirées (encore visibles 24 h) à la fin.
       const expiredGap = Number(isExpired(a)) - Number(isExpired(b));
       if (expiredGap) return expiredGap;
+      // Tri par défaut : les offres « à la une » en tête.
+      if (sort === "recent" && Boolean(a.featured) !== Boolean(b.featured)) return a.featured ? -1 : 1;
       if (sort === "deadline") {
         if (!a.deadline) return 1;
         if (!b.deadline) return -1;

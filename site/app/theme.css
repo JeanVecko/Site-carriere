@@ -544,3 +544,21 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .98); box-shadow:
 .adm-toggle { align-items: center; background: #f1f4f9; border: 1px solid #d5dde8; border-radius: 999px; color: var(--adm-muted, #5d6b82); cursor: pointer; display: inline-flex; font: inherit; font-size: 12.5px; font-weight: 700; gap: 6px; padding: 5px 11px; white-space: nowrap; }
 .adm-toggle.is-on { background: #e9f7ef; border-color: #bfe5cd; color: #1d6b3d; }
 .adm-toggle:hover { border-color: var(--adm-primary, #092d63); }
+
+/* ===================== Offres « à la une » ===================== */
+.pub-tag-featured, .pub-job .pub-tag.pub-tag-featured, .pub-tile .pub-tag.pub-tag-featured { align-items: center; background: linear-gradient(135deg, #f0b90b 0%, #d9a400 100%); border: 0; color: #fff; display: inline-flex; font-weight: 800; gap: 4px; letter-spacing: .01em; text-shadow: 0 1px 1px rgba(122, 90, 0, .35); }
+.pub-tag-featured svg { fill: currentColor; }
+.pub-job.is-featured { border: 2px solid #ecc54a; box-shadow: 0 14px 34px rgba(217, 164, 0, .18), inset 0 1px 0 rgba(255, 255, 255, .9); }
+.pub-job.is-featured::after { background: linear-gradient(180deg, #f0b90b, #d9a400); border-radius: 0 3px 3px 0; bottom: 14px; content: ""; left: -2px; position: absolute; top: 14px; width: 4px; }
+.pub-job { position: relative; }
+.pub-tile.is-featured { box-shadow: 0 0 0 2px #ecc54a, 0 14px 34px rgba(217, 164, 0, .18); }
+.pub-tile-badge.pub-tile-featured { align-items: center; background: linear-gradient(135deg, #f0b90b 0%, #d9a400 100%); display: inline-flex; gap: 4px; }
+.pub-tile-featured svg { fill: currentColor; }
+.pub-offer-hero .pub-tag.pub-tag-featured { background: linear-gradient(135deg, #f0b90b 0%, #d9a400 100%); color: #fff; }
+.rec-featured { color: #a37b00 !important; }
+/* Admin */
+.adm-featured-note { color: #a37b00 !important; font-weight: 700; }
+.adm-icon-btn.is-featured { background: #fff3cc; border-color: #ecc54a; color: #a37b00; }
+.adm-icon-btn.is-featured svg { fill: currentColor; }
+.adm-modal-text { color: var(--adm-muted, #5d6b82); font-size: 14px; line-height: 1.5; margin: 0; }
+.adm-modal h2 { align-items: center; display: flex; gap: 8px; }

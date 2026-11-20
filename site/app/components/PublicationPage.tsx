@@ -227,6 +227,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
                 <MapPin size={15} aria-hidden="true" /> {decodeEntities(item.location)}
               </p>
               <div className="pub-tags">
+                {item.featured && !expired && <span className="pub-tag pub-tag-featured">★ À la une</span>}
                 <span className="pub-tag">{item.category}</span>
                 {item.contract_type && <span className="pub-tag pub-tag-gold">{item.contract_type}</span>}
                 {item.salary && <span className="pub-tag">{item.salary}</span>}
