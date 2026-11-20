@@ -27,7 +27,7 @@ export default function AnnouncementTile({ item }: { item: Announcement }) {
           </span>
           <span className="pub-tile-title">{decodeEntities(item.title)}</span>
           <span className="pub-tile-meta">
-            <span>
+            <span className="pub-company">
               <Building2 size={13} aria-hidden="true" /> {decodeEntities(item.company)}
             </span>
             <span>

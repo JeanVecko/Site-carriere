@@ -15,7 +15,7 @@ export default function OfferRow({ item, showCategory = false }: { item: Announc
         <span className="pub-job-main">
           <span className="pub-job-title">{decodeEntities(item.title)}</span>
           <span className="pub-job-meta">
-            <span>
+            <span className="pub-company">
               <Building2 size={14} aria-hidden="true" /> {decodeEntities(item.company)}
             </span>
             <span>

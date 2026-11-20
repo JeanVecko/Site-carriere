@@ -516,3 +516,26 @@ html.is-scrolled .pub-header { background: rgba(255, 255, 255, .98); box-shadow:
 }
 .pub-job:hover { background: rgba(255, 255, 255, .78); border-color: rgba(217, 164, 0, .55); box-shadow: 0 16px 38px rgba(9, 45, 99, .14), inset 0 1px 0 #fff; }
 .pub-job .pub-job-arrow { background: rgba(255, 255, 255, .6); }
+
+/* Nom de la société : pastille dorée (fond doré clair, texte doré foncé) — bien visible, lisible au soleil. */
+.pub-company {
+  align-items: center;
+  background: linear-gradient(180deg, #fff7d6 0%, #ffefb8 100%);
+  border: 1px solid #ecc54a;
+  border-radius: 999px;
+  color: #6b4d00 !important;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 6px;
+  line-height: 1.3;
+  max-width: 100%;
+  padding: 3px 11px 3px 9px;
+}
+.pub-company svg { color: #b58500 !important; flex-shrink: 0; }
+.pub-offer-hero-text p .pub-company { font-size: 14px; }
+/* Étiquette du contrat en bleu clair : seule la société reste en doré. */
+.pub-job .pub-tag, .pub-tile .pub-tag { background: #eaf1fb; border: 1px solid #d3e0f3; color: var(--pub-navy); }
+@media (max-width: 620px) {
+  /* Nom long sur deux lignes : coins arrondis plutôt que pilule */
+  .pub-company { border-radius: 10px; }
+}

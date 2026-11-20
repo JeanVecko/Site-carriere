@@ -220,7 +220,9 @@ export default async function PublicationPage({ params, base }: PublicationProps
             <div className="pub-offer-hero-text">
               <h1>{title}</h1>
               <p>
-                <Building2 size={15} aria-hidden="true" /> {decodeEntities(item.company)}
+                <span className="pub-company">
+                  <Building2 size={15} aria-hidden="true" /> {decodeEntities(item.company)}
+                </span>
                 <span aria-hidden="true">·</span>
                 <MapPin size={15} aria-hidden="true" /> {decodeEntities(item.location)}
               </p>
