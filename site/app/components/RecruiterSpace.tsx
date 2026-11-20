@@ -14,15 +14,19 @@ import {
   MousePointerClick,
   Percent,
   Send,
+  Star,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import {
   CONTACT_EMAIL,
+  FEATURED_PLANS,
   RECRUITER_TOKEN_KEY,
   apiRequest,
   decodeEntities,
   detailHref,
   formatDate,
+  isExpired,
   recruiterHeaders,
 } from "../lib/api";
 
@@ -38,6 +42,8 @@ type Offer = {
   deadline: string | null;
   featured?: boolean;
   featured_until?: string | null;
+  featured_request_days?: number | null;
+  featured_requested_at?: string | null;
   created_at: string;
   views: number;
   apply_clicks: number;
@@ -156,6 +162,7 @@ function RecruiterLogin({ notice }: { notice: string }) {
 function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => void }) {
   const [space, setSpace] = useState<Space | null>(null);
   const [error, setError] = useState("");
+  const [requesting, setRequesting] = useState<Offer | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -237,6 +244,9 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
                         Publiée le {formatDate(offer.created_at)} ·{" "}
                         <em className={offer.hidden ? "rec-off" : "rec-on"}>{offer.hidden ? "Retirée du site" : "En ligne"}</em>
                         {offer.featured && offer.featured_until && <> · <em className="rec-featured">★ À la une jusqu’au {formatDate(offer.featured_until)}</em></>}
+                        {!offer.featured && offer.featured_request_days && (
+                          <> · <em className="rec-featured">Demande « à la une » ({offer.featured_request_days} jours) envoyée</em></>
+                        )}
                       </small>
                     </td>
                     <td className="rec-labeled" data-label="Date limite">{offer.deadline ? formatDate(offer.deadline) : "Non précisée"}</td>
@@ -249,6 +259,11 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
                       <Link className="pub-btn pub-btn-gold rec-btn-sm" href={`/espace-recruteur/bilan?id=${encodeURIComponent(String(offer.id))}`}>
                         <FileBarChart size={15} /> Bilan
                       </Link>
+                      {!offer.hidden && !offer.featured && !offer.featured_request_days && !isExpired(offer) && (
+                        <button type="button" className="pub-btn pub-btn-navy rec-btn-sm" onClick={() => setRequesting(offer)}>
+                          <Star size={15} /> À la une
+                        </button>
+                      )}
                       {!offer.hidden && (
                         <Link className="pub-btn pub-btn-outline rec-btn-sm" href={detailHref(offer)} target="_blank">
                           <Eye size={15} /> Voir
@@ -267,6 +282,82 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
         <ProposalForm />
         <PasswordForm />
       </div>
+
+      {requesting && (
+        <FeaturedRequest
+          offer={requesting}
+          onClose={() => setRequesting(null)}
+          onSent={() => {
+            setRequesting(null);
+            void load();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Demande de mise « à la une » : durée et prix, envoyée à Carrières RDC (paiement ensuite, hors du site).
+function FeaturedRequest({ offer, onClose, onSent }: { offer: Offer; onClose: () => void; onSent: () => void }) {
+  const [days, setDays] = useState(7);
+  const [state, setState] = useState<{ status: "idle" | "pending" | "ok" | "error"; text: string }>({ status: "idle", text: "" });
+
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [onClose]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setState({ status: "pending", text: "" });
+    try {
+      await apiRequest(`/recruiter/offers/${encodeURIComponent(String(offer.id))}/featured-request`, {
+        method: "POST",
+        headers: recruiterHeaders(),
+        body: JSON.stringify({ days }),
+      });
+      setState({ status: "ok", text: "Demande envoyée. Nous vous contactons très vite pour le paiement ; vous recevez aussi une confirmation par e-mail." });
+    } catch (submitError) {
+      setState({ status: "error", text: submitError instanceof Error ? submitError.message : "Envoi impossible." });
+    }
+  }
+
+  return (
+    <div className="rec-modal-backdrop" onClick={onClose}>
+      <form className="rec-card rec-modal" role="dialog" aria-modal="true" aria-labelledby="featured-title" onSubmit={submit} onClick={(event) => event.stopPropagation()}>
+        <div className="rec-modal-head">
+          <h2 id="featured-title"><Star size={20} /> Mettre à la une</h2>
+          <button type="button" className="rec-modal-close" onClick={onClose} aria-label="Fermer"><X size={18} /></button>
+        </div>
+        <p className="rec-muted">
+          « {decodeEntities(offer.title)} » passe en tête des listes de Carrières RDC, avec un badge doré, et en premier dans nos
+          alertes e-mail. Le résultat apparaît dans votre bilan.
+        </p>
+        {state.status === "ok" ? (
+          <>
+            <p className="rec-success" role="status"><CircleCheck size={16} /> {state.text}</p>
+            <button type="button" className="pub-btn pub-btn-gold" onClick={onSent}>Fermer</button>
+          </>
+        ) : (
+          <>
+            <div className="rec-plans" role="radiogroup" aria-label="Durée">
+              {FEATURED_PLANS.map((plan) => (
+                <label key={plan.days} className={`rec-plan${days === plan.days ? " is-active" : ""}`}>
+                  <input type="radio" name="days" value={plan.days} checked={days === plan.days} onChange={() => setDays(plan.days)} />
+                  <strong>{plan.days} jours</strong>
+                  <span>{plan.price} $</span>
+                </label>
+              ))}
+            </div>
+            <p className="rec-muted">Paiement par Mobile Money ou virement : nous vous recontactons après votre demande. Rien n’est dû tant que la mise à la une n’est pas activée.</p>
+            {state.status === "error" && <p className="rec-alert" role="alert"><TriangleAlert size={16} /> {state.text}</p>}
+            <button className="pub-btn pub-btn-gold" type="submit" disabled={state.status === "pending"}>
+              <Star size={16} /> {state.status === "pending" ? "Envoi…" : `Demander ${days} jours à la une`}
+            </button>
+          </>
+        )}
+      </form>
     </div>
   );
 }

@@ -37,6 +37,7 @@ import {
   Announcement,
   AnnouncementMedia,
   termsFor,
+  FEATURED_PLANS,
   ContactMessage,
   Recruiter,
   adminHeaders,
@@ -1088,6 +1089,9 @@ function OffersTable({
                     <td>
                       <span className={`adm-status is-${status}`}>{STATUS_LABELS[status]}</span>
                       {item.featured && item.featured_until && <small className="adm-featured-note">★ À la une jusqu’au {formatDate(item.featured_until)}</small>}
+                      {!item.featured && item.featured_request_days && (
+                        <small className="adm-featured-note">★ Demande à la une : {item.featured_request_days} jours ({FEATURED_PLANS.find((plan) => plan.days === item.featured_request_days)?.price ?? "?"} $)</small>
+                      )}
                       {item.report_sent_at && <small>Bilan envoyé le {formatDate(item.report_sent_at)}</small>}
                     </td>
                     <td className="adm-num">{Number(item.views || 0).toLocaleString("fr-FR")}</td>
@@ -1199,7 +1203,8 @@ function FeatureDialog({
   const today = toIsoDate(now);
   // « 7 jours » = aujourd'hui compris : dernier jour dans 6 jours.
   const plus = (days: number) => toIsoDate(new Date(now.getTime() + (days - 1) * 86_400_000));
-  const [value, setValue] = useState(item.featured && item.featured_until ? item.featured_until : plus(7));
+  // Offre déjà à la une : sa date ; demande du recruteur en attente : la durée demandée ; sinon 7 jours.
+  const [value, setValue] = useState(item.featured && item.featured_until ? item.featured_until : plus(item.featured_request_days || 7));
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const others = activeCount - (item.featured ? 1 : 0);

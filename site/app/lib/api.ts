@@ -35,6 +35,8 @@ export type Announcement = {
   featured?: boolean; // offre « à la une » aujourd'hui (en tête des listes, badge doré)
   featured_from?: string | null;
   featured_until?: string | null; // dernier jour à la une (inclus)
+  featured_request_days?: number | null; // demande du recruteur en attente de paiement
+  featured_requested_at?: string | null;
   organization_name?: string;
 };
 
@@ -181,6 +183,13 @@ export const TIKTOK_URL = process.env.NEXT_PUBLIC_TIKTOK_URL || "https://www.tik
 export const FACEBOOK_URL = process.env.NEXT_PUBLIC_FACEBOOK_URL || "https://web.facebook.com/people/Carri%C3%A8res-RDC/61595124292252/";
 export const WHATSAPP_CHANNEL_URL =
   process.env.NEXT_PUBLIC_WHATSAPP_CHANNEL_URL || "https://whatsapp.com/channel/0029VbC3FGn7z4kbQ6ZEck0Q";
+
+// Tarifs de la mise « à la une » (paiement hors du site, par Mobile Money ou virement).
+export const FEATURED_PLANS = [
+  { days: 7, price: 10 },
+  { days: 14, price: 18 },
+  { days: 30, price: 30 },
+];
 
 export const CONTRACT_TYPES =["CDI", "CDD", "Stage", "Consultance", "Temps partiel", "Intérim", "Bénévolat", "Autre"];
 // Pour une annonce (formation, événement…), le champ « type » décrit la nature de l'annonce, pas un contrat.

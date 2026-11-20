@@ -171,6 +171,9 @@ async function initializeDatabase() {
   // Offre « à la une » (mise en avant payante) du featured_from au featured_until inclus
   await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_from DATE');
   await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_until DATE');
+  // Demande de mise à la une envoyée par le recruteur depuis son espace (durée choisie, en attente de paiement)
+  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_request_days INTEGER');
+  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_requested_at TIMESTAMPTZ');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -755,6 +758,8 @@ const PUBLIC_UNTIL_SQL = "((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinsha
 // Offre « à la une » aujourd'hui (heure de Kinshasa) : affichée en tête des listes, avec un badge.
 const FEATURED_SQL = "(featured_until IS NOT NULL AND featured_until >= (NOW() AT TIME ZONE 'Africa/Kinshasa')::date)";
 const FEATURED_LIMIT = 3;
+// Tarifs de la mise à la une (paiement hors du site : Mobile Money ou virement).
+const FEATURED_PLANS = { 7: 10, 14: 18, 30: 30 };
 const PUBLICLY_VISIBLE_SQL = `(deadline IS NULL OR NOW() < ${PUBLIC_UNTIL_SQL})`;
 // Une publication a une vignette si au moins une image est jointe.
 // Empreinte des pièces jointes : change dès qu'une image est remplacée, pour que les navigateurs ne gardent
@@ -841,6 +846,7 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
             to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
             jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.created_at, a.report_sent_at,
             ${FEATURED_SQL} AS featured, to_char(a.featured_from, 'YYYY-MM-DD') AS featured_from, to_char(a.featured_until, 'YYYY-MM-DD') AS featured_until,
+            a.featured_request_days, a.featured_requested_at,
             ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa') AS public_until,
             NOT (a.deadline IS NULL OR NOW() < ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden,
             u.email AS author_email, a.organization_id, o.name AS organization_name
@@ -1174,6 +1180,8 @@ function reportEmailText({ report, recipient, final }) {
     final
       ? `Vous recrutez encore ? Proposez-nous votre prochaine offre depuis votre espace : ${frontendUrl}/espace-recruteur`
       : `Votre espace recruteur : ${frontendUrl}/espace-recruteur`,
+    offer.featured_from ? null : '',
+    offer.featured_from ? null : `Pour plus de visibilité, mettez votre offre « à la une » : en tête des listes, avec un badge doré et en premier dans nos alertes e-mail. À partir de 10 $ pour 7 jours, à demander depuis votre espace.`,
     '',
     'Un clic sur « Postuler » correspond à l’ouverture du lien, de l’e-mail, du WhatsApp ou du numéro de candidature de l’offre. Chiffres anonymes, robots exclus.',
     '',
@@ -1247,7 +1255,7 @@ app.patch('/api/admin/announcements/:id/featured', requireAdmin, safe(async (req
   if (until && (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until)))) return response.status(400).json({ error: 'Date invalide.' });
   const result = await pool.query(
     until
-      ? `UPDATE announcements SET featured_until = $2::date,
+      ? `UPDATE announcements SET featured_until = $2::date, featured_request_days = NULL, featured_requested_at = NULL,
            featured_from = CASE WHEN ${FEATURED_SQL} THEN featured_from ELSE (NOW() AT TIME ZONE 'Africa/Kinshasa')::date END
          WHERE id = $1 AND $2::date >= (NOW() AT TIME ZONE 'Africa/Kinshasa')::date
          RETURNING id, to_char(featured_from, 'YYYY-MM-DD') AS featured_from, to_char(featured_until, 'YYYY-MM-DD') AS featured_until`
@@ -1267,6 +1275,44 @@ app.patch('/api/admin/announcements/:id/featured', requireAdmin, safe(async (req
     active_featured: active,
     warning: active > FEATURED_LIMIT ? `${active} offres sont à la une en même temps : au-delà de ${FEATURED_LIMIT}, la mise en avant perd de sa valeur.` : '',
   });
+}));
+
+// Demande de mise à la une par le recruteur : enregistrée sur l'offre, envoyée dans les messages de l'administrateur
+// (avec une alerte e-mail) et confirmée au recruteur. L'administrateur active la une après réception du paiement.
+app.post('/api/recruiter/offers/:id/featured-request', requireRecruiter, safe(async (request, response) => {
+  const days = Number(request.body?.days);
+  const price = FEATURED_PLANS[days];
+  if (!price) return response.status(400).json({ error: 'Durée invalide : 7, 14 ou 30 jours.' });
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Offre introuvable.' });
+  const offer = (await pool.query(
+    `SELECT id, title, ${FEATURED_SQL} AS featured, featured_request_days FROM announcements
+     WHERE id = $1 AND organization_id = $2 AND ${PUBLICLY_VISIBLE_SQL}
+       AND (deadline IS NULL OR deadline >= (NOW() AT TIME ZONE 'Africa/Kinshasa')::date)`,
+    [request.params.id, request.user.organization_id]
+  )).rows[0];
+  if (!offer) return response.status(404).json({ error: 'Offre introuvable ou déjà expirée.' });
+  if (offer.featured) return response.status(409).json({ error: 'Cette offre est déjà à la une.' });
+  await pool.query('UPDATE announcements SET featured_request_days = $2, featured_requested_at = NOW() WHERE id = $1', [offer.id, days]);
+  const organization = (await pool.query('SELECT name FROM organizations WHERE id = $1', [request.user.organization_id])).rows[0]?.name || 'Recruteur';
+  const label = `${days} jours (${price} $)`;
+  await pool.query(
+    'INSERT INTO messages (name, email, subject, message) VALUES ($1, $2, $3, $4)',
+    [`${organization} (espace recruteur)`, request.user.email, `Demande « à la une » : ${offer.title} — ${label}`.slice(0, 180),
+      `${organization} demande la mise à la une de l’offre « ${offer.title} » pendant ${label}.\n\nAprès réception du paiement, activez la une avec l’étoile de cette offre dans « Offres publiées ».`]
+  );
+  response.json({ ok: true, featured_request_days: days, featured_requested_at: new Date().toISOString() });
+  sendTransactionalEmail({
+    to: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    replyTo: request.user.email,
+    subject: `Demande « à la une » : ${offer.title} — ${label}`.slice(0, 180),
+    text: `${organization} (${request.user.email}) demande la mise à la une de l’offre « ${offer.title} » pendant ${label}.\n\nRépondez à cet e-mail pour lui indiquer le paiement, puis activez la une depuis ${frontendUrl}/admin#offres.`,
+  }).catch((error) => console.error('Alerte e-mail non envoyée :', error.message));
+  sendTransactionalEmail({
+    to: request.user.email,
+    replyTo: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    subject: `Votre demande « à la une » — ${offer.title}`.slice(0, 180),
+    text: `Bonjour,\n\nNous avons bien reçu votre demande de mise à la une de l’offre « ${offer.title} » pendant ${label}.\n\nNous vous contactons très vite pour le paiement (Mobile Money ou virement). Dès réception, votre offre passe en tête des listes de Carrières RDC, avec un badge doré, et en premier dans nos alertes e-mail.\n\nVous pouvez répondre directement à cet e-mail pour toute question.\n\n—\nL’équipe Carrières RDC\n${frontendUrl}`,
+  }).catch((error) => console.error('Confirmation e-mail non envoyée :', error.message));
 }));
 
 // Tentatives de connexion échouées, gardées en mémoire : 8 essais par adresse et par quart d'heure.
@@ -1351,6 +1397,7 @@ app.get('/api/recruiter/me', requireRecruiter, safe(async (request, response) =>
     pool.query(
       `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, created_at,
               views, apply_clicks, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until,
+              featured_request_days, featured_requested_at,
               NOT (deadline IS NULL OR NOW() < ((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden
        FROM announcements WHERE organization_id = $1 ORDER BY created_at DESC`,
       [request.user.organization_id]

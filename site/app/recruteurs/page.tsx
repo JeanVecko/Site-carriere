@@ -14,11 +14,12 @@ import {
   MessagesSquare,
   Phone,
   Search,
+  Star,
 } from "lucide-react";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import { SOCIAL_NETWORKS } from "../components/SocialLinks";
-import { CONTACT_EMAIL, CONTACT_PHONE } from "../lib/api";
+import { CONTACT_EMAIL, CONTACT_PHONE, FEATURED_PLANS } from "../lib/api";
 
 export const metadata: Metadata = {
   title: "Recruteurs et partenaires — Carrières RDC",
@@ -131,6 +132,30 @@ export default function RecruitersPage() {
                 <CircleCheck size={15} aria-hidden="true" /> Aucun service payant n’est engagé sans votre accord écrit.
               </p>
             </div>
+          </section>
+
+          <section className="rec-pricing" aria-labelledby="featured-title">
+            <span className="pub-about-icon is-gold" aria-hidden="true"><Star size={22} /></span>
+            <h2 className="pub-about-title" id="featured-title">Mettez votre offre « à la une »</h2>
+            <p className="rec-pricing-lead">
+              Pour un recrutement urgent ou un profil rare : votre offre passe <strong>en tête des listes</strong> de Carrières RDC,
+              avec un <strong>badge doré</strong>, et <strong>en premier dans nos alertes e-mail</strong>. Le résultat apparaît dans
+              votre bilan.
+            </p>
+            <div className="rec-pricing-grid">
+              {FEATURED_PLANS.map((plan) => (
+                <article key={plan.days} className={`rec-pricing-card${plan.days === 14 ? " is-popular" : ""}`}>
+                  {plan.days === 14 && <span className="rec-pricing-badge">Le plus choisi</span>}
+                  <h3>{plan.days} jours</h3>
+                  <p className="rec-pricing-price">{plan.price} $</p>
+                  <p className="rec-pricing-unit">{(plan.price / plan.days).toFixed(2).replace(".", ",")} $ par jour</p>
+                </article>
+              ))}
+            </div>
+            <p className="pub-about-note">
+              <CircleCheck size={15} aria-hidden="true" /> Demandez-la depuis votre espace recruteur ou contactez-nous. Paiement par
+              Mobile Money ou virement ; la mise en avant commence à réception.
+            </p>
           </section>
 
           <section className="pub-about-contact" aria-labelledby="contact-title">
