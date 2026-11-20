@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./public.css";
 import "./admin.css";
@@ -6,6 +6,7 @@ import "./animations.css";
 import "./theme.css";
 import "./dark.css";
 import PageTransition from "./components/PageTransition";
+import AppInstall from "./components/AppInstall";
 import { SPLASH_PRE_PAINT_SCRIPT } from "./lib/splash";
 import { THEME_PRE_PAINT_SCRIPT } from "./lib/theme";
 import { SITE_URL } from "./lib/server";
@@ -24,6 +25,13 @@ export const metadata: Metadata = {
     type: "website",
   },
   twitter: { card: "summary_large_image" },
+  // Application installée sur iPhone : nom sous l'icône et plein écran.
+  appleWebApp: { capable: true, title: "Carrières RDC", statusBarStyle: "default" },
+};
+
+// Couleur de la barre du téléphone (application installée et navigateur mobile).
+export const viewport: Viewport = {
+  themeColor: "#092d63",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -46,6 +54,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         {/* Transition entre les pages (logo qui tourne) : dans la mise en page racine pour survivre aux changements de page. */}
         <PageTransition />
+        {/* Application installable : service worker et invitation « Installer l'application ». */}
+        <AppInstall />
         {/* Vercel Web Analytics (sans cookies) : actif seulement sur le site déployé par Vercel. */}
         {process.env.VERCEL === "1" && (
           <>
