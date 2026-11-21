@@ -193,3 +193,11 @@ html[data-theme="dark"] .pub-nav a.is-active { background: #2a5bb5; color: #fff;
 html[data-theme="dark"] .pub-header-actions .pub-social a { background: transparent; }
 html[data-theme="dark"] .pub-header-actions .pub-social a:hover { background: #2a5bb5; color: #fff; }
 html[data-theme="dark"] .pub-brand img { box-shadow: none; }
+
+/* Offres sauvegardées */
+html[data-theme="dark"] .pub-save, html[data-theme="dark"] .pub-saved-link { background: #1b2c4d; border-color: #2c4170; color: #dbe6f7; }
+html[data-theme="dark"] .pub-save.is-saved { background: #3a1b2a; border-color: #7a3150; color: #ff6b8f; }
+html[data-theme="dark"] .pub-saved-count { border-color: #0f1b33; }
+html[data-theme="dark"] .pub-saved-deadline { background: #1b2c4d; color: #dbe6f7; }
+html[data-theme="dark"] .pub-saved-deadline.is-soon { background: #3d2a10; color: #fbbf6a; }
+html[data-theme="dark"] .pub-saved-deadline.is-closed { background: #222c3d; color: #94a3b8; }

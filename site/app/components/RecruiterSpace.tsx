@@ -47,6 +47,7 @@ type Offer = {
   created_at: string;
   views: number;
   apply_clicks: number;
+  saves?: number;
   hidden: boolean;
 };
 type Space = { email: string; organization: string; contact: string; offers: Offer[] };
@@ -250,7 +251,10 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
                       </small>
                     </td>
                     <td className="rec-labeled" data-label="Date limite">{offer.deadline ? formatDate(offer.deadline) : "Non précisée"}</td>
-                    <td className="rec-num rec-labeled" data-label="Vues">{number(offer.views)}</td>
+                    <td className="rec-num rec-labeled" data-label="Vues">
+                      {number(offer.views)}
+                      {Number(offer.saves || 0) > 0 && <small title="Candidats qui l’ont sauvegardée pour postuler plus tard">♡ {number(Number(offer.saves))} sauvegarde{Number(offer.saves) > 1 ? "s" : ""}</small>}
+                    </td>
                     <td className="rec-num rec-labeled" data-label="Clics">
                       {number(offer.apply_clicks)}
                       <small>{rate(offer.views, offer.apply_clicks)}</small>

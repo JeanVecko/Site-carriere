@@ -1116,7 +1116,10 @@ function OffersTable({
                       )}
                       {item.report_sent_at && <small>Bilan envoyé le {formatDate(item.report_sent_at)}</small>}
                     </td>
-                    <td className="adm-num">{Number(item.views || 0).toLocaleString("fr-FR")}</td>
+                    <td className="adm-num">
+                      {Number(item.views || 0).toLocaleString("fr-FR")}
+                      {Number(item.saves || 0) > 0 && <small title="Candidats qui ont sauvegardé l’offre">♡ {Number(item.saves).toLocaleString("fr-FR")}</small>}
+                    </td>
                     <td className="adm-num">
                       {Number(item.apply_clicks || 0).toLocaleString("fr-FR")}
                       <small>{applyRate(item)}</small>

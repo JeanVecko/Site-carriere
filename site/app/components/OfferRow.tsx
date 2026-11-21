@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Building2, CalendarClock, Clock, MapPin, Star } from "lucide-react";
 import VerifiedBadge from "./VerifiedBadge";
+import SaveOffer from "./SaveOffer";
 import { type Announcement, companyAvatar, decodeEntities, detailHref, formatDate, isExpired, timeAgo } from "../lib/api";
 
 // Fiche d'une offre dans une liste (accueil et pages de catégorie).
@@ -8,7 +9,7 @@ export default function OfferRow({ item, showCategory = false }: { item: Announc
   const expired = isExpired(item);
   const avatar = companyAvatar(item.company);
   return (
-    <li>
+    <li className="pub-job-host">
       <Link className={`pub-job${expired ? " is-expired" : ""}${item.featured && !expired ? " is-featured" : ""}`} href={detailHref(item)}>
         <span className={`pub-avatar tone-${avatar.tone}`} aria-hidden="true">
           {avatar.initial}
@@ -53,6 +54,7 @@ export default function OfferRow({ item, showCategory = false }: { item: Announc
           </span>
         </span>
       </Link>
+      <SaveOffer item={item} />
     </li>
   );
 }

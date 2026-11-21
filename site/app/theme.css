@@ -701,3 +701,71 @@ html[data-theme="dark"] .pub-report-reason.is-active { background: #3d1717; bord
 .adm-verify-note { color: var(--adm-muted, #5d6b82); display: block; font-size: 11.5px; margin-top: 4px; max-width: 220px; }
 .adm-report-flag { align-items: center; color: #b42318 !important; display: flex !important; font-weight: 700; gap: 8px; }
 .adm-report-flag button { background: #fff; border: 1px solid #f5b5ab; border-radius: 999px; color: #b42318; cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; padding: 1px 8px; }
+
+/* ===== Offres sauvegardées (favoris, « Mes offres ») ===== */
+.pub-job-host, .pub-tile-host { position: relative; }
+.pub-save { align-items: center; background: rgba(255, 255, 255, .92); border: 1px solid var(--pub-border); border-radius: 50%; color: var(--pub-navy); cursor: pointer; display: inline-flex; flex-shrink: 0; height: 34px; justify-content: center; transition: background .15s, color .15s, border-color .15s, transform .15s; width: 34px; }
+.pub-save:hover { border-color: #e0456b; color: #e0456b; }
+.pub-save:active { transform: scale(.9); }
+.pub-save.is-saved { background: #fff0f3; border-color: #f4b6c4; color: #e0245e; }
+.pub-save.is-saved svg { animation: save-pop .3s ease; }
+@keyframes save-pop { 50% { transform: scale(1.3); } }
+.pub-save:focus-visible { outline: 3px solid var(--pub-gold-2); outline-offset: 2px; }
+/* Dans une liste : à gauche de la flèche, sous la date. */
+.pub-job-host > .pub-save { position: absolute; right: 62px; top: calc(50% - 6px); z-index: 2; }
+.pub-job-host .pub-job-side { min-width: 84px; }
+.pub-tile-host > .pub-save { position: absolute; right: 10px; top: 10px; z-index: 2; }
+@media (max-width: 620px) {
+  .pub-job-host > .pub-save { height: 32px; right: 10px; top: 10px; width: 32px; }
+  .pub-job-host .pub-job-main { padding-right: 30px; }
+}
+/* Page d'une offre */
+.pub-offer-hero-actions { align-items: center; display: flex; flex-shrink: 0; gap: 10px; }
+.pub-save-button { border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; gap: 8px; height: auto; padding: 11px 18px; width: auto; }
+.pub-apply-bar .pub-save { height: 44px; width: 44px; }
+@media (max-width: 960px) {
+  .pub-apply-bar { align-items: center; display: flex; gap: 10px; }
+  .pub-apply-bar .pub-btn-block { flex: 1; }
+  .pub-offer-hero-main { flex-wrap: wrap; }
+}
+/* En-tête : lien vers « Mes offres » */
+.pub-saved-link { align-items: center; background: #fff; border: 1px solid var(--pub-border); border-radius: 50%; box-shadow: 0 4px 14px rgba(9, 45, 99, .08); color: var(--pub-navy); display: inline-flex; flex-shrink: 0; height: 38px; justify-content: center; position: relative; transition: color .15s, border-color .15s; width: 38px; }
+.pub-saved-link:hover, .pub-saved-link.is-active { border-color: #f4b6c4; color: #e0245e; }
+.pub-saved-count { background: #e0245e; border: 2px solid #fff; border-radius: 999px; color: #fff; font-size: 10px; font-weight: 800; line-height: 1; min-width: 19px; padding: 3px 4px; position: absolute; right: -6px; text-align: center; top: -6px; }
+/* Page « Mes offres » */
+.pub-saved-page { padding-bottom: 56px; padding-top: 34px; }
+.pub-saved-head h1 { align-items: center; display: flex; font-size: clamp(24px, 4vw, 32px); gap: 10px; margin: 0 0 6px; }
+.pub-saved-head h1 svg { color: #e0245e; }
+.pub-saved-head p { color: var(--pub-muted); margin: 0 0 22px; }
+.pub-saved-empty { align-items: center; background: var(--pub-card); border: 1px dashed var(--pub-border); border-radius: var(--pub-radius); display: flex; flex-direction: column; gap: 14px; padding: 40px 20px; text-align: center; }
+.pub-saved-empty > svg { color: #e0245e; }
+.pub-saved-empty p { color: var(--pub-muted); margin: 0; max-width: 420px; }
+.pub-saved-empty p svg { color: #e0245e; vertical-align: -2px; }
+.pub-saved-list li { position: relative; }
+.pub-saved-list .pub-job { padding-right: 62px; }
+.pub-saved-remove { align-items: center; background: transparent; border: 1px solid var(--pub-border); border-radius: 10px; color: var(--pub-muted); cursor: pointer; display: inline-flex; height: 34px; justify-content: center; position: absolute; right: 16px; top: calc(50% - 17px); width: 34px; }
+.pub-saved-remove:hover { border-color: var(--pub-danger); color: var(--pub-danger); }
+.pub-saved-deadline { align-items: center; background: #eef3fa; border-radius: 999px; color: var(--pub-navy); display: inline-flex; font-size: 12px; font-weight: 700; gap: 5px; padding: 3px 10px; }
+.pub-saved-deadline.is-soon { background: #fff1e0; color: #b45309; }
+.pub-saved-deadline.is-closed { background: #eceff3; color: #6b7280; }
+@media (max-width: 620px) {
+  .pub-saved-list .pub-job { padding-right: 52px; }
+  .pub-saved-remove { right: 10px; top: 12px; }
+}
+/* Petits téléphones : place pour le cœur dans l'en-tête sans déborder. */
+@media (max-width: 420px) {
+  .pub-header-inner { gap: 8px; }
+  .pub-header-actions { gap: 6px; }
+  .pub-saved-link, .pub-theme-toggle { height: 36px; width: 36px; }
+}
+@media (max-width: 380px) {
+  .pub-brand small { display: none; }
+}
+/* Page d'une offre, écrans étroits : le bouton « Sauvegarder » passe sous le titre, aligné sur le texte. */
+@media (max-width: 960px) {
+  .pub-offer-hero-actions { flex-basis: 100%; padding-left: 82px; }
+}
+@media (max-width: 620px) {
+  .pub-offer-hero-actions { padding-left: 0; }
+  .pub-offer-hero-actions .pub-save-button { padding: 9px 16px; }
+}

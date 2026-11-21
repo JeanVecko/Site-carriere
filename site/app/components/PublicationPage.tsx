@@ -22,6 +22,7 @@ import ShareButtons from "./ShareButtons";
 import OfferRow from "./OfferRow";
 import VerifiedBadge from "./VerifiedBadge";
 import ReportOffer from "./ReportOffer";
+import SaveOffer from "./SaveOffer";
 import { SOCIAL_NETWORKS } from "./SocialLinks";
 import {
   API_BASE,
@@ -237,11 +238,14 @@ export default async function PublicationPage({ params, base }: PublicationProps
                 {expired ? <span className="pub-tag pub-tag-red">{terms.noun === "annonce" ? "Annonce expirée" : "Offre expirée"}</span> : <span className="pub-tag pub-tag-green">En cours</span>}
               </div>
             </div>
-            {canApply && (
-              <a className="pub-btn pub-btn-gold pub-offer-hero-cta" {...ctaProps}>
-                <CtaIcon size={16} /> {applyLabel}
-              </a>
-            )}
+            <div className="pub-offer-hero-actions">
+              {canApply && (
+                <a className="pub-btn pub-btn-gold pub-offer-hero-cta" {...ctaProps}>
+                  <CtaIcon size={16} /> {applyLabel}
+                </a>
+              )}
+              <SaveOffer item={item} variant="button" />
+            </div>
           </div>
         </div>
       </section>
@@ -382,6 +386,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
 
       {canApply && (
         <div className="pub-apply-bar">
+          <SaveOffer item={item} />
           <a className="pub-btn pub-btn-gold pub-btn-block" {...ctaProps}>
             <CtaIcon size={16} /> {applyLabel}
           </a>

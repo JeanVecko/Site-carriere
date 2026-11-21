@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy, Eye, MousePointerClick, Percent, Printer } from "lucide-react";
+import { ArrowLeft, Copy, Eye, Heart, MousePointerClick, Percent, Printer } from "lucide-react";
 import { adminHeaders, apiRequest, decodeEntities, detailHref, formatDate, recruiterHeaders } from "../lib/api";
 
 // Adresse publique du site, pour le lien de l’offre dans le bilan (www.carrieresrdc.com en ligne).
@@ -22,6 +22,7 @@ type Report = {
     created_at: string;
     views: number;
     apply_clicks: number;
+    saves?: number;
   };
   days: Array<{ day: string; views: number; applies: number }>;
   sources: Array<{ source: string; views: number; applies: number }>;
@@ -98,6 +99,7 @@ export default function AdminReport({ id, mode = "admin" }: { id: string; mode?:
     `Publiée le ${formatDate(offer.created_at)}${offer.deadline ? `, date limite le ${formatDate(offer.deadline)}` : ""}.`,
     `• ${number(offer.views)} consultations de l’offre`,
     `• ${number(offer.apply_clicks)} clics sur « Postuler » (${rate(offer.views, offer.apply_clicks)} des visiteurs)`,
+    ...(Number(offer.saves || 0) > 0 ? [`• ${number(Number(offer.saves))} candidat(s) l’ont sauvegardée pour postuler plus tard`] : []),
     ...(report.sources.length
       ? [`Provenance des visiteurs : ${report.sources.slice(0, 4).map((row) => `${SOURCE_LABELS[row.source] || row.source} ${number(row.views)}`).join(", ")}.`]
       : []),
@@ -153,10 +155,13 @@ export default function AdminReport({ id, mode = "admin" }: { id: string; mode?:
           )}
         </dl>
 
-        <section className="adm-report-kpis" aria-label="Résultats">
+        <section className={`adm-report-kpis${Number(offer.saves || 0) > 0 ? " has-saves" : ""}`} aria-label="Résultats">
           <div><Eye size={20} /><strong>{number(offer.views)}</strong><span>consultations de l’offre</span></div>
           <div><MousePointerClick size={20} /><strong>{number(offer.apply_clicks)}</strong><span>clics sur « Postuler »</span></div>
           <div><Percent size={20} /><strong>{rate(offer.views, offer.apply_clicks)}</strong><span>des visiteurs ont cliqué</span></div>
+          {Number(offer.saves || 0) > 0 && (
+            <div><Heart size={20} /><strong>{number(Number(offer.saves))}</strong><span>candidats l’ont sauvegardée</span></div>
+          )}
         </section>
 
         {report.days.length > 0 && (

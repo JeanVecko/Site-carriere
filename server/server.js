@@ -156,6 +156,8 @@ async function initializeDatabase() {
   await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS views INTEGER NOT NULL DEFAULT 0');
   // Nombre de clics sur « Postuler » (ou « S’inscrire ») : ouverture du lien, de l’e-mail ou du WhatsApp du recruteur
   await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS apply_clicks INTEGER NOT NULL DEFAULT 0');
+  // Nombre de candidats qui ont sauvegardé l'offre dans leurs favoris (« Mes offres », gardé dans leur navigateur)
+  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS saves INTEGER NOT NULL DEFAULT 0');
   // Journal anonyme (ni IP ni cookie) des vues et des clics, pour le bilan envoyé aux recruteurs : jour, provenance, canal.
   await pool.query(`CREATE TABLE IF NOT EXISTS announcement_events (
     id BIGSERIAL PRIMARY KEY,
@@ -858,7 +860,7 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
   const result = await pool.query(
     `SELECT a.id, a.title, a.category, a.company, a.location, a.description, a.contract_type,
             to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
-            jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.created_at, a.report_sent_at,
+            jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.saves, a.created_at, a.report_sent_at,
             ${FEATURED_SQL} AS featured, to_char(a.featured_from, 'YYYY-MM-DD') AS featured_from, to_char(a.featured_until, 'YYYY-MM-DD') AS featured_until,
             a.featured_request_days, a.featured_requested_at, (o.verified_at IS NOT NULL) AS verified,
             (SELECT COUNT(*) FROM offer_reports r WHERE r.announcement_id = a.id AND r.resolved_at IS NULL)::int AS open_reports,
@@ -964,13 +966,35 @@ async function recordHit(request, response, kind) {
 app.post('/api/announcements/:id/view', (request, response) => recordHit(request, response, 'view'));
 app.post('/api/announcements/:id/apply', (request, response) => recordHit(request, response, 'apply'));
 
+// Favoris des candidats : la liste reste dans leur navigateur, l'API ne tient qu'un compteur anonyme par offre.
+// Un même visiteur (adresse IP, en mémoire seulement) ne fait bouger le compteur que lorsqu'il change d'avis.
+const lastSaveAction = new Map();
+app.post('/api/announcements/:id/save', async (request, response, next) => { try {
+  const id = request.params.id;
+  if (!/^\d+$/.test(id)) return response.status(404).end();
+  if (BOT_PATTERN.test(request.get('user-agent') || '')) return response.status(204).end();
+  const action = request.query.action === 'remove' ? 'remove' : 'add';
+  const ip = String(request.get('x-forwarded-for') || request.socket.remoteAddress || '').split(',')[0].trim();
+  const key = `${ip}:${id}`;
+  if (lastSaveAction.get(key) === action) return response.status(204).end();
+  lastSaveAction.set(key, action);
+  if (lastSaveAction.size > 50000) lastSaveAction.clear();
+  await pool.query(
+    action === 'add'
+      ? 'UPDATE announcements SET saves = saves + 1 WHERE id = $1'
+      : 'UPDATE announcements SET saves = GREATEST(saves - 1, 0) WHERE id = $1',
+    [id]
+  );
+  response.status(204).end();
+} catch (error) { next(error); } });
+
 // Bilan d'une offre pour le recruteur : totaux, détail par jour, provenance des visiteurs et canal de candidature.
 // Avec organizationId, l'offre doit appartenir à cette société (espace recruteur) ; sinon renvoie null.
 async function offerReport(id, organizationId = null) {
   if (!/^\d+$/.test(String(id))) return null;
   const offer = await pool.query(
     `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
-            created_at, views, apply_clicks, to_char(featured_from, 'YYYY-MM-DD') AS featured_from,
+            created_at, views, apply_clicks, saves, to_char(featured_from, 'YYYY-MM-DD') AS featured_from,
             to_char(featured_until, 'YYYY-MM-DD') AS featured_until FROM announcements
      WHERE id = $1 AND ($2::bigint IS NULL OR organization_id = $2::bigint)`,
     [id, organizationId]
@@ -1170,6 +1194,7 @@ function reportEmailText({ report, recipient, final }) {
   const { offer } = report;
   const views = Number(offer.views || 0);
   const applies = Number(offer.apply_clicks || 0);
+  const saves = Number(offer.saves || 0);
   const rate = views ? `${Math.round((applies / views) * 100)} %` : '—';
   const sources = report.sources.filter((row) => row.views > 0).slice(0, 4)
     .map((row) => `${REPORT_SOURCE_LABELS[row.source] || row.source} ${frNumber(row.views)}`).join(', ');
@@ -1185,6 +1210,7 @@ function reportEmailText({ report, recipient, final }) {
     '',
     `• ${frNumber(views)} consultation${views > 1 ? 's' : ''} de l’offre`,
     `• ${frNumber(applies)} clic${applies > 1 ? 's' : ''} sur « Postuler »${views ? ` (${rate} des visiteurs)` : ''}`,
+    saves ? `• ${frNumber(saves)} candidat${saves > 1 ? 's l’ont' : ' l’a'} sauvegardée dans ses offres favorites` : null,
     sources ? `• Provenance des visiteurs : ${sources}` : null,
     channels ? `• Contact des candidats : ${channels}` : null,
     '',
@@ -1476,7 +1502,7 @@ app.get('/api/recruiter/me', requireRecruiter, safe(async (request, response) =>
     pool.query(`SELECT o.name, COALESCE(u.data->>'contact', '') AS contact FROM organizations o JOIN users u ON u.id = $2 WHERE o.id = $1`, [request.user.organization_id, request.user.id]),
     pool.query(
       `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, created_at,
-              views, apply_clicks, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until,
+              views, apply_clicks, saves, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until,
               featured_request_days, featured_requested_at,
               NOT (deadline IS NULL OR NOW() < ((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden
        FROM announcements WHERE organization_id = $1 ORDER BY created_at DESC`,

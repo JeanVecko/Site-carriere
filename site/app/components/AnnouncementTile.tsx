@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Building2, CalendarClock, MapPin, Megaphone, Star } from "lucide-react";
 import VerifiedBadge from "./VerifiedBadge";
+import SaveOffer from "./SaveOffer";
 import { type Announcement, companyAvatar, decodeEntities, detailHref, formatDate, isExpired, mediaUrl, timeAgo } from "../lib/api";
 
 // Carte visuelle d'une annonce (page Annonces) : vignette de l'image jointe, ou visuel de remplacement.
@@ -8,7 +9,7 @@ export default function AnnouncementTile({ item }: { item: Announcement }) {
   const expired = isExpired(item);
   const avatar = companyAvatar(item.company);
   return (
-    <li>
+    <li className="pub-tile-host">
       <Link className={`pub-tile${expired ? " is-expired" : ""}${item.featured && !expired ? " is-featured" : ""}`} href={detailHref(item)}>
         <span className="pub-tile-cover">
           {item.has_cover ? (
@@ -49,6 +50,7 @@ export default function AnnouncementTile({ item }: { item: Announcement }) {
           </span>
         </span>
       </Link>
+      <SaveOffer item={item} />
     </li>
   );
 }

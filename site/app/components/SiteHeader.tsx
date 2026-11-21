@@ -3,9 +3,10 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Megaphone, Menu, X } from "lucide-react";
+import { Heart, LayoutDashboard, Megaphone, Menu, X } from "lucide-react";
 import SocialLinks from "./SocialLinks";
 import ThemeToggle from "./ThemeToggle";
+import { SavedCount } from "./SaveOffer";
 
 const LINKS = [
   { href: "/offres", label: "Offres d’emploi", extra: false },
@@ -83,6 +84,15 @@ export default function SiteHeader({ active }: { active?: string } = {}) {
             </Link>
           )}
           <SocialLinks />
+          <Link
+            className={`pub-saved-link${pathname === "/mes-offres" ? " is-active" : ""}`}
+            href="/mes-offres"
+            aria-label="Mes offres sauvegardées"
+            title="Mes offres sauvegardées"
+          >
+            <Heart size={18} aria-hidden="true" />
+            <SavedCount />
+          </Link>
           <ThemeToggle />
           <Link className="pub-btn pub-btn-gold" href="/recruteurs">
             <Megaphone size={16} /> Publier une offre
@@ -101,6 +111,9 @@ export default function SiteHeader({ active }: { active?: string } = {}) {
       <div className="pub-mobile-panel">
         <nav aria-label="Navigation mobile">
           {navLinks}
+          <Link href="/mes-offres" onClick={() => setOpen(false)}>
+            Mes offres sauvegardées
+          </Link>
           {isAdmin && (
             <Link href="/admin" onClick={() => setOpen(false)}>
               Administration

@@ -22,6 +22,7 @@ export type Announcement = {
   media_version?: string; // empreinte des pièces jointes : change quand une image est remplacée
   views?: number;
   apply_clicks?: number;
+  saves?: number; // candidats qui ont sauvegardé l'offre (« Mes offres »)
   public_until?: string | null;
   hidden?: boolean;
   contract_type?: string;
