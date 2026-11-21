@@ -41,6 +41,7 @@ import {
   ContactMessage,
   Recruiter,
   Submission,
+  ExtensionRequest,
   adminHeaders,
   apiRequest,
   decodeEntities,
@@ -246,6 +247,7 @@ function Dashboard() {
   // Offres préparées par les recruteurs, et celle en cours de vérification dans le formulaire de publication.
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [reviewing, setReviewing] = useState<Submission | null>(null);
+  const [extensions, setExtensions] = useState<ExtensionRequest[]>([]);
   // Catégorie choisie dans le formulaire de publication (pour le titre de la page).
   const [formCategory, setFormCategory] = useState("Offre d’emploi");
   const [seenExpired, setSeenExpired] = useState<string[]>(() => {
@@ -262,17 +264,19 @@ function Dashboard() {
     setLoading(true);
     setLoadError("");
     try {
-      const [offers, inbox, partners, proposals] = await Promise.all([
+      const [offers, inbox, partners, proposals, prolongations] = await Promise.all([
         apiRequest<Announcement[]>("/admin/announcements", { headers: adminHeaders() }),
         apiRequest<ContactMessage[]>("/messages", { headers: adminHeaders() }),
         // Liste vide si l'API déployée ne connaît pas encore les espaces recruteur
         apiRequest<Recruiter[]>("/admin/recruiters", { headers: adminHeaders() }).catch(() => [] as Recruiter[]),
         apiRequest<Submission[]>("/admin/submissions", { headers: adminHeaders() }).catch(() => [] as Submission[]),
+        apiRequest<ExtensionRequest[]>("/admin/extensions", { headers: adminHeaders() }).catch(() => [] as ExtensionRequest[]),
       ]);
       setAnnouncements(offers);
       setMessages(inbox);
       setRecruiters(partners);
       setSubmissions(proposals);
+      setExtensions(prolongations);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Impossible de charger les données.";
       // Session expirée : retour à l'écran de connexion.
@@ -402,6 +406,19 @@ function Dashboard() {
   }
 
   // Mise « à la une » (ou retrait) d'une offre jusqu'à une date incluse.
+  // Offre déclarée pourvue par erreur : remise en ligne (si sa date limite n'est pas dépassée).
+  async function unfill(item: Announcement) {
+    if (!window.confirm(`Remettre « ${decodeEntities(item.title)} » en ligne ?`)) return;
+    try {
+      await apiRequest(`/admin/announcements/${item.id}/filled`, { method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ filled: false }) });
+      refreshPublicSite();
+      setToast({ type: "success", text: "Offre remise en ligne." });
+      await loadAll();
+    } catch (error) {
+      setToast({ type: "error", text: error instanceof Error ? error.message : "Modification impossible." });
+    }
+  }
+
   // Signalements de visiteurs vérifiés et traités par l'administrateur.
   async function resolveReports(item: Announcement) {
     if (!window.confirm(`Marquer les signalements de « ${decodeEntities(item.title)} » comme traités ? Ils restent consultables dans Messages.`)) return;
@@ -474,7 +491,7 @@ function Dashboard() {
   }
 
   const current = SECTIONS.find((entry) => entry.id === section)!;
-  const pendingSubmissions = submissions.filter((item) => item.status === "pending").length;
+  const pendingSubmissions = submissions.filter((item) => item.status === "pending").length + extensions.filter((item) => item.status === "pending").length;
   const wording = wordingFor(formCategory);
   const heading = section === "publish" ? (reviewing ? "Vérifier une offre proposée" : editing ? wording.edit : wording.publish) : current.label;
 
@@ -598,6 +615,7 @@ function Dashboard() {
             onSendReport={sendReport}
             onFeature={setFeaturing}
             onResolveReports={resolveReports}
+            onUnfill={unfill}
             onEdit={(item) => {
               setEditing(item);
               setSection("publish");
@@ -607,8 +625,14 @@ function Dashboard() {
         {section === "submissions" && (
           <AdminSubmissions
             submissions={submissions}
+            extensions={extensions}
             loading={loading}
             onChange={setSubmissions}
+            onExtensionsChange={(list) => {
+              setExtensions(list);
+              void loadAll();
+            }}
+            onPublicChange={refreshPublicSite}
             notify={setToast}
             onReview={(item) => {
               setEditing(null);
@@ -1080,6 +1104,7 @@ function OffersTable({
   onSendReport,
   onFeature,
   onResolveReports,
+  onUnfill,
   onEdit,
 }: {
   mode: "active" | "expired";
@@ -1091,6 +1116,7 @@ function OffersTable({
   onSendReport: (item: Announcement) => void;
   onFeature: (item: Announcement) => void;
   onResolveReports: (item: Announcement) => void;
+  onUnfill: (item: Announcement) => void;
   onEdit: (item: Announcement) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -1188,6 +1214,15 @@ function OffersTable({
                         <small className="adm-featured-note">★ Demande à la une : {item.featured_request_days} jours ({FEATURED_PLANS.find((plan) => plan.days === item.featured_request_days)?.price ?? "?"} $)</small>
                       )}
                       {item.report_sent_at && <small>Bilan envoyé le {formatDate(item.report_sent_at)}</small>}
+                      {item.filled_at && (
+                        <small className="adm-filled-note">
+                          ✓ Poste pourvu (indiqué par le recruteur le {formatDate(item.filled_at)})
+                          <button type="button" className="adm-link" onClick={() => onUnfill(item)}>Remettre en ligne</button>
+                        </small>
+                      )}
+                      {!item.filled_at && item.extension_request_days && (
+                        <small className="adm-featured-note">⏱ Prolongation demandée : {item.extension_request_days} jours (voir « À valider »)</small>
+                      )}
                     </td>
                     <td className="adm-num">
                       {Number(item.views || 0).toLocaleString("fr-FR")}

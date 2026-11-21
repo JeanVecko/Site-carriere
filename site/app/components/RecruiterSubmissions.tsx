@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CircleCheck, Clock, Eye, FilePlus2, FileUp, Send, Trash2, TriangleAlert, X, XCircle } from "lucide-react";
 import { type Submission, apiRequest, decodeEntities, formatDate, recruiterHeaders, termsFor } from "../lib/api";
@@ -14,10 +14,42 @@ const STATUS: Record<string, { label: string; tone: string; icon: typeof Clock }
 };
 
 /** Offres préparées par le recruteur : formulaire complet, puis suivi (en attente, publiée, non publiée). */
-export default function RecruiterSubmissions({ organization }: { organization: string }) {
+// Champs repris d'une ancienne offre pour la republier.
+type Prefill = Partial<Pick<Submission, "title" | "category" | "location" | "description" | "contract_type" | "apply_contact" | "salary">>;
+
+export default function RecruiterSubmissions({
+  organization,
+  republishId = null,
+  onRepublishOpened,
+}: {
+  organization: string;
+  republishId?: string | null;
+  onRepublishOpened?: () => void;
+}) {
   const [list, setList] = useState<Submission[] | null>(null);
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState("");
+  const [prefill, setPrefill] = useState<Prefill | null>(null);
+  const card = useRef<HTMLElement>(null);
+
+  // Republier : formulaire prérempli avec l'ancienne offre (sauf la date limite, à choisir de nouveau).
+  useEffect(() => {
+    if (!republishId) return;
+    let cancelled = false;
+    apiRequest<Prefill>(`/recruiter/offers/${encodeURIComponent(republishId)}/details`, { headers: recruiterHeaders() })
+      .then((offer) => {
+        if (cancelled) return;
+        setPrefill(offer);
+        setNotice("");
+        setOpen(true);
+        window.setTimeout(() => card.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+      })
+      .catch(() => {})
+      .finally(() => onRepublishOpened?.());
+    return () => {
+      cancelled = true;
+    };
+  }, [republishId, onRepublishOpened]);
 
   const load = useCallback(async () => {
     try {
@@ -43,13 +75,13 @@ export default function RecruiterSubmissions({ organization }: { organization: s
   }
 
   return (
-    <section className="rec-card rec-submissions" aria-labelledby="rec-submissions-title">
+    <section ref={card} className="rec-card rec-submissions" aria-labelledby="rec-submissions-title">
       <div className="rec-submissions-head">
         <h2 id="rec-submissions-title" className="rec-card-title">
           <FilePlus2 size={18} /> Publier une nouvelle offre
         </h2>
         {!open && (
-          <button type="button" className="pub-btn pub-btn-gold" onClick={() => { setOpen(true); setNotice(""); }}>
+          <button type="button" className="pub-btn pub-btn-gold" onClick={() => { setPrefill(null); setOpen(true); setNotice(""); }}>
             <FilePlus2 size={16} /> Préparer une offre
           </button>
         )}
@@ -65,10 +97,16 @@ export default function RecruiterSubmissions({ organization }: { organization: s
 
       {open && (
         <SubmissionForm
+          key={prefill ? `republier-${prefill.title}` : "nouvelle"}
           organization={organization}
-          onCancel={() => setOpen(false)}
+          prefill={prefill}
+          onCancel={() => {
+            setOpen(false);
+            setPrefill(null);
+          }}
           onSent={async () => {
             setOpen(false);
+            setPrefill(null);
             setNotice("Merci ! Votre offre est envoyée. Nous la relisons et vous prévenons par e-mail dès sa publication.");
             await load();
           }}
@@ -115,8 +153,19 @@ export default function RecruiterSubmissions({ organization }: { organization: s
   );
 }
 
-function SubmissionForm({ organization, onCancel, onSent }: { organization: string; onCancel: () => void; onSent: () => Promise<void> }) {
-  const [category, setCategory] = useState("Offre d’emploi");
+function SubmissionForm({
+  organization,
+  prefill,
+  onCancel,
+  onSent,
+}: {
+  organization: string;
+  prefill: Prefill | null;
+  onCancel: () => void;
+  onSent: () => Promise<void>;
+}) {
+  const [category, setCategory] = useState(prefill?.category || "Offre d’emploi");
+  const text = (value?: string | null) => (value ? decodeEntities(value) : "");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const terms = termsFor(category);
@@ -148,6 +197,11 @@ function SubmissionForm({ organization, onCancel, onSent }: { organization: stri
 
   return (
     <form className="rec-sub-form" onSubmit={submit}>
+      {prefill && (
+        <p className="rec-success" role="status">
+          <CircleCheck size={16} /> Formulaire repris de « {text(prefill.title)} ». Vérifiez les informations et choisissez une nouvelle date limite.
+        </p>
+      )}
       <div className="rec-sub-row">
         <label className="rec-field">
           <span>Catégorie *</span>
@@ -159,7 +213,7 @@ function SubmissionForm({ organization, onCancel, onSent }: { organization: stri
         </label>
         <label className="rec-field rec-sub-wide">
           <span>Intitulé *</span>
-          <input name="title" type="text" required maxLength={160} placeholder={terms.titlePlaceholder} />
+          <input name="title" type="text" required maxLength={160} placeholder={terms.titlePlaceholder} defaultValue={text(prefill?.title)} />
         </label>
       </div>
       <div className="rec-sub-row">
@@ -169,7 +223,7 @@ function SubmissionForm({ organization, onCancel, onSent }: { organization: stri
         </label>
         <label className="rec-field">
           <span>Lieu *</span>
-          <input name="location" type="text" required maxLength={120} placeholder="Ex. Kinshasa · Gombe" />
+          <input name="location" type="text" required maxLength={120} placeholder="Ex. Kinshasa · Gombe" defaultValue={text(prefill?.location)} />
         </label>
       </div>
       <div className="rec-sub-row rec-sub-row-3">
@@ -177,7 +231,7 @@ function SubmissionForm({ organization, onCancel, onSent }: { organization: stri
           <span>
             {terms.typeLabel} {isJob && "*"}
           </span>
-          <select key={terms.typeLabel} name="contract_type" required={isJob} defaultValue="">
+          <select key={terms.typeLabel} name="contract_type" required={isJob} defaultValue={terms.types.includes(prefill?.contract_type || "") ? prefill?.contract_type : ""}>
             <option value="">— Choisir —</option>
             {terms.types.map((type) => (
               <option key={type}>{type}</option>
@@ -190,18 +244,18 @@ function SubmissionForm({ organization, onCancel, onSent }: { organization: stri
         </label>
         <label className="rec-field">
           <span>{terms.priceLabel}</span>
-          <input name="salary" type="text" maxLength={120} placeholder={terms.pricePlaceholder} />
+          <input name="salary" type="text" maxLength={120} placeholder={terms.pricePlaceholder} defaultValue={text(prefill?.salary)} />
         </label>
       </div>
       <label className="rec-field">
         <span>{terms.descriptionLabel}</span>
-        <textarea name="description" rows={8} required minLength={30} placeholder="Missions, profil recherché, documents demandés…" />
+        <textarea name="description" rows={8} required minLength={30} placeholder="Missions, profil recherché, documents demandés…" defaultValue={text(prefill?.description)} />
       </label>
       <label className="rec-field">
         <span>
           {terms.contactLabel} {!isNotice && "*"}
         </span>
-        <input name="apply_contact" type="text" required={!isNotice} placeholder={terms.contactPlaceholder} />
+        <input name="apply_contact" type="text" required={!isNotice} placeholder={terms.contactPlaceholder} defaultValue={text(prefill?.apply_contact)} />
       </label>
       <label className="rec-field">
         <span>Affiche ou avis (image ou PDF, facultatif)</span>

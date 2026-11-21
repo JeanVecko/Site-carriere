@@ -214,3 +214,4 @@ html[data-theme="dark"] .pub-city-alert { background: #16233f; border-color: #2c
 html[data-theme="dark"] .pub-city-others a, html[data-theme="dark"] .pub-city-chips a, html[data-theme="dark"] .pub-city-index a { background: #13213d; border-color: #2c4170; color: #dbe6f7; }
 html[data-theme="dark"] .pub-city-others em, html[data-theme="dark"] .pub-city-chips em { background: #1f3358; color: #dbe6f7; }
 html[data-theme="dark"] .pub-city-index strong { color: #f2f6fc; }
+html[data-theme="dark"] .rec-table small em.rec-expiring { background: #3d2a10; color: #fbbf6a; }

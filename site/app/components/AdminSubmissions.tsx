@@ -1,24 +1,55 @@
 "use client";
 
-import { BadgeCheck, CircleCheck, Clock, ExternalLink, FileText, ImageIcon, Send, XCircle } from "lucide-react";
-import { type Submission, API_BASE, adminHeaders, apiRequest, decodeEntities, formatDate } from "../lib/api";
+import { BadgeCheck, CalendarPlus, CircleCheck, Clock, ExternalLink, FileText, ImageIcon, Send, XCircle } from "lucide-react";
+import { type ExtensionRequest, type Submission, API_BASE, adminHeaders, apiRequest, decodeEntities, formatDate } from "../lib/api";
 
 type Notify = (toast: { type: "success" | "error"; text: string }) => void;
 
 /** Rubrique « À valider » : offres préparées par les recruteurs, publiées seulement par l'administrateur. */
 export default function AdminSubmissions({
   submissions,
+  extensions,
   loading,
   onReview,
   onChange,
+  onExtensionsChange,
+  onPublicChange,
   notify,
 }: {
   submissions: Submission[];
+  extensions: ExtensionRequest[];
   loading: boolean;
   onReview: (submission: Submission) => void;
   onChange: (list: Submission[]) => void;
+  onExtensionsChange: (list: ExtensionRequest[]) => void;
+  onPublicChange: () => void;
   notify: Notify;
 }) {
+  const pendingExtensions = extensions.filter((item) => item.status === "pending");
+
+  async function approveExtension(item: ExtensionRequest) {
+    try {
+      const result = await apiRequest<{ deadline: string }>(`/admin/extensions/${item.id}/approve`, { method: "POST", headers: adminHeaders() });
+      onExtensionsChange(extensions.map((entry) => (entry.id === item.id ? { ...entry, status: "approved", new_deadline: result.deadline, decided_at: new Date().toISOString() } : entry)));
+      onPublicChange();
+      notify({ type: "success", text: `Offre prolongée jusqu’au ${formatDate(result.deadline)}. Le recruteur est prévenu par e-mail.` });
+    } catch (approveError) {
+      notify({ type: "error", text: approveError instanceof Error ? approveError.message : "Validation impossible." });
+    }
+  }
+
+  async function rejectExtension(item: ExtensionRequest) {
+    const reason = window.prompt(`Refuser la prolongation de « ${decodeEntities(item.title)} » ?\n\nIndiquez le motif : il est envoyé au recruteur.`, "");
+    if (reason === null) return;
+    try {
+      await apiRequest(`/admin/extensions/${item.id}/reject`, { method: "POST", headers: adminHeaders(), body: JSON.stringify({ reason }) });
+      onExtensionsChange(extensions.map((entry) => (entry.id === item.id ? { ...entry, status: "rejected", reject_reason: reason.trim(), decided_at: new Date().toISOString() } : entry)));
+      notify({ type: "success", text: "Prolongation refusée. Le recruteur est prévenu par e-mail." });
+    } catch (rejectError) {
+      notify({ type: "error", text: rejectError instanceof Error ? rejectError.message : "Refus impossible." });
+    }
+  }
+
   const pending = submissions.filter((item) => item.status === "pending" || item.status === "publishing");
   const done = submissions.filter((item) => item.status === "published" || item.status === "rejected");
 
@@ -59,6 +90,37 @@ export default function AdminSubmissions({
       <p className="adm-info adm-info-inline">
         <Send size={16} /> Les recruteurs préparent ici leurs offres. Rien n’est publié sans votre validation : relisez, corrigez si besoin, puis publiez.
       </p>
+
+      {pendingExtensions.length > 0 && (
+        <section className="adm-card adm-ext">
+          <h3>
+            <CalendarPlus size={17} /> Prolongations demandées
+          </h3>
+          <ul>
+            {pendingExtensions.map((item) => (
+              <li key={String(item.id)}>
+                <div>
+                  <strong>{decodeEntities(item.title)}</strong>
+                  <small>
+                    {item.organization_name}
+                    {item.verified ? " ✓" : ""} · date limite {item.deadline ? formatDate(item.deadline) : "non précisée"} · {item.views} vues,{" "}
+                    {item.apply_clicks} clics · demandée le {formatDate(item.created_at)}
+                  </small>
+                </div>
+                <span className="adm-ext-days">+{item.days} jours</span>
+                <div className="adm-ext-actions">
+                  <button type="button" className="adm-btn adm-btn-danger-ghost" onClick={() => void rejectExtension(item)}>
+                    <XCircle size={15} /> Refuser
+                  </button>
+                  <button type="button" className="adm-btn adm-btn-primary" onClick={() => void approveExtension(item)}>
+                    <CircleCheck size={15} /> Prolonger
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {pending.length === 0 ? (
         <p className="adm-empty">Aucune offre en attente de validation.</p>

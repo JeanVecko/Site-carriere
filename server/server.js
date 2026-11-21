@@ -231,6 +231,23 @@ async function migrateDatabase() {
     decided_at TIMESTAMPTZ
   )`);
   await rawQuery('CREATE INDEX IF NOT EXISTS offer_submissions_status_idx ON offer_submissions (status, created_at)');
+  // Fin de vie d'une offre : rappel au recruteur 3 jours avant la date limite, poste déclaré pourvu (offre retirée).
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS expiry_reminder_sent_at TIMESTAMPTZ');
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS filled_at TIMESTAMPTZ');
+  // Demandes de prolongation des recruteurs : appliquées seulement après validation par l'administrateur.
+  await rawQuery(`CREATE TABLE IF NOT EXISTS offer_extension_requests (
+    id BIGSERIAL PRIMARY KEY,
+    announcement_id BIGINT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+    organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    submitter_email TEXT NOT NULL DEFAULT '',
+    days INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    reject_reason TEXT NOT NULL DEFAULT '',
+    new_deadline DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    decided_at TIMESTAMPTZ
+  )`);
+  await rawQuery("CREATE UNIQUE INDEX IF NOT EXISTS offer_extension_pending_idx ON offer_extension_requests (announcement_id) WHERE status = 'pending'");
   await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -817,7 +834,8 @@ const FEATURED_SQL = "(featured_until IS NOT NULL AND featured_until >= (NOW() A
 const FEATURED_LIMIT = 3;
 // Tarifs de la mise à la une (paiement hors du site : Mobile Money ou virement).
 const FEATURED_PLANS = { 7: 10, 14: 18, 30: 30 };
-const PUBLICLY_VISIBLE_SQL = `(deadline IS NULL OR NOW() < ${PUBLIC_UNTIL_SQL})`;
+// Visible : pas déclarée pourvue, et date limite non dépassée depuis plus de 2 jours.
+const PUBLICLY_VISIBLE_SQL = `(filled_at IS NULL AND (deadline IS NULL OR NOW() < ${PUBLIC_UNTIL_SQL}))`;
 // Une publication a une vignette si au moins une image est jointe.
 // Empreinte des pièces jointes : change dès qu'une image est remplacée, pour que les navigateurs ne gardent
 // pas l'ancienne version en cache (elle est ajoutée à l'adresse de l'image : …/cover?v=…).
@@ -903,10 +921,11 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
             to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
             jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.saves, a.created_at, a.report_sent_at,
             ${FEATURED_SQL} AS featured, to_char(a.featured_from, 'YYYY-MM-DD') AS featured_from, to_char(a.featured_until, 'YYYY-MM-DD') AS featured_until,
-            a.featured_request_days, a.featured_requested_at, (o.verified_at IS NOT NULL) AS verified,
+            a.featured_request_days, a.featured_requested_at, (o.verified_at IS NOT NULL) AS verified, a.filled_at,
+            (SELECT x.days FROM offer_extension_requests x WHERE x.announcement_id = a.id AND x.status = 'pending' LIMIT 1) AS extension_request_days,
             (SELECT COUNT(*) FROM offer_reports r WHERE r.announcement_id = a.id AND r.resolved_at IS NULL)::int AS open_reports,
             ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa') AS public_until,
-            NOT (a.deadline IS NULL OR NOW() < ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden,
+            (a.filled_at IS NOT NULL OR NOT (a.deadline IS NULL OR NOW() < ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa'))) AS hidden,
             u.email AS author_email, a.organization_id, o.name AS organization_name
      FROM announcements a
      LEFT JOIN users u ON u.id = a.owner_id
@@ -955,7 +974,7 @@ app.patch('/api/announcements/:id/deadline', requireAdmin, async (request, respo
     return response.status(400).json({ error: 'Date invalide.' });
   }
   const result = await pool.query(
-    `UPDATE announcements SET deadline = $2::date
+    `UPDATE announcements SET deadline = $2::date, expiry_reminder_sent_at = NULL
      WHERE id = $1 AND $2::date >= (NOW() AT TIME ZONE 'Africa/Kinshasa')::date
      RETURNING id, to_char(deadline, 'YYYY-MM-DD') AS deadline`,
     [request.params.id, deadline]
@@ -1316,7 +1335,7 @@ function reportEmailText({ report, recipient, final }) {
     `(connectez-vous avec l’adresse ${recipient.email})`,
     '',
     final
-      ? `Vous recrutez encore ? Proposez-nous votre prochaine offre depuis votre espace : ${frontendUrl}/espace-recruteur`
+      ? `Le poste n’est pas encore pourvu ? Republiez cette offre en un clic (nous la relisons avant publication) :\n${frontendUrl}/espace-recruteur?republier=${offer.id}`
       : `Votre espace recruteur : ${frontendUrl}/espace-recruteur`,
     offer.featured_from ? null : '',
     offer.featured_from ? null : `Pour plus de visibilité, mettez votre offre « à la une » : en tête des listes, avec un badge doré et en premier dans nos alertes e-mail. À partir de 10 $ pour 7 jours, à demander depuis votre espace.`,
@@ -1345,6 +1364,199 @@ async function sendOfferReportEmail(offerId, { final }) {
   if (final) await pool.query('UPDATE announcements SET report_sent_at = NOW() WHERE id = $1', [offerId]);
   return { to: recipient.email };
 }
+
+// Le site (Vercel) garde ses pages en cache : on lui demande de les rafraîchir quand une offre est retirée
+// ou prolongée sans passer par l'admin (même secret que la tâche planifiée du matin).
+async function refreshPublicSite() {
+  const secret = process.env.ALERTS_SECRET;
+  if (!secret || process.env.NODE_ENV === 'test') return;
+  await fetch(`${frontendUrl}/api/revalidate`, { method: 'POST', headers: { 'x-alerts-secret': secret } }).catch(() => {});
+}
+
+const EXTENSION_DAYS = [7, 14, 30];
+const TODAY_KINSHASA_SQL = "(NOW() AT TIME ZONE 'Africa/Kinshasa')::date";
+
+function expiryReminderText({ offer, recipient, daysLeft }) {
+  const views = Number(offer.views || 0);
+  const applies = Number(offer.apply_clicks || 0);
+  const saves = Number(offer.saves || 0);
+  const when = daysLeft <= 0 ? 'aujourd’hui' : daysLeft === 1 ? 'demain' : `dans ${daysLeft} jours`;
+  return [
+    `Bonjour${recipient.contact ? ` ${recipient.contact}` : ''},`,
+    '',
+    `Votre offre « ${offer.title} » arrive à sa date limite ${when} (${frDate(offer.deadline)}). Elle sera ensuite retirée du site.`,
+    '',
+    'Jusqu’ici :',
+    `• ${frNumber(views)} consultation${views > 1 ? 's' : ''}`,
+    `• ${frNumber(applies)} clic${applies > 1 ? 's' : ''} sur « Postuler »`,
+    saves ? `• ${frNumber(saves)} candidat${saves > 1 ? 's l’ont' : ' l’a'} sauvegardée pour postuler plus tard` : null,
+    '',
+    'Vous recrutez encore ? Demandez une prolongation de 7, 14 ou 30 jours depuis votre espace.',
+    'Le poste est pourvu ? Indiquez-le en un clic : l’offre est retirée et les candidats ne postulent plus pour rien.',
+    `${frontendUrl}/espace-recruteur`,
+    `(connectez-vous avec l’adresse ${recipient.email})`,
+    '',
+    'Merci de votre confiance,',
+    'L’équipe Carrières RDC',
+  ].filter((line) => line !== null).join('\n');
+}
+
+// Rappels du matin : offres d'un espace recruteur actif dont la date limite tombe dans les 3 prochains jours.
+async function sendExpiryReminders() {
+  const due = await pool.query(
+    `SELECT a.id, a.title, to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.views, a.apply_clicks, a.saves,
+            (a.deadline - ${TODAY_KINSHASA_SQL}) AS days_left
+     FROM announcements a JOIN organizations o ON o.id = a.organization_id
+     WHERE a.expiry_reminder_sent_at IS NULL AND a.filled_at IS NULL AND a.deadline IS NOT NULL AND o.account_status = 'active'
+       AND a.deadline BETWEEN ${TODAY_KINSHASA_SQL} AND ${TODAY_KINSHASA_SQL} + 3
+       AND NOT EXISTS (SELECT 1 FROM offer_extension_requests x WHERE x.announcement_id = a.id AND x.status = 'pending')
+     ORDER BY a.deadline LIMIT 50`
+  );
+  const run = { reminders_due: due.rows.length, reminders_sent: 0, reminders_failed: 0 };
+  for (const offer of due.rows) {
+    try {
+      const recipient = await reportRecipient(offer.id);
+      if (!recipient?.email || recipient.account_status !== 'active') continue;
+      await sendTransactionalEmail({
+        to: recipient.email,
+        replyTo: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+        subject: `Votre offre « ${offer.title} » expire bientôt — prolonger ou clôturer ?`.slice(0, 180),
+        text: expiryReminderText({ offer, recipient, daysLeft: Number(offer.days_left) }),
+      });
+      await pool.query('UPDATE announcements SET expiry_reminder_sent_at = NOW() WHERE id = $1', [offer.id]);
+      run.reminders_sent += 1;
+    } catch (error) {
+      run.reminders_failed += 1;
+      console.error(`Rappel de l’offre ${offer.id} non envoyé :`, error.message);
+    }
+  }
+  return run;
+}
+
+// Offre du recruteur connecté (ou null), avec son état.
+async function recruiterOffer(request) {
+  if (!/^\d+$/.test(request.params.id)) return null;
+  const result = await pool.query(
+    `SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
+            apply_contact, salary, filled_at, ${PUBLICLY_VISIBLE_SQL} AS visible
+     FROM announcements WHERE id = $1 AND organization_id = $2`,
+    [request.params.id, request.user.organization_id]
+  );
+  return result.rows[0] || null;
+}
+
+// Détails d'une ancienne offre, pour la republier (formulaire « Préparer une offre » prérempli).
+app.get('/api/recruiter/offers/:id/details', requireRecruiter, safe(async (request, response) => {
+  const offer = await recruiterOffer(request);
+  if (!offer) return response.status(404).json({ error: 'Offre introuvable.' });
+  const { visible, filled_at: _filled, ...fields } = offer;
+  response.json(fields);
+}));
+
+// Demande de prolongation : 7, 14 ou 30 jours, validée par l'administrateur.
+app.post('/api/recruiter/offers/:id/extension', requireRecruiter, safe(async (request, response) => {
+  const offer = await recruiterOffer(request);
+  if (!offer) return response.status(404).json({ error: 'Offre introuvable.' });
+  const days = Number(request.body.days);
+  if (!EXTENSION_DAYS.includes(days)) return response.status(400).json({ error: 'Choisissez une prolongation de 7, 14 ou 30 jours.' });
+  if (offer.filled_at) return response.status(409).json({ error: 'Cette offre est indiquée comme pourvue.' });
+  if (!offer.deadline) return response.status(409).json({ error: 'Cette offre n’a pas de date limite.' });
+  const created = await pool.query(
+    `INSERT INTO offer_extension_requests (announcement_id, organization_id, submitter_email, days)
+     VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING id`,
+    [offer.id, request.user.organization_id, request.user.email, days]
+  );
+  if (!created.rows[0]) return response.status(409).json({ error: 'Une demande de prolongation est déjà en attente pour cette offre.' });
+  response.status(201).json({ id: created.rows[0].id, days });
+  const organization = (await pool.query('SELECT name FROM organizations WHERE id = $1', [request.user.organization_id])).rows[0]?.name || 'Recruteur';
+  sendTransactionalEmail({
+    to: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    replyTo: request.user.email,
+    subject: `Prolongation à valider : ${offer.title} (${days} jours)`.slice(0, 180),
+    text: `${organization} (${request.user.email}) demande de prolonger son offre « ${offer.title} » de ${days} jours (date limite actuelle : ${frDate(offer.deadline)}).\n\nÀ valider depuis ${frontendUrl}/admin#a-valider`,
+  }).catch((error) => console.error('Alerte e-mail non envoyée :', error.message));
+}));
+
+// Poste pourvu : l'offre est retirée tout de suite (aucune validation nécessaire, elle ne fait que disparaître).
+app.post('/api/recruiter/offers/:id/filled', requireRecruiter, safe(async (request, response) => {
+  const offer = await recruiterOffer(request);
+  if (!offer) return response.status(404).json({ error: 'Offre introuvable.' });
+  await pool.query('UPDATE announcements SET filled_at = COALESCE(filled_at, NOW()) WHERE id = $1', [offer.id]);
+  await pool.query("UPDATE offer_extension_requests SET status = 'cancelled', decided_at = NOW() WHERE announcement_id = $1 AND status = 'pending'", [offer.id]);
+  response.json({ ok: true });
+  refreshPublicSite();
+}));
+
+// Administrateur : demandes en attente, puis celles traitées ces 30 derniers jours.
+app.get('/api/admin/extensions', requireAdmin, safe(async (_request, response) => {
+  const result = await pool.query(
+    `SELECT x.id, x.announcement_id, x.days, x.status, x.reject_reason, x.submitter_email, x.created_at, x.decided_at,
+            to_char(x.new_deadline, 'YYYY-MM-DD') AS new_deadline, a.title, a.company, a.views, a.apply_clicks,
+            to_char(a.deadline, 'YYYY-MM-DD') AS deadline, o.name AS organization_name, (o.verified_at IS NOT NULL) AS verified
+     FROM offer_extension_requests x JOIN announcements a ON a.id = x.announcement_id JOIN organizations o ON o.id = x.organization_id
+     WHERE x.status = 'pending' OR (x.status IN ('approved', 'rejected') AND x.decided_at > NOW() - INTERVAL '30 days')
+     ORDER BY (x.status = 'pending') DESC, x.created_at DESC LIMIT 200`
+  );
+  response.json(result.rows);
+}));
+
+// Validation : la nouvelle date part de la date limite actuelle (ou d'aujourd'hui si elle est déjà passée).
+app.post('/api/admin/extensions/:id/approve', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Demande introuvable.' });
+  const claimed = await pool.query(
+    `UPDATE offer_extension_requests SET status = 'approved', decided_at = NOW() WHERE id = $1 AND status = 'pending' RETURNING *`,
+    [request.params.id]
+  );
+  const extension = claimed.rows[0];
+  if (!extension) return response.status(409).json({ error: 'Demande introuvable ou déjà traitée.' });
+  const updated = await pool.query(
+    `UPDATE announcements SET deadline = GREATEST(COALESCE(deadline, ${TODAY_KINSHASA_SQL}), ${TODAY_KINSHASA_SQL}) + $2::int,
+            expiry_reminder_sent_at = NULL, report_sent_at = NULL
+     WHERE id = $1 RETURNING title, to_char(deadline, 'YYYY-MM-DD') AS deadline`,
+    [extension.announcement_id, extension.days]
+  );
+  const offer = updated.rows[0];
+  await pool.query('UPDATE offer_extension_requests SET new_deadline = $2 WHERE id = $1', [extension.id, offer.deadline]);
+  response.json({ ok: true, deadline: offer.deadline });
+  sendTransactionalEmail({
+    to: extension.submitter_email,
+    replyTo: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    subject: `Votre offre est prolongée : ${offer.title}`.slice(0, 180),
+    text: `Bonjour,\n\nVotre offre « ${offer.title} » est prolongée de ${extension.days} jours. Nouvelle date limite : ${frDate(offer.deadline)}.\n${frontendUrl}/offre/${extension.announcement_id}\n\nPour plus de visibilité pendant cette période, vous pouvez aussi la mettre « à la une » depuis votre espace : ${frontendUrl}/espace-recruteur\n\nL’équipe Carrières RDC`,
+  }).catch((error) => console.error('E-mail au recruteur non envoyé :', error.message));
+}));
+
+// Administrateur : remettre en ligne une offre déclarée pourvue par erreur.
+app.patch('/api/admin/announcements/:id/filled', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Offre introuvable.' });
+  const filled = Boolean(request.body.filled);
+  const result = await pool.query(
+    `UPDATE announcements SET filled_at = ${filled ? 'COALESCE(filled_at, NOW())' : 'NULL'} WHERE id = $1 RETURNING filled_at`,
+    [request.params.id]
+  );
+  if (!result.rows[0]) return response.status(404).json({ error: 'Offre introuvable.' });
+  response.json({ filled_at: result.rows[0].filled_at });
+}));
+
+app.post('/api/admin/extensions/:id/reject', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Demande introuvable.' });
+  const reason = clean(request.body.reason).slice(0, 1000);
+  if (reason.length < 5) return response.status(400).json({ error: 'Indiquez le motif du refus (il est envoyé au recruteur).' });
+  const result = await pool.query(
+    `UPDATE offer_extension_requests x SET status = 'rejected', reject_reason = $2, decided_at = NOW()
+     FROM announcements a WHERE x.id = $1 AND x.status = 'pending' AND a.id = x.announcement_id RETURNING x.submitter_email, a.title`,
+    [request.params.id, reason]
+  );
+  const row = result.rows[0];
+  if (!row) return response.status(409).json({ error: 'Demande introuvable ou déjà traitée.' });
+  response.json({ ok: true });
+  sendTransactionalEmail({
+    to: row.submitter_email,
+    replyTo: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    subject: `Prolongation non accordée : ${row.title}`.slice(0, 180),
+    text: `Bonjour,\n\nNous ne pouvons pas prolonger votre offre « ${row.title} » :\n\n${reason}\n\nPour toute question, répondez simplement à cet e-mail.\nL’équipe Carrières RDC`,
+  }).catch((error) => console.error('E-mail au recruteur non envoyé :', error.message));
+}));
 
 // Bilans dus : date limite passée (heure de Kinshasa) depuis 7 jours au plus, pas encore envoyés, recruteur actif.
 async function sendDueOfferReports() {
@@ -1600,8 +1812,9 @@ app.get('/api/recruiter/me', requireRecruiter, safe(async (request, response) =>
     pool.query(
       `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, created_at,
               views, apply_clicks, saves, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until,
-              featured_request_days, featured_requested_at,
-              NOT (deadline IS NULL OR NOW() < ((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden
+              featured_request_days, featured_requested_at, filled_at,
+              (SELECT x.days FROM offer_extension_requests x WHERE x.announcement_id = announcements.id AND x.status = 'pending' LIMIT 1) AS extension_request_days,
+              (filled_at IS NOT NULL OR NOT (deadline IS NULL OR NOW() < ((deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa'))) AS hidden
        FROM announcements WHERE organization_id = $1 ORDER BY created_at DESC`,
       [request.user.organization_id]
     ),
@@ -1987,6 +2200,7 @@ app.post('/api/alerts/digest', (request, response, next) => {
   alertRunInProgress = true;
   sendAlertDigests()
     .then(async (run) => ({ ...run, ...(await sendDueOfferReports().catch((error) => ({ reports_error: error.message }))) }))
+    .then(async (run) => ({ ...run, ...(await sendExpiryReminders().catch((error) => ({ reminders_error: error.message }))) }))
     .then((run) => { lastAlertRun = run; console.log('Alertes envoyées :', JSON.stringify(run)); })
     .catch((error) => { lastAlertRun = { error: error.message, finished_at: new Date().toISOString() }; console.error('Envoi des alertes interrompu :', error); })
     .finally(() => { alertRunInProgress = false; });
@@ -2185,7 +2399,7 @@ app.patch('/api/my/applications/received/:id', requireUser, requireOrganizationO
 
 app.use((_error, _request, response, _next) => response.status(500).json({ error: 'Erreur interne du serveur.' }));
 
-export { app, pool, initializeDatabase, flushCounters };
+export { app, pool, initializeDatabase, flushCounters, sendExpiryReminders };
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port, () => console.log(`API listening on port ${port}`));

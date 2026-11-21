@@ -854,3 +854,15 @@ html[data-theme="dark"] .pub-report-reason.is-active { background: #3d1717; bord
 .pub-city-index svg { color: var(--pub-gold); flex-shrink: 0; }
 .pub-city-index strong { color: var(--pub-dark); display: block; font-size: 16px; }
 .pub-city-index small { color: var(--pub-muted); font-size: 13px; }
+
+/* ===== Fin de vie des offres : rappel, prolongation, poste pourvu ===== */
+.rec-table small em.rec-expiring { background: #fff1e0; border-radius: 999px; color: #b45309; font-style: normal; font-weight: 700; padding: 1px 8px; }
+.adm-ext h3 { align-items: center; display: flex; font-size: 16px; gap: 8px; margin: 0 0 10px; }
+.adm-ext ul { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
+.adm-ext li { align-items: center; border-top: 1px solid var(--adm-border); display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 0; }
+.adm-ext li > div:first-child { flex: 1; min-width: 220px; }
+.adm-ext strong { display: block; }
+.adm-ext small { color: var(--adm-muted); font-size: 12.5px; }
+.adm-ext-days { background: #e8f0ff; border-radius: 999px; color: var(--adm-primary); font-size: 13px; font-weight: 800; padding: 4px 12px; }
+.adm-ext-actions { display: flex; gap: 8px; }
+.adm-filled-note { color: #1f7a44 !important; font-weight: 600; }

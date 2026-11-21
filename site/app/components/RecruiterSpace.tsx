@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   BriefcaseBusiness,
+  CalendarPlus,
   CircleCheck,
+  Repeat,
+  UserCheck,
   Eye,
   FileBarChart,
   KeyRound,
@@ -23,6 +26,7 @@ import {
   FEATURED_PLANS,
   RECRUITER_TOKEN_KEY,
   apiRequest,
+  daysLeft,
   decodeEntities,
   detailHref,
   formatDate,
@@ -48,6 +52,8 @@ type Offer = {
   views: number;
   apply_clicks: number;
   saves?: number;
+  filled_at?: string | null; // poste déclaré pourvu (offre retirée)
+  extension_request_days?: number | null; // prolongation demandée, en attente de validation
   hidden: boolean;
 };
 type Space = { email: string; organization: string; contact: string; offers: Offer[] };
@@ -164,6 +170,28 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
   const [space, setSpace] = useState<Space | null>(null);
   const [error, setError] = useState("");
   const [requesting, setRequesting] = useState<Offer | null>(null);
+  const [extending, setExtending] = useState<Offer | null>(null);
+  // Offre à republier : bouton « Republier », ou lien du bilan final (/espace-recruteur?republier=12).
+  const [republishId, setRepublishId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("republier");
+    if (id && /^\d+$/.test(id)) {
+      const timer = window.setTimeout(() => setRepublishId(id), 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
+
+  const clearRepublish = useCallback(() => setRepublishId(null), []);
+
+  async function markFilled(offer: Offer) {
+    if (!window.confirm(`Le poste « ${decodeEntities(offer.title)} » est pourvu ?\n\nL’offre sera retirée du site : les candidats ne pourront plus postuler. Vous gardez ses statistiques et son bilan.`)) return;
+    try {
+      await apiRequest(`/recruiter/offers/${encodeURIComponent(String(offer.id))}/filled`, { method: "POST", headers: recruiterHeaders() });
+      await load();
+    } catch (fillError) {
+      window.alert(fillError instanceof Error ? fillError.message : "Action impossible.");
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -243,7 +271,13 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
                       <strong>{decodeEntities(offer.title)}</strong>
                       <small>
                         Publiée le {formatDate(offer.created_at)} ·{" "}
-                        <em className={offer.hidden ? "rec-off" : "rec-on"}>{offer.hidden ? "Retirée du site" : "En ligne"}</em>
+                        <em className={offer.hidden ? "rec-off" : "rec-on"}>
+                          {offer.filled_at ? "Poste pourvu" : offer.hidden ? "Retirée du site" : "En ligne"}
+                        </em>
+                        {expiresSoon(offer) && <> · <em className="rec-expiring">{expiryLabel(offer)}</em></>}
+                        {offer.extension_request_days && !offer.filled_at && (
+                          <> · <em className="rec-featured">Prolongation de {offer.extension_request_days} jours demandée</em></>
+                        )}
                         {offer.featured && offer.featured_until && <> · <em className="rec-featured">★ À la une jusqu’au {formatDate(offer.featured_until)}</em></>}
                         {!offer.featured && offer.featured_request_days && (
                           <> · <em className="rec-featured">Demande « à la une » ({offer.featured_request_days} jours) envoyée</em></>
@@ -273,6 +307,21 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
                           <Eye size={15} /> Voir
                         </Link>
                       )}
+                      {!offer.filled_at && offer.deadline && !offer.extension_request_days && (!offer.hidden || isExpired(offer)) && (
+                        <button type="button" className="pub-btn pub-btn-outline rec-btn-sm" onClick={() => setExtending(offer)}>
+                          <CalendarPlus size={15} /> Prolonger
+                        </button>
+                      )}
+                      {!offer.hidden && (
+                        <button type="button" className="pub-btn pub-btn-outline rec-btn-sm" onClick={() => void markFilled(offer)}>
+                          <UserCheck size={15} /> Poste pourvu
+                        </button>
+                      )}
+                      {offer.hidden && (
+                        <button type="button" className="pub-btn pub-btn-outline rec-btn-sm" onClick={() => setRepublishId(String(offer.id))}>
+                          <Repeat size={15} /> Republier
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -282,12 +331,22 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
         )}
       </section>
 
-      <RecruiterSubmissions organization={space.organization} />
+      <RecruiterSubmissions organization={space.organization} republishId={republishId} onRepublishOpened={clearRepublish} />
 
       <div className="rec-grid rec-grid-single">
         <PasswordForm />
       </div>
 
+      {extending && (
+        <ExtensionRequest
+          offer={extending}
+          onClose={() => setExtending(null)}
+          onSent={() => {
+            setExtending(null);
+            void load();
+          }}
+        />
+      )}
       {requesting && (
         <FeaturedRequest
           offer={requesting}
@@ -298,6 +357,82 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
           }}
         />
       )}
+    </div>
+  );
+}
+
+// Date limite dans 3 jours au plus (offre encore en ligne) : rappel visible dans le tableau.
+function expiresSoon(offer: Offer) {
+  const left = daysLeft(offer.deadline);
+  return !offer.hidden && !offer.filled_at && left !== null && left >= 0 && left <= 3;
+}
+function expiryLabel(offer: Offer) {
+  const left = daysLeft(offer.deadline) ?? 0;
+  return left === 0 ? "Expire aujourd’hui" : left === 1 ? "Expire demain" : `Expire dans ${left} jours`;
+}
+
+const EXTENSION_DAYS = [7, 14, 30];
+
+// Demande de prolongation : appliquée après validation par Carrières RDC (e-mail de confirmation au recruteur).
+function ExtensionRequest({ offer, onClose, onSent }: { offer: Offer; onClose: () => void; onSent: () => void }) {
+  const [days, setDays] = useState(14);
+  const [state, setState] = useState<{ status: "idle" | "pending" | "ok" | "error"; text: string }>({ status: "idle", text: "" });
+
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [onClose]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setState({ status: "pending", text: "" });
+    try {
+      await apiRequest(`/recruiter/offers/${encodeURIComponent(String(offer.id))}/extension`, {
+        method: "POST",
+        headers: recruiterHeaders(),
+        body: JSON.stringify({ days }),
+      });
+      setState({ status: "ok", text: "Demande envoyée. Nous la validons rapidement ; vous recevez un e-mail avec la nouvelle date limite." });
+    } catch (submitError) {
+      setState({ status: "error", text: submitError instanceof Error ? submitError.message : "Envoi impossible." });
+    }
+  }
+
+  return (
+    <div className="rec-modal-backdrop" onClick={onClose}>
+      <form className="rec-card rec-modal" role="dialog" aria-modal="true" aria-labelledby="extension-title" onSubmit={submit} onClick={(event) => event.stopPropagation()}>
+        <div className="rec-modal-head">
+          <h2 id="extension-title"><CalendarPlus size={20} /> Prolonger l’offre</h2>
+          <button type="button" className="rec-modal-close" onClick={onClose} aria-label="Fermer"><X size={18} /></button>
+        </div>
+        <p className="rec-muted">
+          « {decodeEntities(offer.title)} » — date limite actuelle : {offer.deadline ? formatDate(offer.deadline) : "non précisée"}.
+          La prolongation part de cette date (ou d’aujourd’hui si elle est passée).
+        </p>
+        {state.status === "ok" ? (
+          <>
+            <p className="rec-success" role="status"><CircleCheck size={16} /> {state.text}</p>
+            <button type="button" className="pub-btn pub-btn-gold" onClick={onSent}>Fermer</button>
+          </>
+        ) : (
+          <>
+            <div className="rec-plans" role="radiogroup" aria-label="Durée de la prolongation">
+              {EXTENSION_DAYS.map((value) => (
+                <label key={value} className={`rec-plan${days === value ? " is-active" : ""}`}>
+                  <input type="radio" name="days" value={value} checked={days === value} onChange={() => setDays(value)} />
+                  <strong>{value} jours</strong>
+                  <span>Gratuit</span>
+                </label>
+              ))}
+            </div>
+            {state.status === "error" && <p className="rec-alert" role="alert"><TriangleAlert size={16} /> {state.text}</p>}
+            <button className="pub-btn pub-btn-gold" type="submit" disabled={state.status === "pending"}>
+              <CalendarPlus size={16} /> {state.status === "pending" ? "Envoi…" : `Demander ${days} jours de plus`}
+            </button>
+          </>
+        )}
+      </form>
     </div>
   );
 }

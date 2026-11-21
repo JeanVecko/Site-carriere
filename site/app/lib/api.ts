@@ -39,6 +39,8 @@ export type Announcement = {
   featured_request_days?: number | null; // demande du recruteur en attente de paiement
   verified?: boolean; // organisation vérifiée (badge « Vérifiée »)
   open_reports?: number; // signalements de visiteurs non traités (admin)
+  filled_at?: string | null; // poste déclaré pourvu par le recruteur (offre retirée du site)
+  extension_request_days?: number | null; // prolongation demandée par le recruteur, à valider
   featured_requested_at?: string | null;
   organization_name?: string;
 };
@@ -67,6 +69,26 @@ export type Submission = {
   salary: string;
   media: Array<{ name: string; type: string }>;
   media_count: number;
+};
+
+// Demande de prolongation d'une offre par son recruteur (appliquée après validation de l'administrateur).
+export type ExtensionRequest = {
+  id: number | string;
+  announcement_id: number | string;
+  days: number;
+  status: "pending" | "approved" | "rejected";
+  reject_reason: string;
+  submitter_email: string;
+  created_at: string;
+  decided_at: string | null;
+  new_deadline: string | null;
+  title: string;
+  company: string;
+  views: number;
+  apply_clicks: number;
+  deadline: string | null;
+  organization_name: string;
+  verified: boolean;
 };
 
 export type Recruiter = {
