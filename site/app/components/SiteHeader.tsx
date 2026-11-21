@@ -79,7 +79,7 @@ export default function SiteHeader({ active }: { active?: string } = {}) {
         </nav>
         <div className="pub-header-actions">
           {isAdmin && (
-            <Link className="pub-admin-link" href="/admin">
+            <Link className="pub-admin-link" href="/admin" title="Administration">
               <LayoutDashboard size={16} /> Administration
             </Link>
           )}

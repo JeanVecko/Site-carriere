@@ -769,3 +769,7 @@ html[data-theme="dark"] .pub-report-reason.is-active { background: #3d1717; bord
   .pub-offer-hero-actions { padding-left: 0; }
   .pub-offer-hero-actions .pub-save-button { padding: 9px 16px; }
 }
+/* En-tête : la largeur du contenu est plafonnée (1160 px). Pour que tout tienne, quel que soit l'écran, les réseaux
+   sociaux restent dans le pied de page et le menu mobile, et le lien « Administration » est réduit à son icône. */
+.pub-header-actions .pub-social { display: none; }
+.pub-header-actions .pub-admin-link { font-size: 0; gap: 0; }
