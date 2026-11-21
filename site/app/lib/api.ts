@@ -44,6 +44,31 @@ export type Announcement = {
 };
 
 // Espace recruteur ouvert par l'administrateur (société + contact).
+// Offre préparée par un recruteur, publiée seulement après validation par l'administrateur.
+export type Submission = {
+  id: number | string;
+  organization_id: number | string;
+  organization_name: string;
+  verified: boolean;
+  submitter_email: string;
+  status: "pending" | "publishing" | "published" | "rejected";
+  reject_reason: string;
+  announcement_id: number | string | null;
+  created_at: string;
+  decided_at: string | null;
+  title: string;
+  category: string;
+  company: string;
+  location: string;
+  description: string;
+  contract_type: string;
+  deadline: string | null;
+  apply_contact: string;
+  salary: string;
+  media: Array<{ name: string; type: string }>;
+  media_count: number;
+};
+
 export type Recruiter = {
   id: number | string;
   name: string;

@@ -32,14 +32,15 @@ import {
   Share2,
   MailCheck,
   Star,
+  ClipboardCheck,
 } from "lucide-react";
 import {
   Announcement,
-  AnnouncementMedia,
   termsFor,
   FEATURED_PLANS,
   ContactMessage,
   Recruiter,
+  Submission,
   adminHeaders,
   apiRequest,
   decodeEntities,
@@ -49,15 +50,18 @@ import {
 } from "../lib/api";
 import { CategorySplitChart, PublicationsChart, TopViewsChart } from "./AdminCharts";
 import AdminRecruiters from "./AdminRecruiters";
+import AdminSubmissions from "./AdminSubmissions";
 import AdminShareKit from "./AdminShareKit";
+import { filesToMedia } from "../lib/media";
 
 const TOKEN_KEY = "carrieres-admin-token";
 const AUTH_EVENT = "carrieres-admin-auth";
 
-type Section = "dashboard" | "publish" | "offers" | "expired" | "recruiters" | "messages";
+type Section = "dashboard" | "submissions" | "publish" | "offers" | "expired" | "recruiters" | "messages";
 
 const SECTIONS: Array<{ id: Section; label: string; icon: typeof LayoutDashboard }> = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+  { id: "submissions", label: "À valider", icon: ClipboardCheck },
   { id: "publish", label: "Publier", icon: CirclePlus },
   { id: "offers", label: "Offres publiées", icon: BriefcaseBusiness },
   { id: "expired", label: "Offres expirées", icon: Archive },
@@ -70,6 +74,7 @@ const SECTIONS: Array<{ id: Section; label: string; icon: typeof LayoutDashboard
 // un rechargement de la page rouvre la même rubrique, au même endroit.
 const SECTION_HASHES: Record<Section, string> = {
   dashboard: "",
+  submissions: "a-valider",
   publish: "publier",
   offers: "offres",
   expired: "expirees",
@@ -238,6 +243,9 @@ function Dashboard() {
   const [sharing, setSharing] = useState<Announcement | null>(null);
   const [featuring, setFeaturing] = useState<Announcement | null>(null);
   const [editing, setEditing] = useState<Announcement | null>(null);
+  // Offres préparées par les recruteurs, et celle en cours de vérification dans le formulaire de publication.
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [reviewing, setReviewing] = useState<Submission | null>(null);
   // Catégorie choisie dans le formulaire de publication (pour le titre de la page).
   const [formCategory, setFormCategory] = useState("Offre d’emploi");
   const [seenExpired, setSeenExpired] = useState<string[]>(() => {
@@ -254,15 +262,17 @@ function Dashboard() {
     setLoading(true);
     setLoadError("");
     try {
-      const [offers, inbox, partners] = await Promise.all([
+      const [offers, inbox, partners, proposals] = await Promise.all([
         apiRequest<Announcement[]>("/admin/announcements", { headers: adminHeaders() }),
         apiRequest<ContactMessage[]>("/messages", { headers: adminHeaders() }),
         // Liste vide si l'API déployée ne connaît pas encore les espaces recruteur
         apiRequest<Recruiter[]>("/admin/recruiters", { headers: adminHeaders() }).catch(() => [] as Recruiter[]),
+        apiRequest<Submission[]>("/admin/submissions", { headers: adminHeaders() }).catch(() => [] as Submission[]),
       ]);
       setAnnouncements(offers);
       setMessages(inbox);
       setRecruiters(partners);
+      setSubmissions(proposals);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Impossible de charger les données.";
       // Session expirée : retour à l'écran de connexion.
@@ -464,8 +474,9 @@ function Dashboard() {
   }
 
   const current = SECTIONS.find((entry) => entry.id === section)!;
+  const pendingSubmissions = submissions.filter((item) => item.status === "pending").length;
   const wording = wordingFor(formCategory);
-  const heading = section === "publish" ? (editing ? wording.edit : wording.publish) : current.label;
+  const heading = section === "publish" ? (reviewing ? "Vérifier une offre proposée" : editing ? wording.edit : wording.publish) : current.label;
 
   return (
     <div className="adm-shell">
@@ -487,11 +498,15 @@ function Dashboard() {
               aria-current={section === id ? "page" : undefined}
               onClick={() => {
                 setEditing(null);
+                setReviewing(null);
                 setSection(id);
               }}
             >
               <Icon size={18} />
               <span>{label}</span>
+              {id === "submissions" && pendingSubmissions > 0 && (
+                <em className="adm-badge" title="Offres à valider">{pendingSubmissions}</em>
+              )}
               {id === "messages" && stats.unread > 0 && (
                 <em className="adm-badge" title="Messages non lus">{stats.unread}</em>
               )}
@@ -546,19 +561,26 @@ function Dashboard() {
         )}
         {section === "publish" && (
           <PublishForm
-            key={editing ? String(editing.id) : "new"}
-            initial={editing}
+            key={reviewing ? `proposition-${reviewing.id}` : editing ? String(editing.id) : "new"}
+            initial={reviewing ? submissionAsAnnouncement(reviewing) : editing}
+            submission={reviewing}
             recruiters={recruiters}
             onCategoryChange={setFormCategory}
             onCancel={() => {
+              const fromReview = Boolean(reviewing);
               setEditing(null);
-              setSection("offers");
+              setReviewing(null);
+              setSection(fromReview ? "submissions" : "offers");
             }}
             onSaved={async (mode, category) => {
               refreshPublicSite();
               const saved = wordingFor(category);
-              setToast({ type: "success", text: mode === "updated" ? saved.updated : saved.published });
+              setToast({
+                type: "success",
+                text: reviewing ? `${saved.published} Le recruteur est prévenu par e-mail.` : mode === "updated" ? saved.updated : saved.published,
+              });
               setEditing(null);
+              setReviewing(null);
               await loadAll();
               setSection("offers");
             }}
@@ -578,6 +600,19 @@ function Dashboard() {
             onResolveReports={resolveReports}
             onEdit={(item) => {
               setEditing(item);
+              setSection("publish");
+            }}
+          />
+        )}
+        {section === "submissions" && (
+          <AdminSubmissions
+            submissions={submissions}
+            loading={loading}
+            onChange={setSubmissions}
+            notify={setToast}
+            onReview={(item) => {
+              setEditing(null);
+              setReviewing(item);
               setSection("publish");
             }}
           />
@@ -753,14 +788,17 @@ function PublishForm({
   onSaved,
   onCancel,
   onCategoryChange,
+  submission = null,
 }: {
   initial?: Announcement | null;
+  submission?: Submission | null;
   recruiters: Recruiter[];
   onSaved: (mode: "created" | "updated", category: string) => Promise<void>;
   onCancel?: () => void;
   onCategoryChange?: (category: string) => void;
 }) {
-  const editing = Boolean(initial);
+  // Proposition d'un recruteur : formulaire prérempli, mais c'est une nouvelle publication.
+  const editing = Boolean(initial) && !submission;
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [category, setCategoryState] = useState(initial?.category || "Offre d’emploi");
@@ -795,7 +833,16 @@ function PublishForm({
           body: JSON.stringify({ organization_id: owner || null }),
         });
       };
-      if (initial) {
+      if (submission) {
+        // Sans nouveau fichier, les pièces jointes du recruteur sont reprises. L'offre est rattachée à son espace.
+        const created = await apiRequest<{ id: number | string }>(`/admin/submissions/${submission.id}/publish`, {
+          method: "POST",
+          headers: adminHeaders(),
+          body: JSON.stringify({ ...values, media, keep_media: !files || files.length === 0 }),
+        });
+        if (owner !== String(submission.organization_id)) await saveOwner(created.id);
+        await onSaved("created", String(values.category || category));
+      } else if (initial) {
         // Sans nouveau fichier, les pièces jointes actuelles sont conservées.
         await apiRequest(`/announcements/${initial.id}`, {
           method: "PUT",
@@ -829,10 +876,17 @@ function PublishForm({
 
   return (
     <form className="adm-card adm-publish" onSubmit={handleSubmit}>
-      {initial && (
+      {submission ? (
         <p className="adm-info adm-info-inline">
-          <Pencil size={16} /> Vous modifiez « {text(initial.title)} ». Les vues et la date de publication sont conservées.
+          <ClipboardCheck size={16} /> Offre proposée par {submission.organization_name} le {formatDate(submission.created_at)}. Relisez et corrigez
+          si besoin : elle n’est publiée qu’à votre clic sur « Publier », puis le recruteur est prévenu par e-mail.
         </p>
+      ) : (
+        initial && (
+          <p className="adm-info adm-info-inline">
+            <Pencil size={16} /> Vous modifiez « {text(initial.title)} ». Les vues et la date de publication sont conservées.
+          </p>
+        )
       )}
       <fieldset>
         <legend>Informations générales</legend>
@@ -946,9 +1000,11 @@ function PublishForm({
         </div>
         <label className="adm-field adm-file">
           <span>
-            {editing
-              ? `Pièces jointes — ${Number(initial?.media_count || 0)} actuellement. Choisissez des fichiers seulement pour les remplacer.`
-              : "Pièces jointes (image ou PDF, facultatif)"}
+            {submission
+              ? `Pièces jointes — ${submission.media.length} envoyée(s) par le recruteur, reprises telles quelles. Choisissez des fichiers seulement pour les remplacer.`
+              : editing
+                ? `Pièces jointes — ${Number(initial?.media_count || 0)} actuellement. Choisissez des fichiers seulement pour les remplacer.`
+                : "Pièces jointes (image ou PDF, facultatif)"}
           </span>
           <span className="adm-file-control">
             <FileUp size={18} />
@@ -964,7 +1020,7 @@ function PublishForm({
         </p>
       )}
       <div className="adm-form-actions">
-        {editing ? (
+        {editing || submission ? (
           <button className="adm-btn adm-btn-ghost" type="button" onClick={onCancel}>
             Annuler
           </button>
@@ -979,6 +1035,23 @@ function PublishForm({
       </div>
     </form>
   );
+}
+
+// Proposition d'un recruteur mise sous la forme d'une publication, pour préremplir le formulaire.
+function submissionAsAnnouncement(item: Submission): Announcement {
+  return {
+    title: item.title,
+    category: item.category,
+    company: item.company,
+    location: item.location,
+    description: item.description,
+    contract_type: item.contract_type,
+    deadline: item.deadline,
+    apply_contact: item.apply_contact,
+    salary: item.salary,
+    organization_id: item.organization_id,
+    media_count: item.media.length,
+  };
 }
 
 /* ----- Tableau des offres ----- */
@@ -1682,58 +1755,3 @@ function EmptyState({ text }: { text: string }) {
   return <p className="adm-empty">{text}</p>;
 }
 
-/* ===================== Pièces jointes ===================== */
-
-const ALLOWED_MEDIA_TYPES = new Set<AnnouncementMedia["type"]>([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-]);
-
-async function filesToMedia(files: FileList | null): Promise<AnnouncementMedia[]> {
-  const selectedFiles = Array.from(files || []);
-  if (selectedFiles.some((file) => !ALLOWED_MEDIA_TYPES.has(file.type as AnnouncementMedia["type"]))) {
-    throw new Error("Utilisez uniquement des fichiers JPG, PNG, WEBP ou PDF.");
-  }
-  const media = await Promise.all(
-    selectedFiles.map(async (file) => {
-      if (file.type.startsWith("image/")) return optimizeImage(file);
-      return { name: file.name, type: file.type as AnnouncementMedia["type"], dataUrl: await readAsDataUrl(file) };
-    })
-  );
-  const encodedSize = media.reduce((total, file) => total + file.dataUrl.length, 0);
-  if (encodedSize > 5_500_000) throw new Error("La taille totale des fichiers ne doit pas dépasser 4 Mo après compression.");
-  return media;
-}
-
-async function optimizeImage(file: File): Promise<AnnouncementMedia> {
-  const source = await loadImage(file);
-  const maxDimension = 1200;
-  const scale = Math.min(1, maxDimension / Math.max(source.width, source.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(source.width * scale));
-  canvas.height = Math.max(1, Math.round(source.height * scale));
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Impossible de préparer l’image.");
-  context.drawImage(source, 0, 0, canvas.width, canvas.height);
-  return { name: file.name.replace(/\.[^.]+$/, ".jpg"), type: "image/jpeg", dataUrl: canvas.toDataURL("image/jpeg", 0.7) };
-}
-
-function loadImage(file: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Impossible de lire l’image sélectionnée."));
-    image.src = URL.createObjectURL(file);
-  });
-}
-
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Impossible de lire le fichier sélectionné."));
-    reader.onload = () => resolve(String(reader.result));
-    reader.readAsDataURL(file);
-  });
-}

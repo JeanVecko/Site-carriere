@@ -216,6 +216,21 @@ async function migrateDatabase() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   await rawQuery('CREATE INDEX IF NOT EXISTS offer_reports_offer_idx ON offer_reports (announcement_id) WHERE resolved_at IS NULL');
+  // Offres préparées par les recruteurs dans leur espace : jamais publiées sans la validation de l'administrateur.
+  await rawQuery(`CREATE TABLE IF NOT EXISTS offer_submissions (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id BIGINT,
+    submitter_email TEXT NOT NULL DEFAULT '',
+    data JSONB NOT NULL,
+    media JSONB NOT NULL DEFAULT '[]'::jsonb,
+    status TEXT NOT NULL DEFAULT 'pending',
+    reject_reason TEXT NOT NULL DEFAULT '',
+    announcement_id BIGINT REFERENCES announcements(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    decided_at TIMESTAMPTZ
+  )`);
+  await rawQuery('CREATE INDEX IF NOT EXISTS offer_submissions_status_idx ON offer_submissions (status, created_at)');
   await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -1628,6 +1643,133 @@ app.post('/api/recruiter/proposals', requireRecruiter, safe(async (request, resp
     subject: `Nouvelle offre proposée par ${organization} : ${title}`.slice(0, 180),
     text: `${organization} (${request.user.email}) propose une offre depuis son espace recruteur.\n\nIntitulé : ${title}\n\n${details}\n\n—\nÀ vérifier et publier depuis ${frontendUrl}/admin`,
   }).catch((error) => console.error('Alerte e-mail non envoyée :', error.message));
+}));
+
+/* ===== Offres proposées par les recruteurs (validation obligatoire par l'administrateur) ===== */
+
+const SUBMISSION_FIELDS = ['title', 'category', 'company', 'location', 'description', 'contract_type', 'deadline', 'apply_contact', 'salary'];
+const SUBMISSION_PENDING_LIMIT = 15;
+const SUBMISSION_LIST_SQL = `SELECT s.id, s.organization_id, o.name AS organization_name, (o.verified_at IS NOT NULL) AS verified,
+    s.submitter_email, s.data, s.status, s.reject_reason, s.announcement_id, s.created_at, s.decided_at,
+    COALESCE((SELECT jsonb_agg(m - 'dataUrl') FROM jsonb_array_elements(s.media) AS m), '[]'::jsonb) AS media
+  FROM offer_submissions s JOIN organizations o ON o.id = s.organization_id`;
+
+// Mise en forme commune : champs de l'offre à plat, pièces jointes sans leur contenu.
+function submissionRow(row) {
+  const { data, ...rest } = row;
+  return { ...rest, ...Object.fromEntries(SUBMISSION_FIELDS.map((key) => [key, data?.[key] ?? (key === 'deadline' ? null : '')])), media_count: (row.media || []).length };
+}
+
+async function notifySubmitter(submission, subject, text) {
+  if (!submission.submitter_email) return;
+  await sendTransactionalEmail({ to: submission.submitter_email, replyTo: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL, subject, text });
+}
+
+// Le recruteur prépare une offre : mêmes règles que la publication de l'administrateur. L'employeur est toujours
+// le nom de son organisation (on ne peut pas publier au nom d'une autre société).
+app.post('/api/recruiter/submissions', requireRecruiter, safe(async (request, response) => {
+  const organization = (await pool.query('SELECT name FROM organizations WHERE id = $1', [request.user.organization_id])).rows[0];
+  if (!organization) return response.status(403).json({ error: 'Espace recruteur introuvable.' });
+  const pendingCount = Number((await pool.query("SELECT COUNT(*) FROM offer_submissions WHERE organization_id = $1 AND status = 'pending'", [request.user.organization_id])).rows[0].count);
+  if (pendingCount >= SUBMISSION_PENDING_LIMIT) return response.status(429).json({ error: `Vous avez déjà ${pendingCount} offres en attente de validation. Merci de patienter.` });
+  const { values, error } = validateAnnouncementWithMedia({ ...request.body, company: organization.name, source_url: '' });
+  if (error) return response.status(400).json({ error });
+  const [title, category, company, location, description, media, contractType, deadline, applyContact, , salary] = values;
+  const data = { title, category, company, location, description, contract_type: contractType, deadline, apply_contact: applyContact, salary };
+  const created = await pool.query(
+    'INSERT INTO offer_submissions (organization_id, user_id, submitter_email, data, media) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at',
+    [request.user.organization_id, request.user.id, request.user.email, JSON.stringify(data), JSON.stringify(media)]
+  );
+  response.status(201).json(created.rows[0]);
+  sendTransactionalEmail({
+    to: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    replyTo: request.user.email,
+    subject: `Offre à valider : ${title} (${organization.name})`.slice(0, 180),
+    text: `${organization.name} (${request.user.email}) a préparé une offre depuis son espace recruteur.\n\n${category} : ${title}\nLieu : ${location}${contractType ? `\nContrat : ${contractType}` : ''}${deadline ? `\nDate limite : ${frDate(deadline)}` : ''}${media.length ? `\nPièces jointes : ${media.length}` : ''}\n\nElle n'est pas publiée : vérifiez-la puis publiez-la ou refusez-la depuis ${frontendUrl}/admin#a-valider`,
+  }).catch((mailError) => console.error('Alerte e-mail non envoyée :', mailError.message));
+}));
+
+app.get('/api/recruiter/submissions', requireRecruiter, safe(async (request, response) => {
+  const result = await pool.query(`${SUBMISSION_LIST_SQL} WHERE s.organization_id = $1 ORDER BY s.created_at DESC LIMIT 50`, [request.user.organization_id]);
+  response.json(result.rows.map(submissionRow));
+}));
+
+// Retrait d'une proposition encore en attente.
+app.delete('/api/recruiter/submissions/:id', requireRecruiter, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Proposition introuvable.' });
+  const result = await pool.query("DELETE FROM offer_submissions WHERE id = $1 AND organization_id = $2 AND status = 'pending' RETURNING id", [request.params.id, request.user.organization_id]);
+  if (!result.rows[0]) return response.status(404).json({ error: 'Proposition introuvable ou déjà traitée.' });
+  response.status(204).end();
+}));
+
+// Administrateur : propositions en attente, puis celles traitées ces 30 derniers jours.
+app.get('/api/admin/submissions', requireAdmin, safe(async (_request, response) => {
+  const result = await pool.query(
+    `${SUBMISSION_LIST_SQL} WHERE s.status = 'pending' OR s.decided_at > NOW() - INTERVAL '30 days'
+     ORDER BY (s.status = 'pending') DESC, CASE WHEN s.status = 'pending' THEN s.created_at END ASC, s.decided_at DESC LIMIT 200`
+  );
+  response.json(result.rows.map(submissionRow));
+}));
+
+// Pièce jointe d'une proposition, pour la vérifier avant publication.
+app.get('/api/admin/submissions/:id/media/:index', requireAdmin, safe(async (request, response) => {
+  const { id, index } = request.params;
+  if (!/^\d+$/.test(id) || !/^\d+$/.test(index)) return response.status(404).end();
+  const file = (await pool.query('SELECT media->$2::int AS file FROM offer_submissions WHERE id = $1', [id, index])).rows[0]?.file;
+  const match = file && /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,(.+)$/.exec(file.dataUrl || '');
+  if (!match) return response.status(404).end();
+  response.set('Content-Type', match[1]);
+  response.set('Cache-Control', 'private, no-store');
+  response.send(Buffer.from(match[2], 'base64'));
+}));
+
+// Publication par l'administrateur, après relecture (le formulaire peut avoir été corrigé).
+// Sans nouveaux fichiers (keep_media), les pièces jointes du recruteur sont reprises.
+app.post('/api/admin/submissions/:id/publish', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Proposition introuvable.' });
+  const submission = (await pool.query('SELECT * FROM offer_submissions WHERE id = $1', [request.params.id])).rows[0];
+  if (!submission) return response.status(404).json({ error: 'Proposition introuvable.' });
+  if (submission.status !== 'pending') return response.status(409).json({ error: 'Cette proposition a déjà été traitée.' });
+  const body = request.body.keep_media ? { ...request.body, media: submission.media } : request.body;
+  const { values, error } = validateAnnouncementWithMedia(body);
+  if (error) return response.status(400).json({ error });
+  // Réservée d'abord (évite une double publication si l'on clique deux fois).
+  const claimed = await pool.query("UPDATE offer_submissions SET status = 'publishing' WHERE id = $1 AND status = 'pending' RETURNING id", [submission.id]);
+  if (!claimed.rows[0]) return response.status(409).json({ error: 'Cette proposition a déjà été traitée.' });
+  let created;
+  try {
+    created = await pool.query(
+      `INSERT INTO announcements (title, category, company, location, description, media, contract_type, deadline, apply_contact, source_url, salary, organization_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+      [...values.slice(0, 5), JSON.stringify(values[5]), ...values.slice(6), submission.organization_id]
+    );
+  } catch (insertError) {
+    await pool.query("UPDATE offer_submissions SET status = 'pending' WHERE id = $1", [submission.id]);
+    throw insertError;
+  }
+  const offerId = created.rows[0].id;
+  await pool.query("UPDATE offer_submissions SET status = 'published', announcement_id = $2, decided_at = NOW() WHERE id = $1", [submission.id, offerId]);
+  response.status(201).json({ id: offerId });
+  const title = values[0];
+  notifySubmitter(submission, `Votre offre est publiée : ${title}`.slice(0, 180),
+    `Bonjour,\n\nVotre offre « ${title} » a été vérifiée et publiée sur Carrières RDC :\n${frontendUrl}/offre/${offerId}\n\nPartagez ce lien sur vos réseaux pour toucher plus de candidats. Vous suivez ses consultations et les clics sur « Postuler » depuis votre espace :\n${frontendUrl}/espace-recruteur\n\nMerci de votre confiance,\nL'équipe Carrières RDC`
+  ).catch((mailError) => console.error('E-mail au recruteur non envoyé :', mailError.message));
+}));
+
+app.post('/api/admin/submissions/:id/reject', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Proposition introuvable.' });
+  const reason = clean(request.body.reason).slice(0, 1000);
+  if (reason.length < 5) return response.status(400).json({ error: 'Indiquez le motif du refus (il est envoyé au recruteur).' });
+  const result = await pool.query(
+    "UPDATE offer_submissions SET status = 'rejected', reject_reason = $2, decided_at = NOW() WHERE id = $1 AND status = 'pending' RETURNING *",
+    [request.params.id, reason]
+  );
+  const submission = result.rows[0];
+  if (!submission) return response.status(409).json({ error: 'Proposition introuvable ou déjà traitée.' });
+  response.json({ ok: true });
+  notifySubmitter(submission, `Votre offre n'a pas été publiée : ${submission.data.title}`.slice(0, 180),
+    `Bonjour,\n\nNous avons relu votre offre « ${submission.data.title} » et ne pouvons pas la publier en l'état :\n\n${reason}\n\nVous pouvez la corriger et nous la proposer de nouveau depuis votre espace :\n${frontendUrl}/espace-recruteur\n\nPour toute question, répondez simplement à cet e-mail.\nL'équipe Carrières RDC`
+  ).catch((mailError) => console.error('E-mail au recruteur non envoyé :', mailError.message));
 }));
 
 app.delete('/api/announcements/:id', requireAdmin, async (request, response) => {

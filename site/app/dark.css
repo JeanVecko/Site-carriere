@@ -201,3 +201,10 @@ html[data-theme="dark"] .pub-saved-count { border-color: #0f1b33; }
 html[data-theme="dark"] .pub-saved-deadline { background: #1b2c4d; color: #dbe6f7; }
 html[data-theme="dark"] .pub-saved-deadline.is-soon { background: #3d2a10; color: #fbbf6a; }
 html[data-theme="dark"] .pub-saved-deadline.is-closed { background: #222c3d; color: #94a3b8; }
+
+/* Propositions d'offres (espace recruteur) */
+html[data-theme="dark"] .rec-field select { background: #0f1b33; border-color: #2c4170; color: #dbe6f7; }
+html[data-theme="dark"] .rec-field input[readonly] { background: #16233f; color: #94a3b8; }
+html[data-theme="dark"] .rec-sub-status.is-pending { background: #3d2f10; color: #f6c453; }
+html[data-theme="dark"] .rec-sub-status.is-published { background: #133524; color: #6ee7a0; }
+html[data-theme="dark"] .rec-sub-status.is-rejected, html[data-theme="dark"] .rec-sub-reason { background: #3a1b22; color: #fca5a5; }

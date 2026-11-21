@@ -1,0 +1,143 @@
+"use client";
+
+import { BadgeCheck, CircleCheck, Clock, ExternalLink, FileText, ImageIcon, Send, XCircle } from "lucide-react";
+import { type Submission, API_BASE, adminHeaders, apiRequest, decodeEntities, formatDate } from "../lib/api";
+
+type Notify = (toast: { type: "success" | "error"; text: string }) => void;
+
+/** Rubrique « À valider » : offres préparées par les recruteurs, publiées seulement par l'administrateur. */
+export default function AdminSubmissions({
+  submissions,
+  loading,
+  onReview,
+  onChange,
+  notify,
+}: {
+  submissions: Submission[];
+  loading: boolean;
+  onReview: (submission: Submission) => void;
+  onChange: (list: Submission[]) => void;
+  notify: Notify;
+}) {
+  const pending = submissions.filter((item) => item.status === "pending" || item.status === "publishing");
+  const done = submissions.filter((item) => item.status === "published" || item.status === "rejected");
+
+  async function reject(item: Submission) {
+    const reason = window.prompt(
+      `Refuser « ${decodeEntities(item.title)} » (${item.organization_name}) ?\n\nIndiquez le motif : il est envoyé au recruteur par e-mail pour qu’il puisse corriger son offre.`,
+      ""
+    );
+    if (reason === null) return;
+    try {
+      await apiRequest(`/admin/submissions/${item.id}/reject`, { method: "POST", headers: adminHeaders(), body: JSON.stringify({ reason }) });
+      onChange(submissions.map((entry) => (entry.id === item.id ? { ...entry, status: "rejected", reject_reason: reason.trim(), decided_at: new Date().toISOString() } : entry)));
+      notify({ type: "success", text: "Proposition refusée. Le recruteur est prévenu par e-mail." });
+    } catch (rejectError) {
+      notify({ type: "error", text: rejectError instanceof Error ? rejectError.message : "Refus impossible." });
+    }
+  }
+
+  // Pièce jointe protégée (jeton admin) : récupérée puis ouverte dans un nouvel onglet.
+  async function openFile(item: Submission, index: number) {
+    const tab = window.open("", "_blank");
+    try {
+      const response = await fetch(`${API_BASE}/admin/submissions/${item.id}/media/${index}`, { headers: adminHeaders() });
+      if (!response.ok) throw new Error("Fichier introuvable.");
+      const url = URL.createObjectURL(await response.blob());
+      if (tab) tab.location.replace(url);
+      else window.open(url, "_blank");
+    } catch (fileError) {
+      tab?.close();
+      notify({ type: "error", text: fileError instanceof Error ? fileError.message : "Ouverture impossible." });
+    }
+  }
+
+  if (loading && submissions.length === 0) return <p className="adm-empty">Chargement…</p>;
+
+  return (
+    <div className="adm-subs">
+      <p className="adm-info adm-info-inline">
+        <Send size={16} /> Les recruteurs préparent ici leurs offres. Rien n’est publié sans votre validation : relisez, corrigez si besoin, puis publiez.
+      </p>
+
+      {pending.length === 0 ? (
+        <p className="adm-empty">Aucune offre en attente de validation.</p>
+      ) : (
+        <ul className="adm-sub-list">
+          {pending.map((item) => (
+            <li key={String(item.id)} className="adm-card adm-sub">
+              <div className="adm-sub-head">
+                <div>
+                  <span className="adm-sub-org">
+                    {item.organization_name}
+                    {item.verified && <BadgeCheck size={15} className="adm-verified-icon" aria-label="Organisation vérifiée" />}
+                  </span>
+                  <h3>{decodeEntities(item.title)}</h3>
+                  <p className="adm-sub-meta">
+                    {item.category} · {decodeEntities(item.location)}
+                    {item.contract_type ? ` · ${item.contract_type}` : ""}
+                    {item.deadline ? ` · date limite le ${formatDate(item.deadline)}` : ""}
+                  </p>
+                </div>
+                <span className="adm-sub-when">
+                  <Clock size={14} aria-hidden="true" /> Proposée le {formatDate(item.created_at)}
+                  <small>par {item.submitter_email}</small>
+                </span>
+              </div>
+              <p className="adm-sub-desc">{decodeEntities(item.description)}</p>
+              <dl className="adm-sub-facts">
+                <div>
+                  <dt>Pour postuler</dt>
+                  <dd>{item.apply_contact || "—"}</dd>
+                </div>
+                {item.salary && (
+                  <div>
+                    <dt>Salaire / prix</dt>
+                    <dd>{item.salary}</dd>
+                  </div>
+                )}
+              </dl>
+              {item.media.length > 0 && (
+                <div className="adm-sub-files">
+                  {item.media.map((file, index) => (
+                    <button key={`${file.name}-${index}`} type="button" className="adm-btn adm-btn-ghost" onClick={() => void openFile(item, index)}>
+                      {file.type === "application/pdf" ? <FileText size={15} /> : <ImageIcon size={15} />} {file.name} <ExternalLink size={13} />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="adm-sub-actions">
+                <button type="button" className="adm-btn adm-btn-danger-ghost" onClick={() => void reject(item)}>
+                  <XCircle size={16} /> Refuser
+                </button>
+                <button type="button" className="adm-btn adm-btn-primary" onClick={() => onReview(item)}>
+                  <CircleCheck size={16} /> Vérifier et publier
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {done.length > 0 && (
+        <section className="adm-card adm-sub-history">
+          <h3>Traitées ces 30 derniers jours</h3>
+          <ul>
+            {done.map((item) => (
+              <li key={String(item.id)}>
+                <span className={`adm-sub-status ${item.status === "published" ? "is-published" : "is-rejected"}`}>
+                  {item.status === "published" ? "Publiée" : "Refusée"}
+                </span>
+                <strong>{decodeEntities(item.title)}</strong>
+                <small>
+                  {item.organization_name} · {item.decided_at ? formatDate(item.decided_at) : ""}
+                  {item.status === "rejected" && item.reject_reason ? ` · motif : ${item.reject_reason}` : ""}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}

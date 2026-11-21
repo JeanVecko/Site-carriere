@@ -13,11 +13,11 @@ import {
   LogOut,
   MousePointerClick,
   Percent,
-  Send,
   Star,
   TriangleAlert,
   X,
 } from "lucide-react";
+import RecruiterSubmissions from "./RecruiterSubmissions";
 import {
   CONTACT_EMAIL,
   FEATURED_PLANS,
@@ -282,8 +282,9 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
         )}
       </section>
 
-      <div className="rec-grid">
-        <ProposalForm />
+      <RecruiterSubmissions organization={space.organization} />
+
+      <div className="rec-grid rec-grid-single">
         <PasswordForm />
       </div>
 
@@ -363,59 +364,6 @@ function FeaturedRequest({ offer, onClose, onSent }: { offer: Offer; onClose: ()
         )}
       </form>
     </div>
-  );
-}
-
-function ProposalForm() {
-  const [state, setState] = useState<{ status: "idle" | "pending" | "ok" | "error"; text: string }>({ status: "idle", text: "" });
-
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const values = new FormData(form);
-    setState({ status: "pending", text: "" });
-    try {
-      await apiRequest("/recruiter/proposals", {
-        method: "POST",
-        headers: recruiterHeaders(),
-        body: JSON.stringify({ title: values.get("title"), details: values.get("details") }),
-      });
-      form.reset();
-      setState({ status: "ok", text: "Merci ! Nous vérifions votre offre et la publions dans les meilleurs délais." });
-    } catch (submitError) {
-      setState({ status: "error", text: submitError instanceof Error ? submitError.message : "Envoi impossible." });
-    }
-  }
-
-  return (
-    <form className="rec-card" onSubmit={submit}>
-      <h2 className="rec-card-title">
-        <Send size={18} /> Proposer une nouvelle offre
-      </h2>
-      <label className="rec-field">
-        <span>Intitulé du poste *</span>
-        <input name="title" type="text" required maxLength={160} placeholder="Ex. Comptable senior" />
-      </label>
-      <label className="rec-field">
-        <span>Détails *</span>
-        <textarea
-          name="details"
-          required
-          minLength={20}
-          rows={6}
-          placeholder="Lieu, type de contrat, missions, profil recherché, date limite et manière de postuler…"
-        />
-      </label>
-      <p className="rec-muted">Vous avez l’avis en PDF ou en Word ? Envoyez-le aussi par e-mail ou WhatsApp.</p>
-      {state.text && (
-        <p className={state.status === "ok" ? "rec-success" : "rec-alert"} role="status">
-          {state.status === "ok" ? <CircleCheck size={16} /> : <TriangleAlert size={16} />} {state.text}
-        </p>
-      )}
-      <button className="pub-btn pub-btn-gold" type="submit" disabled={state.status === "pending"}>
-        {state.status === "pending" ? "Envoi…" : "Envoyer à Carrières RDC"}
-      </button>
-    </form>
   );
 }
 

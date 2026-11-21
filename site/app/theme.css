@@ -773,3 +773,63 @@ html[data-theme="dark"] .pub-report-reason.is-active { background: #3d1717; bord
    sociaux restent dans le pied de page et le menu mobile, et le lien « Administration » est réduit à son icône. */
 .pub-header-actions .pub-social { display: none; }
 .pub-header-actions .pub-admin-link { font-size: 0; gap: 0; }
+
+/* ===== Offres préparées par les recruteurs (validation par l'administrateur) ===== */
+.rec-grid-single { grid-template-columns: minmax(0, 520px); }
+.rec-submissions-head { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
+.rec-sub-form { border-top: 1px solid var(--pub-border); display: flex; flex-direction: column; gap: 14px; padding-top: 16px; }
+.rec-sub-row { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+.rec-sub-row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rec-sub-row .rec-sub-wide { grid-column: span 1; }
+.rec-field select { background: #fff; border: 1px solid var(--pub-border); border-radius: 10px; font: inherit; font-size: 15px; padding: 11px 12px; width: 100%; }
+.rec-field input[readonly] { background: #f3f6fb; color: var(--pub-muted); }
+.rec-file { align-items: center; border: 1px dashed var(--pub-border); border-radius: 10px; color: var(--pub-navy); display: flex; gap: 10px; padding: 10px 12px; }
+.rec-file input { border: 0; font-size: 14px; padding: 0; }
+.rec-sub-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.rec-sub-list { border-top: 1px solid var(--pub-border); list-style: none; margin: 0; padding: 0; }
+.rec-sub-list li { align-items: center; border-bottom: 1px solid var(--pub-border); display: flex; gap: 14px; justify-content: space-between; padding: 12px 0; }
+.rec-sub-list li:last-child { border-bottom: 0; }
+.rec-sub-list strong { color: var(--pub-dark); display: block; }
+.rec-sub-list small { color: var(--pub-muted); font-size: 12.5px; }
+.rec-sub-reason { background: #fdecec; border-radius: 8px; color: #a12626; font-size: 13px; margin: 6px 0 0; padding: 6px 10px; }
+.rec-sub-side { align-items: center; display: flex; flex-shrink: 0; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.rec-sub-status { align-items: center; border-radius: 999px; display: inline-flex; font-size: 12px; font-weight: 700; gap: 5px; padding: 4px 10px; white-space: nowrap; }
+.rec-sub-status.is-pending { background: #fff4d6; color: #8a6200; }
+.rec-sub-status.is-published { background: #e3f6ea; color: #1f7a44; }
+.rec-sub-status.is-rejected { background: #fdecec; color: #a12626; }
+.rec-sub-withdraw { align-items: center; background: none; border: 1px solid var(--pub-border); border-radius: 999px; color: var(--pub-muted); cursor: pointer; display: inline-flex; font: inherit; font-size: 12.5px; gap: 5px; padding: 5px 10px; }
+.rec-sub-withdraw:hover { border-color: #e0a3a3; color: #a12626; }
+@media (max-width: 720px) {
+  .rec-sub-row, .rec-sub-row-3 { grid-template-columns: 1fr; }
+  .rec-sub-list li { align-items: flex-start; flex-direction: column; }
+  .rec-sub-side { justify-content: flex-start; }
+  .rec-grid-single { grid-template-columns: 1fr; }
+}
+
+/* Admin : rubrique « À valider » */
+.adm-subs { display: flex; flex-direction: column; gap: 16px; }
+.adm-sub-list { display: flex; flex-direction: column; gap: 14px; list-style: none; margin: 0; padding: 0; }
+.adm-sub { display: flex; flex-direction: column; gap: 12px; }
+.adm-sub-head { align-items: flex-start; display: flex; gap: 16px; justify-content: space-between; }
+.adm-sub-head h3 { font-size: 18px; margin: 4px 0; }
+.adm-sub-org { align-items: center; color: var(--adm-primary-2); display: inline-flex; font-size: 13px; font-weight: 700; gap: 5px; }
+.adm-sub-meta { color: var(--adm-muted); font-size: 13px; margin: 0; }
+.adm-sub-when { align-items: flex-end; color: var(--adm-muted); display: flex; flex-direction: column; flex-shrink: 0; font-size: 12.5px; gap: 2px; text-align: right; }
+.adm-sub-when svg { vertical-align: -2px; }
+.adm-sub-desc { background: var(--adm-bg); border-radius: 10px; font-size: 14px; line-height: 1.55; margin: 0; max-height: 220px; overflow: auto; padding: 12px 14px; white-space: pre-line; }
+.adm-sub-facts { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
+.adm-sub-facts dt { color: var(--adm-muted); font-size: 12px; }
+.adm-sub-facts dd { font-size: 14px; font-weight: 600; margin: 0; word-break: break-word; }
+.adm-sub-files { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-sub-actions { border-top: 1px solid var(--adm-border); display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; padding-top: 12px; }
+.adm-sub-history h3 { font-size: 15px; margin: 0 0 10px; }
+.adm-sub-history ul { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.adm-sub-history li { align-items: baseline; display: flex; flex-wrap: wrap; font-size: 14px; gap: 8px; }
+.adm-sub-history small { color: var(--adm-muted); }
+.adm-sub-status { border-radius: 999px; font-size: 11.5px; font-weight: 700; padding: 2px 9px; }
+.adm-sub-status.is-published { background: #e3f6ea; color: #1f7a44; }
+.adm-sub-status.is-rejected { background: #fdecec; color: #a12626; }
+@media (max-width: 720px) {
+  .adm-sub-head { flex-direction: column; }
+  .adm-sub-when { align-items: flex-start; text-align: left; }
+}
