@@ -849,7 +849,7 @@ app.get('/api/my/recommended-offers', requireUser, async (request, response) => 
 
 app.get('/api/announcements/:id', async (request, response) => {
   if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, media, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, COALESCE((SELECT jsonb_agg(m - 'dataUrl') FROM jsonb_array_elements(media) AS m), '[]'::jsonb) AS media, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   response.json(result.rows[0]);
 });
