@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Search, SlidersHorizontal, X } from "lucide-react";
+import { Bell, MapPin, Search, SlidersHorizontal, X } from "lucide-react";
 import { Announcement, apiRequest, decodeEntities, isExpired } from "../lib/api";
 import OfferRow from "./OfferRow";
 import AnnouncementTile from "./AnnouncementTile";
+import { cityHref } from "../lib/cities";
 
 const CATEGORIES: Record<string, { value: string; title: string; intro: string; noun: string; plural: string }> = {
   jobs: {
@@ -56,7 +57,10 @@ function countBy(items: Announcement[], key: (item: Announcement) => string): Ar
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "fr"));
 }
 
-export default function CategoryList({ category, initialItems }: { category: string; initialItems?: Announcement[] }) {
+// Page d'une ville (/emplois/kinshasa) : la liste est déjà limitée à cette ville, le filtre « ville » disparaît.
+export type CityPlace = { name: string; slug: string; others: Array<{ name: string; slug: string; count: number }> };
+
+export default function CategoryList({ category, initialItems, place }: { category: string; initialItems?: Announcement[]; place?: CityPlace }) {
   const config = CATEGORIES[category];
   // Les annonces s'affichent en grille de cartes avec image ; offres et appels d'offres en liste.
   const isGrid = category === "notices";
@@ -131,10 +135,21 @@ export default function CategoryList({ category, initialItems }: { category: str
       <section className="pub-list-hero">
         <div className="pub-container">
           <nav className="pub-breadcrumb pub-breadcrumb-light" aria-label="Fil d’Ariane">
-            <Link href="/">Accueil</Link> <span aria-hidden="true">/</span> <span>{config.title}</span>
+            <Link href="/">Accueil</Link> <span aria-hidden="true">/</span>{" "}
+            {place ? (
+              <>
+                <Link href="/offres">{config.title}</Link> <span aria-hidden="true">/</span> <span>{place.name}</span>
+              </>
+            ) : (
+              <span>{config.title}</span>
+            )}
           </nav>
-          <h1>{config.title}</h1>
-          <p>{config.intro}</p>
+          <h1>{place ? `${config.title} à ${place.name}` : config.title}</h1>
+          <p>
+            {place
+              ? `Les postes ouverts à ${place.name} dans les entreprises, ONG et institutions, mis à jour chaque jour.`
+              : config.intro}
+          </p>
           <form className="pub-list-search" role="search" onSubmit={(event) => event.preventDefault()}>
             <label>
               <Search size={18} aria-hidden="true" />
@@ -149,6 +164,7 @@ export default function CategoryList({ category, initialItems }: { category: str
                 }}
               />
             </label>
+            {!place && (
             <label>
               <MapPin size={18} aria-hidden="true" />
               <select
@@ -167,7 +183,13 @@ export default function CategoryList({ category, initialItems }: { category: str
                 ))}
               </select>
             </label>
+            )}
           </form>
+          {place && (
+            <Link className="pub-city-alert" href={`/alertes?ville=${encodeURIComponent(place.name)}`}>
+              <Bell size={16} aria-hidden="true" /> Recevoir les nouvelles offres de {place.name} par e-mail
+            </Link>
+          )}
         </div>
       </section>
 
@@ -213,7 +235,7 @@ export default function CategoryList({ category, initialItems }: { category: str
             ))}
           </fieldset>
 
-          {cityCounts.length > 0 && (
+          {!place && cityCounts.length > 0 && (
             <fieldset>
               <legend>Ville</legend>
               {cityCounts.slice(0, 8).map(([value, count]) => (
@@ -322,6 +344,20 @@ export default function CategoryList({ category, initialItems }: { category: str
                 </div>
               )}
             </>
+          )}
+          {place && place.others.length > 0 && (
+            <nav className="pub-city-others" aria-label="Offres d’emploi dans d’autres villes">
+              <h2>Offres d’emploi dans d’autres villes</h2>
+              <ul>
+                {place.others.map((other) => (
+                  <li key={other.slug}>
+                    <Link href={cityHref(other.slug)}>
+                      {other.name} <em>{other.count}</em>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           )}
         </section>
       </div>

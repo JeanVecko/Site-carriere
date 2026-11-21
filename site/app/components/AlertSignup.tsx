@@ -15,11 +15,16 @@ export default function AlertSignup() {
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("Offre d’emploi");
   const emailInput = useRef<HTMLInputElement>(null);
+  const cityInput = useRef<HTMLInputElement>(null);
 
-  // Adresse saisie dans l'inscription rapide de la page d'accueil : /alertes?email=…
+  // Adresse saisie dans l'inscription rapide de la page d'accueil (/alertes?email=…) et ville choisie depuis la page
+  // d'une ville (/alertes?ville=Kinshasa).
   useEffect(() => {
-    const email = new URLSearchParams(window.location.search).get("email");
+    const query = new URLSearchParams(window.location.search);
+    const email = query.get("email");
     if (email && emailInput.current && !emailInput.current.value) emailInput.current.value = email;
+    const city = query.get("ville");
+    if (city && cityInput.current && !cityInput.current.value) cityInput.current.value = city.slice(0, 60);
   }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -57,7 +62,7 @@ export default function AlertSignup() {
       </label>
       <label className="pub-alert-field pub-alert-city">
         <span>Ville</span>
-        <input name="city" type="text" list="alert-cities" placeholder="Toutes les villes" maxLength={60} />
+        <input ref={cityInput} name="city" type="text" list="alert-cities" placeholder="Toutes les villes" maxLength={60} />
         <datalist id="alert-cities">
           {CITIES.map((city) => (
             <option key={city} value={city} />

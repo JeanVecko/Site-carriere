@@ -208,3 +208,9 @@ html[data-theme="dark"] .rec-field input[readonly] { background: #16233f; color:
 html[data-theme="dark"] .rec-sub-status.is-pending { background: #3d2f10; color: #f6c453; }
 html[data-theme="dark"] .rec-sub-status.is-published { background: #133524; color: #6ee7a0; }
 html[data-theme="dark"] .rec-sub-status.is-rejected, html[data-theme="dark"] .rec-sub-reason { background: #3a1b22; color: #fca5a5; }
+
+/* Pages par ville */
+html[data-theme="dark"] .pub-city-alert { background: #16233f; border-color: #2c4170; color: #dbe6f7; }
+html[data-theme="dark"] .pub-city-others a, html[data-theme="dark"] .pub-city-chips a, html[data-theme="dark"] .pub-city-index a { background: #13213d; border-color: #2c4170; color: #dbe6f7; }
+html[data-theme="dark"] .pub-city-others em, html[data-theme="dark"] .pub-city-chips em { background: #1f3358; color: #dbe6f7; }
+html[data-theme="dark"] .pub-city-index strong { color: #f2f6fc; }

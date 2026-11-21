@@ -833,3 +833,24 @@ html[data-theme="dark"] .pub-report-reason.is-active { background: #3d1717; bord
   .adm-sub-head { flex-direction: column; }
   .adm-sub-when { align-items: flex-start; text-align: left; }
 }
+
+/* ===== Pages « Offres d'emploi à [ville] » ===== */
+.pub-city-alert { align-items: center; background: rgba(255, 255, 255, .7); border: 1px solid var(--pub-border); border-radius: 999px; color: var(--pub-navy); display: inline-flex; font-size: 14px; font-weight: 700; gap: 8px; margin-top: 14px; padding: 9px 16px; transition: background .15s, border-color .15s; }
+.pub-city-alert:hover { background: #fff; border-color: var(--pub-gold-2); }
+.pub-city-others { border-top: 1px solid var(--pub-border); margin-top: 32px; padding-top: 22px; }
+.pub-city-others h2 { font-size: 17px; margin: 0 0 12px; }
+.pub-city-others ul, .pub-city-chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.pub-city-others a, .pub-city-chips a { align-items: center; background: var(--pub-card); border: 1px solid var(--pub-border); border-radius: 999px; color: var(--pub-navy); display: inline-flex; font-size: 14px; font-weight: 600; gap: 6px; padding: 8px 14px; transition: border-color .15s, transform .15s; }
+.pub-city-others a:hover, .pub-city-chips a:hover { border-color: var(--pub-gold-2); transform: translateY(-1px); }
+.pub-city-others em, .pub-city-chips em { background: #eef3fa; border-radius: 999px; color: var(--pub-navy); font-size: 12px; font-style: normal; font-weight: 800; padding: 1px 8px; }
+.pub-city-chips svg { color: var(--pub-gold); }
+.pub-city-chips a.is-all { background: var(--pub-navy); border-color: var(--pub-navy); color: #fff; }
+.home-cities { margin-bottom: 56px; margin-top: 48px; }
+.home-cities .pub-city-chips { justify-content: center; }
+.pub-city-index { padding-bottom: 56px; padding-top: 28px; }
+.pub-city-index ul { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); list-style: none; margin: 0; padding: 0; }
+.pub-city-index a { align-items: center; background: var(--pub-card); border: 1px solid var(--pub-border); border-radius: var(--pub-radius); box-shadow: var(--pub-shadow); display: flex; gap: 12px; padding: 16px 18px; transition: border-color .15s, transform .15s; }
+.pub-city-index a:hover { border-color: var(--pub-gold-2); transform: translateY(-2px); }
+.pub-city-index svg { color: var(--pub-gold); flex-shrink: 0; }
+.pub-city-index strong { color: var(--pub-dark); display: block; font-size: 16px; }
+.pub-city-index small { color: var(--pub-muted); font-size: 13px; }

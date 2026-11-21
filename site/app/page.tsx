@@ -8,6 +8,7 @@ import OfferRow from "./components/OfferRow";
 import SplashScreen from "./components/SplashScreen";
 import { CONTRACT_TYPES, isExpired } from "./lib/api";
 import { fetchAnnouncements } from "./lib/server";
+import { cityHref, citiesWithJobs } from "./lib/cities";
 
 export const revalidate = 43200;
 
@@ -26,6 +27,8 @@ export default async function Home() {
     const city = cityOf(item.location);
     if (city) cityCounts.set(city, (cityCounts.get(city) || 0) + 1);
   }
+  // Villes qui ont des offres ouvertes : liens vers leurs pages (/emplois/kinshasa…).
+  const byCity = citiesWithJobs(jobs).slice(0, 10);
   const cities = [...cityCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([city]) => city);
 
   return (
@@ -127,6 +130,30 @@ export default async function Home() {
             </Link>
           </div>
         </section>
+
+        {/* ----- Emplois par ville ----- */}
+        {byCity.length > 0 && (
+          <section className="pub-container home-cities" aria-labelledby="cities-title">
+            <header className="home-title">
+              <h2 id="cities-title">Emplois par ville</h2>
+              <p>Les offres ouvertes près de chez vous.</p>
+            </header>
+            <ul className="pub-city-chips">
+              {byCity.map((city) => (
+                <li key={city.slug}>
+                  <Link href={cityHref(city.slug)}>
+                    <MapPin size={15} aria-hidden="true" /> {city.name} <em>{city.count}</em>
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link className="is-all" href="/emplois">
+                  Toutes les villes <ArrowRight size={15} aria-hidden="true" />
+                </Link>
+              </li>
+            </ul>
+          </section>
+        )}
 
         {/* ----- Inscription rapide aux alertes, à cheval sur le pied de page ----- */}
         <section className="pub-container home-newsletter pub-follow" aria-labelledby="newsletter-title">
