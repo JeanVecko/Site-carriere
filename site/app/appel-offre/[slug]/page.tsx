@@ -3,7 +3,7 @@ import PublicationPage, { publicationMetadata, publicationStaticParams, type Pub
 // Appels d’offres : /appel-offre/12-…
 const BASE = "/appel-offre";
 
-export const revalidate = 60;
+export const revalidate = 43200;
 
 export async function generateStaticParams() {
   return publicationStaticParams(BASE);

@@ -3,7 +3,7 @@ import PublicationPage, { publicationMetadata, publicationStaticParams, type Pub
 // Annonces : /annonce/12-…
 const BASE = "/annonce";
 
-export const revalidate = 60;
+export const revalidate = 43200;
 
 export async function generateStaticParams() {
   return publicationStaticParams(BASE);

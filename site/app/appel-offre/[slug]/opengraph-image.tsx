@@ -4,7 +4,7 @@ import PreviewImage from "../../offre/[slug]/opengraph-image";
 export const alt = "Publication sur Carrières RDC";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const revalidate = 60;
+export const revalidate = 43200;
 
 export default function Image(props: { params: Promise<{ slug: string }> }) {
   return PreviewImage(props);

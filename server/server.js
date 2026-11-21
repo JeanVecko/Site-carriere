@@ -25,8 +25,34 @@ const pool = new Pool({
   connectionString: databaseUrl,
 });
 
+// La base (Neon) s'endort après 5 minutes sans requête et le temps où elle est éveillée est facturé.
+// La mise à jour du schéma n'est donc plus lancée au démarrage du serveur, mais avant la première requête
+// qui a vraiment besoin de la base : un réveil du serveur pour un simple compteur de vues ne la réveille pas.
+const originalQuery = pool.query.bind(pool);
+let schemaPromise = null;
+function initializeDatabase() {
+  schemaPromise ||= migrateDatabase().catch((error) => {
+    schemaPromise = null; // nouvel essai à la requête suivante
+    throw error;
+  });
+  return schemaPromise;
+}
+const lazyQuery = async (...args) => {
+  await initializeDatabase();
+  return originalQuery(...args);
+};
+pool.query = lazyQuery;
+// Requêtes de la migration elle-même (sans attendre) ; suit un éventuel remplacement de pool.query (tests).
+function rawQuery(...args) {
+  return pool.query === lazyQuery ? originalQuery(...args) : pool.query(...args);
+}
+
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: '30mb' }));
+// L'admin et les recruteurs voient toujours des chiffres à jour : les compteurs en attente sont écrits d'abord.
+app.use(['/api/admin', '/api/recruiter'], (_request, _response, next) => {
+  flushCounters().then(() => next(), () => next());
+});
 
 // Mode administrateur seul : inscriptions, espaces candidat/recruteur et invitations sont fermés.
 // Seul l'administrateur publie ; le public consulte les annonces et peut envoyer un message de contact.
@@ -39,8 +65,8 @@ app.use((request, response, next) => {
 });
 
 
-async function initializeDatabase() {
-  await pool.query(`
+async function migrateDatabase() {
+  await rawQuery(`
     CREATE TABLE IF NOT EXISTS organizations (
       id BIGSERIAL PRIMARY KEY,
       name TEXT NOT NULL,
@@ -122,14 +148,14 @@ async function initializeDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
-  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media JSONB NOT NULL DEFAULT '[]'::jsonb");
-  await pool.query('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_data_url TEXT');
+  await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media JSONB NOT NULL DEFAULT '[]'::jsonb");
+  await rawQuery('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_data_url TEXT');
   // Réponse de l'administrateur à un message de contact (envoyée par e-mail depuis le panneau admin).
-  await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply TEXT');
-  await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ');
-  await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ');
+  await rawQuery('ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply TEXT');
+  await rawQuery('ALTER TABLE messages ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ');
+  await rawQuery('ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ');
   // Alertes emploi par e-mail : une alerte par adresse, active seulement après confirmation (lien envoyé par e-mail).
-  await pool.query(`
+  await rawQuery(`
     CREATE TABLE IF NOT EXISTS alert_subscriptions (
       id SERIAL PRIMARY KEY,
       email TEXT NOT NULL,
@@ -143,23 +169,23 @@ async function initializeDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS alert_subscriptions_email_idx ON alert_subscriptions (lower(email))');
-  await pool.query('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_name TEXT');
-  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
+  await rawQuery('CREATE UNIQUE INDEX IF NOT EXISTS alert_subscriptions_email_idx ON alert_subscriptions (lower(email))');
+  await rawQuery('ALTER TABLE applications ADD COLUMN IF NOT EXISTS cv_name TEXT');
+  await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS owner_id BIGINT");
   // Informations normalisées d'une offre (type de contrat, date limite, candidature, source, salaire)
-  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS contract_type TEXT NOT NULL DEFAULT ''");
-  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS deadline DATE');
-  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS apply_contact TEXT NOT NULL DEFAULT ''");
-  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS source_url TEXT NOT NULL DEFAULT ''");
-  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS salary TEXT NOT NULL DEFAULT ''");
+  await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS contract_type TEXT NOT NULL DEFAULT ''");
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS deadline DATE');
+  await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS apply_contact TEXT NOT NULL DEFAULT ''");
+  await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS source_url TEXT NOT NULL DEFAULT ''");
+  await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS salary TEXT NOT NULL DEFAULT ''");
   // Nombre de consultations de chaque offre (affiché dans le panneau admin)
-  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS views INTEGER NOT NULL DEFAULT 0');
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS views INTEGER NOT NULL DEFAULT 0');
   // Nombre de clics sur « Postuler » (ou « S’inscrire ») : ouverture du lien, de l’e-mail ou du WhatsApp du recruteur
-  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS apply_clicks INTEGER NOT NULL DEFAULT 0');
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS apply_clicks INTEGER NOT NULL DEFAULT 0');
   // Nombre de candidats qui ont sauvegardé l'offre dans leurs favoris (« Mes offres », gardé dans leur navigateur)
-  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS saves INTEGER NOT NULL DEFAULT 0');
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS saves INTEGER NOT NULL DEFAULT 0');
   // Journal anonyme (ni IP ni cookie) des vues et des clics, pour le bilan envoyé aux recruteurs : jour, provenance, canal.
-  await pool.query(`CREATE TABLE IF NOT EXISTS announcement_events (
+  await rawQuery(`CREATE TABLE IF NOT EXISTS announcement_events (
     id BIGSERIAL PRIMARY KEY,
     announcement_id BIGINT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
     kind TEXT NOT NULL,
@@ -167,20 +193,20 @@ async function initializeDatabase() {
     channel TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
-  await pool.query('CREATE INDEX IF NOT EXISTS announcement_events_offer_idx ON announcement_events (announcement_id, created_at)');
+  await rawQuery('CREATE INDEX IF NOT EXISTS announcement_events_offer_idx ON announcement_events (announcement_id, created_at)');
   // Bilan e-mail envoyé au recruteur le lendemain de la date limite (une seule fois par offre)
-  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS report_sent_at TIMESTAMPTZ');
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS report_sent_at TIMESTAMPTZ');
   // Offre « à la une » (mise en avant payante) du featured_from au featured_until inclus
-  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_from DATE');
-  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_until DATE');
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_from DATE');
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_until DATE');
   // Demande de mise à la une envoyée par le recruteur depuis son espace (durée choisie, en attente de paiement)
-  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_request_days INTEGER');
-  await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_requested_at TIMESTAMPTZ');
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_request_days INTEGER');
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_requested_at TIMESTAMPTZ');
   // Organisation vérifiée par l'administrateur (documents contrôlés) : badge « Vérifiée » sur ses offres
-  await pool.query('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ');
-  await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verification_note TEXT NOT NULL DEFAULT ''");
+  await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ');
+  await rawQuery("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verification_note TEXT NOT NULL DEFAULT ''");
   // Signalements d'offres par les visiteurs (argent demandé, fausse offre…), traités depuis l'admin
-  await pool.query(`CREATE TABLE IF NOT EXISTS offer_reports (
+  await rawQuery(`CREATE TABLE IF NOT EXISTS offer_reports (
     id BIGSERIAL PRIMARY KEY,
     announcement_id BIGINT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
     reason TEXT NOT NULL,
@@ -189,18 +215,18 @@ async function initializeDatabase() {
     resolved_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
-  await pool.query('CREATE INDEX IF NOT EXISTS offer_reports_offer_idx ON offer_reports (announcement_id) WHERE resolved_at IS NULL');
-  await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
-  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
-  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
-  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'active'");
-  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ");
-  await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'");
-  await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_status TEXT NOT NULL DEFAULT 'active'");
-  await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_limits JSONB NOT NULL DEFAULT '{\"activeJobs\": 3, \"members\": 2}'::jsonb");
-  await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'active'");
-  await pool.query('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS auto_reports BOOLEAN NOT NULL DEFAULT TRUE');
-  await pool.query(`
+  await rawQuery('CREATE INDEX IF NOT EXISTS offer_reports_offer_idx ON offer_reports (announcement_id) WHERE resolved_at IS NULL');
+  await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
+  await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
+  await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
+  await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'active'");
+  await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ");
+  await rawQuery("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'");
+  await rawQuery("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_status TEXT NOT NULL DEFAULT 'active'");
+  await rawQuery("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_limits JSONB NOT NULL DEFAULT '{\"activeJobs\": 3, \"members\": 2}'::jsonb");
+  await rawQuery("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'active'");
+  await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS auto_reports BOOLEAN NOT NULL DEFAULT TRUE');
+  await rawQuery(`
     DO $$
     BEGIN
       IF NOT EXISTS (
@@ -213,8 +239,8 @@ async function initializeDatabase() {
     $$;
   `);
   // Index pour le cloisonnement multi-tenant
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_announcements_org ON announcements(organization_id)');
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_users_org ON users(organization_id)');
+  await rawQuery('CREATE INDEX IF NOT EXISTS idx_announcements_org ON announcements(organization_id)');
+  await rawQuery('CREATE INDEX IF NOT EXISTS idx_users_org ON users(organization_id)');
   // Les publications de démonstration ne sont plus insérées automatiquement : une base vide reste vide
   // (sinon elles réapparaîtraient à chaque redémarrage de l'API après leur suppression).
 }
@@ -948,6 +974,69 @@ function isFreshHit(request, id, kind) {
   return true;
 }
 
+// Vues, clics « Postuler » et sauvegardes sont gardés en mémoire puis écrits ensemble dans la base toutes les
+// 30 minutes, avant toute lecture par l'admin ou un recruteur, et à l'arrêt du serveur : chaque visite ne réveille
+// plus la base. Le journal garde l'heure réelle de chaque événement (bilan jour par jour).
+const COUNTER_FLUSH_MS = 30 * 60 * 1000;
+const COUNTER_LIMIT = 5000; // au-delà, écriture immédiate (protège la mémoire)
+let pendingCounts = new Map(); // id -> { views, applies, saves }
+let pendingEvents = [];
+let flushing = null;
+
+function bumpCounter(id, field, delta) {
+  const entry = pendingCounts.get(id) || { views: 0, applies: 0, saves: 0 };
+  entry[field] += delta;
+  pendingCounts.set(id, entry);
+  if (pendingCounts.size + pendingEvents.length > COUNTER_LIMIT) flushCounters().catch(() => {});
+}
+
+async function writeCounters(counts, events) {
+  if (counts.size) {
+    const ids = [...counts.keys()];
+    const rows = ids.map((id) => counts.get(id));
+    await pool.query(
+      `UPDATE announcements a SET views = a.views + c.views, apply_clicks = a.apply_clicks + c.applies,
+              saves = GREATEST(a.saves + c.saves, 0)
+       FROM unnest($1::bigint[], $2::int[], $3::int[], $4::int[]) AS c(id, views, applies, saves)
+       WHERE a.id = c.id`,
+      [ids, rows.map((row) => row.views), rows.map((row) => row.applies), rows.map((row) => row.saves)]
+    );
+  }
+  if (events.length) {
+    await pool.query(
+      `INSERT INTO announcement_events (announcement_id, kind, source, channel, created_at)
+       SELECT e.id, e.kind, e.source, e.channel, e.at
+       FROM unnest($1::bigint[], $2::text[], $3::text[], $4::text[], $5::timestamptz[]) AS e(id, kind, source, channel, at)
+       WHERE EXISTS (SELECT 1 FROM announcements a WHERE a.id = e.id)`,
+      [events.map((e) => e.id), events.map((e) => e.kind), events.map((e) => e.source), events.map((e) => e.channel), events.map((e) => e.at)]
+    );
+  }
+}
+
+// Écrit les compteurs en attente (sans rien faire, donc sans réveiller la base, s'il n'y en a pas).
+async function flushCounters() {
+  if (flushing) await flushing.catch(() => {});
+  if (!pendingCounts.size && !pendingEvents.length) return;
+  const counts = pendingCounts;
+  const events = pendingEvents;
+  pendingCounts = new Map();
+  pendingEvents = [];
+  flushing = writeCounters(counts, events).catch((error) => {
+    // Échec (base indisponible) : les compteurs sont remis en attente pour le prochain essai.
+    for (const [id, entry] of counts) {
+      const current = pendingCounts.get(id) || { views: 0, applies: 0, saves: 0 };
+      pendingCounts.set(id, { views: current.views + entry.views, applies: current.applies + entry.applies, saves: current.saves + entry.saves });
+    }
+    pendingEvents = events.concat(pendingEvents);
+    throw error;
+  });
+  try {
+    await flushing;
+  } finally {
+    flushing = null;
+  }
+}
+
 async function recordHit(request, response, kind) {
   const id = request.params.id;
   if (!/^\d+$/.test(id)) return response.status(404).end();
@@ -955,11 +1044,8 @@ async function recordHit(request, response, kind) {
   // Provenance et canal passés dans l'adresse (?source=facebook&channel=email) : requête simple, sans pré-vol CORS.
   const source = EVENT_SOURCES.includes(request.query.source) ? request.query.source : 'direct';
   const channel = kind === 'apply' && APPLY_CHANNELS.includes(request.query.channel) ? request.query.channel : '';
-  const column = kind === 'apply' ? 'apply_clicks' : 'views';
-  const updated = await pool.query(`UPDATE announcements SET ${column} = ${column} + 1 WHERE id = $1 RETURNING id`, [id]);
-  if (updated.rows[0]) {
-    await pool.query('INSERT INTO announcement_events (announcement_id, kind, source, channel) VALUES ($1, $2, $3, $4)', [id, kind, source, channel]);
-  }
+  bumpCounter(id, kind === 'apply' ? 'applies' : 'views', 1);
+  pendingEvents.push({ id, kind, source, channel, at: new Date().toISOString() });
   response.status(204).end();
 }
 
@@ -979,18 +1065,14 @@ app.post('/api/announcements/:id/save', async (request, response, next) => { try
   if (lastSaveAction.get(key) === action) return response.status(204).end();
   lastSaveAction.set(key, action);
   if (lastSaveAction.size > 50000) lastSaveAction.clear();
-  await pool.query(
-    action === 'add'
-      ? 'UPDATE announcements SET saves = saves + 1 WHERE id = $1'
-      : 'UPDATE announcements SET saves = GREATEST(saves - 1, 0) WHERE id = $1',
-    [id]
-  );
+  bumpCounter(id, 'saves', action === 'add' ? 1 : -1);
   response.status(204).end();
 } catch (error) { next(error); } });
 
 // Bilan d'une offre pour le recruteur : totaux, détail par jour, provenance des visiteurs et canal de candidature.
 // Avec organizationId, l'offre doit appartenir à cette société (espace recruteur) ; sinon renvoie null.
 async function offerReport(id, organizationId = null) {
+  await flushCounters().catch(() => {});
   if (!/^\d+$/.test(String(id))) return null;
   const offer = await pool.query(
     `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
@@ -1961,8 +2043,16 @@ app.patch('/api/my/applications/received/:id', requireUser, requireOrganizationO
 
 app.use((_error, _request, response, _next) => response.status(500).json({ error: 'Erreur interne du serveur.' }));
 
-export { app, pool, initializeDatabase };
+export { app, pool, initializeDatabase, flushCounters };
 
 if (process.env.NODE_ENV !== 'test') {
-  initializeDatabase().then(() => app.listen(port, () => console.log(`API listening on port ${port}`))).catch((error) => { console.error(error); process.exit(1); });
+  app.listen(port, () => console.log(`API listening on port ${port}`));
+  setInterval(() => flushCounters().catch((error) => console.error('Compteurs non écrits :', error.message)), COUNTER_FLUSH_MS);
+  // Render arrête le serveur (mise en veille, nouveau déploiement) avec SIGTERM : on écrit les compteurs avant.
+  for (const signal of ['SIGTERM', 'SIGINT']) {
+    process.once(signal, () => {
+      flushCounters().catch((error) => console.error('Compteurs non écrits :', error.message)).finally(() => process.exit(0));
+      setTimeout(() => process.exit(0), 20000).unref();
+    });
+  }
 }

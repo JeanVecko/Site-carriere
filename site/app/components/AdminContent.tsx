@@ -116,7 +116,7 @@ function wordingFor(category?: string | null) {
   return CATEGORY_WORDING[category || ""] || CATEGORY_WORDING["Offre d’emploi"];
 }
 
-// Demande au site de rafraîchir immédiatement ses pages (sinon jusqu'à 60 s de cache).
+// Demande au site de rafraîchir immédiatement ses pages (sinon elles attendent le rafraîchissement du matin).
 function refreshPublicSite() {
   void fetch("/api/revalidate", { method: "POST", headers: adminHeaders() }).catch(() => undefined);
 }

@@ -60,7 +60,8 @@ export default function CategoryList({ category, initialItems }: { category: str
   const config = CATEGORIES[category];
   // Les annonces s'affichent en grille de cartes avec image ; offres et appels d'offres en liste.
   const isGrid = category === "notices";
-  // Liste fournie par le serveur (affichage immédiat), puis rafraîchie discrètement en arrière-plan.
+  // Liste fournie par le serveur (affichage immédiat, tenue à jour à chaque publication). L'API n'est appelée
+  // depuis le navigateur que si cette liste manque : chaque visite ne réveille donc plus la base de données.
   const [items, setItems] = useState<Announcement[] | null>(initialItems ?? null);
   // Filtres lancés depuis la page d'accueil : /offres?q=comptable&ville=Kinshasa&contrat=CDI
   const params = useSearchParams();
@@ -72,9 +73,11 @@ export default function CategoryList({ category, initialItems }: { category: str
   const [shown, setShown] = useState(PAGE_SIZE);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Heure de référence pour le filtre « date de publication » (fixée au chargement des offres).
-  const [loadedAt, setLoadedAt] = useState(0);
+  const [loadedAt, setLoadedAt] = useState(() => Date.now());
 
+  const hasInitial = Boolean(initialItems?.length);
   useEffect(() => {
+    if (hasInitial) return;
     apiRequest<Announcement[]>(`/announcements?category=${encodeURIComponent(config.value)}`)
       .then((list) => {
         setLoadedAt(Date.now());
@@ -82,7 +85,7 @@ export default function CategoryList({ category, initialItems }: { category: str
       })
       // En cas d'échec, on garde la liste du serveur si elle existe.
       .catch(() => setItems((current) => current ?? []));
-  }, [config.value]);
+  }, [config.value, hasInitial]);
 
   const all = useMemo(() => items || [], [items]);
   const contractCounts = useMemo(() => countBy(all, (item) => item.contract_type || ""), [all]);

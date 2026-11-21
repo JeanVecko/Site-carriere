@@ -46,7 +46,7 @@ import { fetchAnnouncement, fetchAnnouncements, SITE_URL } from "../lib/server";
 
 // Active la mise en cache (ISR) des pages : les publications actuelles sont préparées à la construction,
 // les nouvelles le sont à leur première visite, puis toutes sont servies depuis le cache et rafraîchies
-// en arrière-plan au plus toutes les 60 s.
+// à chaque publication depuis l’admin et chaque matin (voir lib/server.ts).
 export async function publicationStaticParams(base: string) {
   // Liste lue fraîchement (sans cache) : on ne prépare jamais une offre supprimée entre-temps.
   try {

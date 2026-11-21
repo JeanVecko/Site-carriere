@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   title: "Annonces — Carrières RDC",
 };
 
-// Liste préparée côté serveur et mise en cache (affichage immédiat), rafraîchie au plus toutes les 60 s.
-export const revalidate = 60;
+// Liste préparée côté serveur et mise en cache (affichage immédiat), rafraîchie à chaque publication et chaque matin.
+export const revalidate = 43200;
 
 export default async function Page() {
   const items = await fetchAnnouncements("Annonce");

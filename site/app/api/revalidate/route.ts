@@ -3,7 +3,7 @@ import { API_BASE } from "../../lib/api";
 
 // Appelé par l'espace admin après une publication, une modification ou une suppression :
 // toutes les pages (accueil, listes, offres) sont rafraîchies à leur prochaine visite,
-// au lieu d'attendre jusqu'à 60 s la fin du cache.
+// au lieu d'attendre le rafraîchissement du matin.
 export async function POST(request: Request) {
   const authorization = request.headers.get("authorization");
   if (!authorization) return Response.json({ error: "Authentification requise." }, { status: 401 });

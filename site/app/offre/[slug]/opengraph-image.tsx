@@ -8,7 +8,7 @@ import { fetchAnnouncement } from "../../lib/server";
 export const alt = "Offre publiée sur Carrières RDC";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const revalidate = 60;
+export const revalidate = 43200;
 
 const NAVY = "#092d63";
 const GOLD = "#d9a400";

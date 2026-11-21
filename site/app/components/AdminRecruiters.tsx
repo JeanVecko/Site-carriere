@@ -101,6 +101,7 @@ export default function AdminRecruiters({
         body: JSON.stringify({ verified, note }),
       });
       onChange(recruiters.map((entry) => (entry.id === recruiter.id ? updated : entry)));
+      void fetch("/api/revalidate", { method: "POST", headers: adminHeaders() }).catch(() => undefined);
       notify({ type: "success", text: verified ? `${recruiter.name} est marquée comme vérifiée.` : "Badge « Vérifiée » retiré." });
     } catch (verifyError) {
       notify({ type: "error", text: verifyError instanceof Error ? verifyError.message : "Modification impossible." });

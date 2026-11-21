@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { API_BASE } from "../../../lib/api";
 
 // Laisse le temps à l'API (hébergement gratuit) de se réveiller.
@@ -15,5 +16,7 @@ export async function GET(request: Request) {
     headers: { "x-alerts-secret": secret },
     cache: "no-store",
   }).catch((error: unknown) => ({ ok: false, status: 0, error: String(error) }));
+  // Rafraîchit chaque matin toutes les pages du site : offres arrivées à leur date limite, mises à la une terminées…
+  revalidatePath("/", "layout");
   return Response.json({ ok: result.ok, status: result.status }, { status: result.ok ? 200 : 502 });
 }

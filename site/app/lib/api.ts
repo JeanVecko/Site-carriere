@@ -94,8 +94,8 @@ export function mediaUrl(item: Pick<Announcement, "id" | "media" | "media_versio
     }
     version = hash.toString(36);
   }
-  const path = file === "cover" ? "cover" : `media/${file}`;
-  return `${API_BASE}/announcements/${item.id}/${path}${version ? `?v=${version}` : ""}`;
+  // Servie par le site (/fichiers/…), qui la garde en cache : l'API et la base ne sont sollicitées qu'une fois par version.
+  return `/fichiers/${item.id}/${file}${version ? `?v=${version}` : ""}`;
 }
 
 // Session du recruteur : gardée dans le navigateur (tous les onglets) pendant 30 jours au plus.

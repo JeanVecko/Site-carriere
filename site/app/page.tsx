@@ -9,7 +9,7 @@ import SplashScreen from "./components/SplashScreen";
 import { CONTRACT_TYPES, isExpired } from "./lib/api";
 import { fetchAnnouncements } from "./lib/server";
 
-export const revalidate = 60;
+export const revalidate = 43200;
 
 function cityOf(location?: string) {
   const city = (location || "").split(/[·,(/-]/)[0].trim();

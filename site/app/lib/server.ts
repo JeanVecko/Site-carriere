@@ -14,7 +14,10 @@ export const SITE_URL = (
       : "http://localhost:3000")
 ).replace(/\/$/, "");
 
-const REVALIDATE_SECONDS = 60;
+// Les pages ne redemandent pas les offres à l'API toutes les minutes (cela réveillait la base en continu) :
+// elles sont rafraîchies à chaque publication depuis l'admin et chaque matin par la tâche planifiée ;
+// 12 h est seulement un délai de secours.
+const REVALIDATE_SECONDS = 43200;
 
 export const fetchAnnouncement = cache(async (id: string): Promise<Announcement | null> => {
   if (!/^\d+$/.test(id)) return null;
@@ -29,7 +32,7 @@ export const fetchAnnouncement = cache(async (id: string): Promise<Announcement 
   }
 });
 
-// Liste publique (optionnellement d'une seule catégorie), mise en cache 60 s côté serveur.
+// Liste publique (optionnellement d'une seule catégorie), mise en cache côté serveur.
 export async function fetchAnnouncements(category?: string): Promise<Announcement[]> {
   try {
     const query = category ? `?category=${encodeURIComponent(category)}` : "";
