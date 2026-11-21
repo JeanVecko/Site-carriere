@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Building2, CalendarClock, Clock, MapPin, Star } from "lucide-react";
+import VerifiedBadge from "./VerifiedBadge";
 import { type Announcement, companyAvatar, decodeEntities, detailHref, formatDate, isExpired, timeAgo } from "../lib/api";
 
 // Fiche d'une offre dans une liste (accueil et pages de catégorie).
@@ -17,6 +18,7 @@ export default function OfferRow({ item, showCategory = false }: { item: Announc
           <span className="pub-job-meta">
             <span className="pub-company">
               <Building2 size={14} aria-hidden="true" /> {decodeEntities(item.company)}
+              {item.verified && <VerifiedBadge compact />}
             </span>
             <span>
               <MapPin size={14} aria-hidden="true" /> {decodeEntities(item.location)}

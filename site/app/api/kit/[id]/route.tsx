@@ -120,12 +120,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 </div>
               </div>
               <div style={{ display: "flex", fontSize: wideTitle, fontWeight: 800, lineHeight: 1.06, letterSpacing: -2, marginTop: 36 }}>{title}</div>
-              <div style={{ display: "flex", fontSize: 50, color: GOLD, fontWeight: 700, marginTop: 28 }}>{company}</div>
+              <div style={{ display: "flex", alignItems: "center", fontSize: 50, color: GOLD, fontWeight: 700, marginTop: 28 }}>
+                {company}
+                {item.verified && <span style={{ display: "flex", background: "#2a7de1", borderRadius: 999, color: "#fff", fontSize: 26, fontWeight: 800, marginLeft: 18, padding: "6px 16px", alignItems: "center" }}><svg width={24} height={24} viewBox="0 0 24 24" style={{ marginRight: 6 }}><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" /></svg>Vérifiée</span>}
+              </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "14px 44px", marginTop: 34 }}>
                 {rows.map(([name, value]) => (
-                  <div key={name} style={{ display: "flex", fontSize: 38, color: SOFT }}>
+                  <div key={name} style={{ display: "flex", fontSize: 38, color: SOFT, marginRight: 44 }}>
                     <span style={{ color: "#fff", fontWeight: 700, marginRight: 14, flexShrink: 0 }}>{name} :</span>
-                    <span style={{ display: "flex", flex: 1 }}>{value}</span>
+                    <span style={{ display: "flex", maxWidth: 960 }}>{value}</span>
                   </div>
                 ))}
               </div>
@@ -209,7 +212,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             </div>
           </div>
           <div style={{ display: "flex", fontSize: titleSize, fontWeight: 800, lineHeight: 1.08, letterSpacing: -1.5, marginTop: story ? 32 : 34 }}>{title}</div>
-          <div style={{ display: "flex", fontSize: story ? 42 : 44, color: GOLD, fontWeight: 700, marginTop: story ? 24 : 26 }}>{company}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", fontSize: story ? 42 : 44, color: GOLD, fontWeight: 700, marginTop: story ? 24 : 26 }}>
+            {company}
+            {item.verified && <span style={{ display: "flex", background: "#2a7de1", borderRadius: 999, color: "#fff", fontSize: story ? 24 : 24, fontWeight: 800, marginLeft: 16, padding: "5px 14px", alignItems: "center" }}><svg width={22} height={22} viewBox="0 0 24 24" style={{ marginRight: 6 }}><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" /></svg>Vérifiée</span>}
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: story ? 12 : 12, marginTop: story ? 32 : 36 }}>
             {rows.map(([label, value]) => (
               <div key={label} style={{ display: "flex", fontSize: story ? 34 : 32, color: SOFT }}>

@@ -392,6 +392,18 @@ function Dashboard() {
   }
 
   // Mise « à la une » (ou retrait) d'une offre jusqu'à une date incluse.
+  // Signalements de visiteurs vérifiés et traités par l'administrateur.
+  async function resolveReports(item: Announcement) {
+    if (!window.confirm(`Marquer les signalements de « ${decodeEntities(item.title)} » comme traités ? Ils restent consultables dans Messages.`)) return;
+    try {
+      await apiRequest(`/admin/announcements/${item.id}/reports/resolve`, { method: "PATCH", headers: adminHeaders() });
+      setAnnouncements((list) => list.map((entry) => (entry.id === item.id ? { ...entry, open_reports: 0 } : entry)));
+      setToast({ type: "success", text: "Signalements marqués comme traités." });
+    } catch (error) {
+      setToast({ type: "error", text: error instanceof Error ? error.message : "Modification impossible." });
+    }
+  }
+
   async function saveFeatured(item: Announcement, until: string | null) {
     const result = await apiRequest<{ warning?: string; active_featured?: number }>(`/admin/announcements/${item.id}/featured`, {
       method: "PATCH",
@@ -563,6 +575,7 @@ function Dashboard() {
             onShare={setSharing}
             onSendReport={sendReport}
             onFeature={setFeaturing}
+            onResolveReports={resolveReports}
             onEdit={(item) => {
               setEditing(item);
               setSection("publish");
@@ -993,6 +1006,7 @@ function OffersTable({
   onShare,
   onSendReport,
   onFeature,
+  onResolveReports,
   onEdit,
 }: {
   mode: "active" | "expired";
@@ -1003,6 +1017,7 @@ function OffersTable({
   onShare: (item: Announcement) => void;
   onSendReport: (item: Announcement) => void;
   onFeature: (item: Announcement) => void;
+  onResolveReports: (item: Announcement) => void;
   onEdit: (item: Announcement) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -1076,7 +1091,8 @@ function OffersTable({
                     <td>
                       <strong>{decodeEntities(item.title)}</strong>
                       <span>
-                        {decodeEntities(item.company)} · {decodeEntities(item.location)}
+                        {decodeEntities(item.company)}
+                        {item.verified ? " ✓" : ""} · {decodeEntities(item.location)}
                         {item.contract_type ? ` · ${item.contract_type}` : ""}
                       </span>
                       {item.organization_name && <small className="adm-owner">Espace : {item.organization_name}</small>}
@@ -1088,6 +1104,12 @@ function OffersTable({
                     </td>
                     <td>
                       <span className={`adm-status is-${status}`}>{STATUS_LABELS[status]}</span>
+                      {Number(item.open_reports || 0) > 0 && (
+                        <small className="adm-report-flag">
+                          ⚠ {item.open_reports} signalement{Number(item.open_reports) > 1 ? "s" : ""}
+                          <button type="button" onClick={() => onResolveReports(item)}>Traité</button>
+                        </small>
+                      )}
                       {item.featured && item.featured_until && <small className="adm-featured-note">★ À la une jusqu’au {formatDate(item.featured_until)}</small>}
                       {!item.featured && item.featured_request_days && (
                         <small className="adm-featured-note">★ Demande à la une : {item.featured_request_days} jours ({FEATURED_PLANS.find((plan) => plan.days === item.featured_request_days)?.price ?? "?"} $)</small>

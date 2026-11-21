@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Building2, CalendarClock, MapPin, Megaphone, Star } from "lucide-react";
+import VerifiedBadge from "./VerifiedBadge";
 import { type Announcement, companyAvatar, decodeEntities, detailHref, formatDate, isExpired, mediaUrl, timeAgo } from "../lib/api";
 
 // Carte visuelle d'une annonce (page Annonces) : vignette de l'image jointe, ou visuel de remplacement.
@@ -34,6 +35,7 @@ export default function AnnouncementTile({ item }: { item: Announcement }) {
           <span className="pub-tile-meta">
             <span className="pub-company">
               <Building2 size={13} aria-hidden="true" /> {decodeEntities(item.company)}
+              {item.verified && <VerifiedBadge compact />}
             </span>
             <span>
               <MapPin size={13} aria-hidden="true" /> {decodeEntities(item.location)}

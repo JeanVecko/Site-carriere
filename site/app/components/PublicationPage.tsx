@@ -20,6 +20,8 @@ import SiteFooter from "./SiteFooter";
 import ViewTracker from "./ViewTracker";
 import ShareButtons from "./ShareButtons";
 import OfferRow from "./OfferRow";
+import VerifiedBadge from "./VerifiedBadge";
+import ReportOffer from "./ReportOffer";
 import { SOCIAL_NETWORKS } from "./SocialLinks";
 import {
   API_BASE,
@@ -223,6 +225,7 @@ export default async function PublicationPage({ params, base }: PublicationProps
                 <span className="pub-company">
                   <Building2 size={15} aria-hidden="true" /> {decodeEntities(item.company)}
                 </span>
+                {item.verified && <VerifiedBadge />}
                 <span aria-hidden="true">·</span>
                 <MapPin size={15} aria-hidden="true" /> {decodeEntities(item.location)}
               </p>
@@ -344,10 +347,11 @@ export default async function PublicationPage({ params, base }: PublicationProps
               <ShieldAlert size={18} aria-hidden="true" />
               <p>
                 <strong>Aucun frais ne doit vous être demandé pour postuler.</strong> Si l’on vous réclame de l’argent,
-                ne payez pas et signalez-le-nous via le formulaire de contact.
+                ne payez pas et signalez-le-nous.
               </p>
             </aside>
           )}
+          <ReportOffer id={item.id!} />
           {item.category === "Annonce" && (
             <aside className="pub-warning">
               <ShieldAlert size={18} aria-hidden="true" />

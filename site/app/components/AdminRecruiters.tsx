@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Ban, Building2, CircleCheck, Copy, KeyRound, Link2, MailCheck, MailX, Send, Trash2, TriangleAlert, UserPlus } from "lucide-react";
+import { Ban, BadgeCheck, Building2, CircleCheck, Copy, KeyRound, Link2, MailCheck, MailX, Send, Trash2, TriangleAlert, UserPlus } from "lucide-react";
 import { Recruiter, adminHeaders, apiRequest, formatDate } from "../lib/api";
 
 type Notify = (toast: { type: "success" | "error"; text: string }) => void;
@@ -77,6 +77,33 @@ export default function AdminRecruiters({
       notify({ type: "success", text: status === "active" ? "Accès réactivé." : "Accès suspendu." });
     } catch (statusError) {
       notify({ type: "error", text: statusError instanceof Error ? statusError.message : "Modification impossible." });
+    }
+  }
+
+  // Vérification de l'organisation (documents d'enregistrement contrôlés) : badge « Vérifiée » sur ses offres.
+  async function toggleVerified(recruiter: Recruiter) {
+    const verified = !recruiter.verified_at;
+    let note = "";
+    if (verified) {
+      const answer = window.prompt(
+        `Marquer « ${recruiter.name} » comme organisation vérifiée.\n\nNotez ce que vous avez contrôlé (document, numéro d’enregistrement, appel…). Cette note n’est visible que dans l’admin.`,
+        ""
+      );
+      if (answer === null) return;
+      note = answer;
+    } else if (!window.confirm(`Retirer le badge « Vérifiée » de ${recruiter.name} ?`)) {
+      return;
+    }
+    try {
+      const updated = await apiRequest<Recruiter>(`/admin/recruiters/${recruiter.id}/verification`, {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ verified, note }),
+      });
+      onChange(recruiters.map((entry) => (entry.id === recruiter.id ? updated : entry)));
+      notify({ type: "success", text: verified ? `${recruiter.name} est marquée comme vérifiée.` : "Badge « Vérifiée » retiré." });
+    } catch (verifyError) {
+      notify({ type: "error", text: verifyError instanceof Error ? verifyError.message : "Modification impossible." });
     }
   }
 
@@ -164,6 +191,7 @@ export default function AdminRecruiters({
                   <th className="adm-num">Offres</th>
                   <th className="adm-num">Vues</th>
                   <th className="adm-num">Clics « Postuler »</th>
+                  <th>Vérification</th>
                   <th>Bilan auto</th>
                   <th className="adm-actions-col">Actions</th>
                 </tr>
@@ -174,7 +202,10 @@ export default function AdminRecruiters({
                   return (
                     <tr key={String(recruiter.id)}>
                       <td>
-                        <strong>{recruiter.name}</strong>
+                        <strong>
+                          {recruiter.name}
+                          {recruiter.verified_at && <BadgeCheck size={15} className="adm-verified-icon" aria-label="Vérifiée" />}
+                        </strong>
                         <span>
                           {recruiter.contact ? `${recruiter.contact} · ` : ""}
                           {recruiter.email || "Aucun contact"}
@@ -193,6 +224,19 @@ export default function AdminRecruiters({
                       <td className="adm-num">{recruiter.offers}</td>
                       <td className="adm-num">{Number(recruiter.views || 0).toLocaleString("fr-FR")}</td>
                       <td className="adm-num">{Number(recruiter.applies || 0).toLocaleString("fr-FR")}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className={`adm-toggle${recruiter.verified_at ? " is-on" : ""}`}
+                          onClick={() => void toggleVerified(recruiter)}
+                          title={recruiter.verified_at ? `Vérifiée le ${formatDate(recruiter.verified_at)}${recruiter.verification_note ? ` : ${recruiter.verification_note}` : ""}` : "Marquer comme vérifiée après contrôle des documents"}
+                          aria-pressed={Boolean(recruiter.verified_at)}
+                        >
+                          <BadgeCheck size={15} />
+                          {recruiter.verified_at ? "Vérifiée" : "Non vérifiée"}
+                        </button>
+                        {recruiter.verification_note && <small className="adm-verify-note">{recruiter.verification_note}</small>}
+                      </td>
                       <td>
                         <button
                           type="button"

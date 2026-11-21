@@ -680,3 +680,24 @@ html[data-theme="dark"] .pub-install-close:hover { background: #1b2c4d; }
   .pub-install-text { flex: 1 1 calc(100% - 110px); }
   .pub-install .pub-btn { flex: 1 1 100%; order: 3; }
 }
+
+/* ===================== Confiance : badge « Vérifiée » et signalements ===================== */
+.pub-verified { align-items: center; background: #e6f0ff; border: 1px solid #b9d3fb; border-radius: 999px; color: #1b5fc4; display: inline-flex; font-size: 12.5px; font-weight: 800; gap: 4px; padding: 2px 9px 2px 6px; vertical-align: middle; white-space: nowrap; }
+.pub-company .pub-verified { background: none; border: 0; color: #1b74e4 !important; margin-left: 2px; padding: 0; }
+.pub-company .pub-verified svg { color: #1b74e4 !important; }
+.pub-offer-hero-text p .pub-verified { margin-left: 2px; }
+.pub-sr-only { border: 0; clip: rect(0 0 0 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }
+.pub-report-link { align-items: center; background: none; border: 0; color: var(--pub-muted); cursor: pointer; display: inline-flex; font: inherit; font-size: 13px; gap: 6px; margin-top: 12px; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; }
+.pub-report-link:hover { color: #b42318; }
+.pub-report-reasons { display: flex; flex-direction: column; gap: 8px; }
+.pub-report-reason { align-items: center; border: 1.5px solid var(--pub-border); border-radius: 12px; cursor: pointer; display: flex; font-size: 14px; font-weight: 600; gap: 10px; padding: 10px 12px; }
+.pub-report-reason input { accent-color: #b42318; }
+.pub-report-reason.is-active { background: #fff4f2; border-color: #f5b5ab; }
+html[data-theme="dark"] .pub-verified { background: #12305e; border-color: #24508f; color: #9cc2ff; }
+html[data-theme="dark"] .pub-company .pub-verified, html[data-theme="dark"] .pub-company .pub-verified svg { color: #7fb0ff !important; }
+html[data-theme="dark"] .pub-report-reason.is-active { background: #3d1717; border-color: #7a2b22; }
+/* Admin */
+.adm-verified-icon { color: #1b74e4; margin-left: 6px; vertical-align: -2px; }
+.adm-verify-note { color: var(--adm-muted, #5d6b82); display: block; font-size: 11.5px; margin-top: 4px; max-width: 220px; }
+.adm-report-flag { align-items: center; color: #b42318 !important; display: flex !important; font-weight: 700; gap: 8px; }
+.adm-report-flag button { background: #fff; border: 1px solid #f5b5ab; border-radius: 999px; color: #b42318; cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; padding: 1px 8px; }

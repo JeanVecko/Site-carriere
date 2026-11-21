@@ -36,6 +36,8 @@ export type Announcement = {
   featured_from?: string | null;
   featured_until?: string | null; // dernier jour à la une (inclus)
   featured_request_days?: number | null; // demande du recruteur en attente de paiement
+  verified?: boolean; // organisation vérifiée (badge « Vérifiée »)
+  open_reports?: number; // signalements de visiteurs non traités (admin)
   featured_requested_at?: string | null;
   organization_name?: string;
 };
@@ -46,6 +48,8 @@ export type Recruiter = {
   name: string;
   account_status: string;
   auto_reports?: boolean; // bilan envoyé automatiquement le lendemain de la date limite
+  verified_at?: string | null; // organisation vérifiée par l'administrateur
+  verification_note?: string;
   created_at: string;
   user_id?: number | string | null;
   email?: string | null;

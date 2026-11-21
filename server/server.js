@@ -174,6 +174,20 @@ async function initializeDatabase() {
   // Demande de mise à la une envoyée par le recruteur depuis son espace (durée choisie, en attente de paiement)
   await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_request_days INTEGER');
   await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS featured_requested_at TIMESTAMPTZ');
+  // Organisation vérifiée par l'administrateur (documents contrôlés) : badge « Vérifiée » sur ses offres
+  await pool.query('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ');
+  await pool.query("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS verification_note TEXT NOT NULL DEFAULT ''");
+  // Signalements d'offres par les visiteurs (argent demandé, fausse offre…), traités depuis l'admin
+  await pool.query(`CREATE TABLE IF NOT EXISTS offer_reports (
+    id BIGSERIAL PRIMARY KEY,
+    announcement_id BIGINT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    details TEXT NOT NULL DEFAULT '',
+    contact TEXT NOT NULL DEFAULT '',
+    resolved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS offer_reports_offer_idx ON offer_reports (announcement_id) WHERE resolved_at IS NULL');
   await pool.query("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -808,7 +822,7 @@ app.get('/api/announcements/:id/cover', async (request, response) => {
 app.get('/api/announcements', async (request, response) => {
   const category = clean(request.query.category);
   const values = category ? [category] : [];
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY ${FEATURED_SQL} DESC, created_at DESC`, values);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY ${FEATURED_SQL} DESC, created_at DESC`, values);
   response.json(result.rows);
 });
 
@@ -835,7 +849,7 @@ app.get('/api/my/recommended-offers', requireUser, async (request, response) => 
 
 app.get('/api/announcements/:id', async (request, response) => {
   if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, media, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, media, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   response.json(result.rows[0]);
 });
@@ -846,7 +860,8 @@ app.get('/api/admin/announcements', requireAdmin, async (_request, response) => 
             to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
             jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.created_at, a.report_sent_at,
             ${FEATURED_SQL} AS featured, to_char(a.featured_from, 'YYYY-MM-DD') AS featured_from, to_char(a.featured_until, 'YYYY-MM-DD') AS featured_until,
-            a.featured_request_days, a.featured_requested_at,
+            a.featured_request_days, a.featured_requested_at, (o.verified_at IS NOT NULL) AS verified,
+            (SELECT COUNT(*) FROM offer_reports r WHERE r.announcement_id = a.id AND r.resolved_at IS NULL)::int AS open_reports,
             ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa') AS public_until,
             NOT (a.deadline IS NULL OR NOW() < ((a.deadline + 2)::timestamp AT TIME ZONE 'Africa/Kinshasa')) AS hidden,
             u.email AS author_email, a.organization_id, o.name AS organization_name
@@ -1023,7 +1038,7 @@ async function sendAccessLinkEmail({ email, organization, contact, link, first }
 }
 
 const RECRUITER_LIST_SQL = `
-  SELECT o.id, o.name, o.account_status, o.auto_reports, o.created_at,
+  SELECT o.id, o.name, o.account_status, o.auto_reports, o.verified_at, o.verification_note, o.created_at,
          u.id AS user_id, u.email, COALESCE(u.data->>'contact', '') AS contact, u.email_verified_at AS activated_at,
          NULLIF(u.data->>'last_login_at', '') AS last_login_at,
          COALESCE(s.offers, 0)::int AS offers, COALESCE(s.views, 0)::int AS views, COALESCE(s.applies, 0)::int AS applies
@@ -1313,6 +1328,71 @@ app.post('/api/recruiter/offers/:id/featured-request', requireRecruiter, safe(as
     subject: `Votre demande « à la une » — ${offer.title}`.slice(0, 180),
     text: `Bonjour,\n\nNous avons bien reçu votre demande de mise à la une de l’offre « ${offer.title} » pendant ${label}.\n\nNous vous contactons très vite pour le paiement (Mobile Money ou virement). Dès réception, votre offre passe en tête des listes de Carrières RDC, avec un badge doré, et en premier dans nos alertes e-mail.\n\nVous pouvez répondre directement à cet e-mail pour toute question.\n\n—\nL’équipe Carrières RDC\n${frontendUrl}`,
   }).catch((error) => console.error('Confirmation e-mail non envoyée :', error.message));
+}));
+
+// Vérification d'une organisation par l'administrateur (documents contrôlés) : badge « Vérifiée » sur ses offres.
+app.patch('/api/admin/recruiters/:id/verification', requireAdmin, safe(async (request, response) => {
+  const recruiter = await recruiterOrganization(request.params.id);
+  if (!recruiter) return response.status(404).json({ error: 'Recruteur introuvable.' });
+  const verified = Boolean(request.body?.verified);
+  const note = clean(request.body?.note).slice(0, 500);
+  await pool.query(
+    'UPDATE organizations SET verified_at = CASE WHEN $2 THEN COALESCE(verified_at, NOW()) ELSE NULL END, verification_note = $3 WHERE id = $1',
+    [recruiter.id, verified, verified ? note : '']
+  );
+  response.json(await recruiterOrganization(recruiter.id));
+}));
+
+// Signalement d'une offre par un visiteur : enregistré, envoyé dans les messages de l'admin avec une alerte e-mail.
+// 5 signalements par adresse IP et par heure au plus, un seul par offre (adresse IP gardée seulement en mémoire).
+const REPORT_REASONS = {
+  argent: 'On m’a demandé de l’argent',
+  fausse: 'Offre fausse ou trompeuse',
+  contact: 'Coordonnées qui ne fonctionnent pas',
+  expiree: 'Offre déjà pourvue ou expirée',
+  autre: 'Autre problème',
+};
+const recentReports = new Map();
+app.post('/api/announcements/:id/flag', safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Offre introuvable.' });
+  const reason = clean(request.body?.reason);
+  if (!REPORT_REASONS[reason]) return response.status(400).json({ error: 'Choisissez le motif du signalement.' });
+  const details = clean(request.body?.details).slice(0, 1500);
+  const contact = clean(request.body?.contact).slice(0, 160);
+  if (BOT_PATTERN.test(request.get('user-agent') || '')) return response.status(204).end();
+  const ip = String(request.get('x-forwarded-for') || request.socket.remoteAddress || '').split(',')[0].trim();
+  const now = Date.now();
+  const entry = recentReports.get(ip) || { times: [], offers: new Set() };
+  entry.times = entry.times.filter((time) => now - time < 3600_000);
+  if (entry.offers.has(request.params.id)) return response.json({ ok: true, duplicate: true });
+  if (entry.times.length >= 5) return response.status(429).json({ error: 'Trop de signalements envoyés. Réessayez plus tard.' });
+  const offer = (await pool.query('SELECT id, title, company FROM announcements WHERE id = $1', [request.params.id])).rows[0];
+  if (!offer) return response.status(404).json({ error: 'Offre introuvable.' });
+  entry.times.push(now);
+  entry.offers.add(request.params.id);
+  recentReports.set(ip, entry);
+  if (recentReports.size > 20000) recentReports.clear();
+  await pool.query('INSERT INTO offer_reports (announcement_id, reason, details, contact) VALUES ($1, $2, $3, $4)', [offer.id, reason, details, contact]);
+  const label = REPORT_REASONS[reason];
+  const text = `Signalement de l’offre « ${offer.title} » (${offer.company}) : ${label}.${details ? `\n\n« ${details} »` : ''}${contact ? `\n\nContact du visiteur : ${contact}` : ''}\n\nOffre : ${frontendUrl}/offre/${offer.id}\nÀ vérifier depuis ${frontendUrl}/admin#offres`;
+  await pool.query(
+    'INSERT INTO messages (name, email, subject, message) VALUES ($1, $2, $3, $4)',
+    ['Signalement d’un visiteur', /@/.test(contact) ? contact : 'signalement@carrieresrdc.com', `Signalement : ${offer.title} — ${label}`.slice(0, 180), text]
+  );
+  response.status(201).json({ ok: true });
+  sendTransactionalEmail({
+    to: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    ...(/@/.test(contact) ? { replyTo: contact } : {}),
+    subject: `⚠ Offre signalée : ${offer.title} — ${label}`.slice(0, 180),
+    text,
+  }).catch((error) => console.error('Alerte e-mail non envoyée :', error.message));
+}));
+
+// Signalements d'une offre traités par l'administrateur.
+app.patch('/api/admin/announcements/:id/reports/resolve', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Offre introuvable.' });
+  const result = await pool.query('UPDATE offer_reports SET resolved_at = NOW() WHERE announcement_id = $1 AND resolved_at IS NULL', [request.params.id]);
+  response.json({ ok: true, resolved: result.rowCount || 0 });
 }));
 
 // Tentatives de connexion échouées, gardées en mémoire : 8 essais par adresse et par quart d'heure.
