@@ -42,6 +42,7 @@ import {
   Recruiter,
   Submission,
   ExtensionRequest,
+  PendingProfile,
   adminHeaders,
   apiRequest,
   decodeEntities,
@@ -248,6 +249,7 @@ function Dashboard() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [reviewing, setReviewing] = useState<Submission | null>(null);
   const [extensions, setExtensions] = useState<ExtensionRequest[]>([]);
+  const [profiles, setProfiles] = useState<PendingProfile[]>([]);
   // Catégorie choisie dans le formulaire de publication (pour le titre de la page).
   const [formCategory, setFormCategory] = useState("Offre d’emploi");
   const [seenExpired, setSeenExpired] = useState<string[]>(() => {
@@ -264,19 +266,21 @@ function Dashboard() {
     setLoading(true);
     setLoadError("");
     try {
-      const [offers, inbox, partners, proposals, prolongations] = await Promise.all([
+      const [offers, inbox, partners, proposals, prolongations, pages] = await Promise.all([
         apiRequest<Announcement[]>("/admin/announcements", { headers: adminHeaders() }),
         apiRequest<ContactMessage[]>("/messages", { headers: adminHeaders() }),
         // Liste vide si l'API déployée ne connaît pas encore les espaces recruteur
         apiRequest<Recruiter[]>("/admin/recruiters", { headers: adminHeaders() }).catch(() => [] as Recruiter[]),
         apiRequest<Submission[]>("/admin/submissions", { headers: adminHeaders() }).catch(() => [] as Submission[]),
         apiRequest<ExtensionRequest[]>("/admin/extensions", { headers: adminHeaders() }).catch(() => [] as ExtensionRequest[]),
+        apiRequest<PendingProfile[]>("/admin/profiles", { headers: adminHeaders() }).catch(() => [] as PendingProfile[]),
       ]);
       setAnnouncements(offers);
       setMessages(inbox);
       setRecruiters(partners);
       setSubmissions(proposals);
       setExtensions(prolongations);
+      setProfiles(pages);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Impossible de charger les données.";
       // Session expirée : retour à l'écran de connexion.
@@ -491,7 +495,7 @@ function Dashboard() {
   }
 
   const current = SECTIONS.find((entry) => entry.id === section)!;
-  const pendingSubmissions = submissions.filter((item) => item.status === "pending").length + extensions.filter((item) => item.status === "pending").length;
+  const pendingSubmissions = submissions.filter((item) => item.status === "pending").length + extensions.filter((item) => item.status === "pending").length + profiles.length;
   const wording = wordingFor(formCategory);
   const heading = section === "publish" ? (reviewing ? "Vérifier une offre proposée" : editing ? wording.edit : wording.publish) : current.label;
 
@@ -626,6 +630,11 @@ function Dashboard() {
           <AdminSubmissions
             submissions={submissions}
             extensions={extensions}
+            profiles={profiles}
+            onProfilesChange={(list) => {
+              setProfiles(list);
+              void loadAll();
+            }}
             loading={loading}
             onChange={setSubmissions}
             onExtensionsChange={(list) => {

@@ -215,3 +215,9 @@ html[data-theme="dark"] .pub-city-others a, html[data-theme="dark"] .pub-city-ch
 html[data-theme="dark"] .pub-city-others em, html[data-theme="dark"] .pub-city-chips em { background: #1f3358; color: #dbe6f7; }
 html[data-theme="dark"] .pub-city-index strong { color: #f2f6fc; }
 html[data-theme="dark"] .rec-table small em.rec-expiring { background: #3d2a10; color: #fbbf6a; }
+
+/* Pages entreprises */
+html[data-theme="dark"] .pub-company-index a { background: #13213d; border-color: #2c4170; }
+html[data-theme="dark"] .pub-company-card-text strong, html[data-theme="dark"] .pub-employer-head strong { color: #f2f6fc; }
+html[data-theme="dark"] .pub-company-card-meta, html[data-theme="dark"] .pub-company-facts a { color: #dbe6f7; }
+html[data-theme="dark"] .rec-company-status .rec-sub-status:not(.is-published):not(.is-pending) { background: #1b2c4d; color: #94a3b8; }

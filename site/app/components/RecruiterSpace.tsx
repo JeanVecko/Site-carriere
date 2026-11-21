@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import RecruiterSubmissions from "./RecruiterSubmissions";
+import RecruiterCompanyPage from "./RecruiterCompanyPage";
 import {
   CONTACT_EMAIL,
   FEATURED_PLANS,
@@ -330,6 +331,8 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
           </div>
         )}
       </section>
+
+      <RecruiterCompanyPage />
 
       <RecruiterSubmissions organization={space.organization} republishId={republishId} onRepublishOpened={clearRepublish} />
 

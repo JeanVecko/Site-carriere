@@ -248,6 +248,14 @@ async function migrateDatabase() {
     decided_at TIMESTAMPTZ
   )`);
   await rawQuery("CREATE UNIQUE INDEX IF NOT EXISTS offer_extension_pending_idx ON offer_extension_requests (announcement_id) WHERE status = 'pending'");
+  // Page publique de l'entreprise (/entreprises/[slug]) : fiche publiée, et modifications du recruteur en attente.
+  await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile JSONB');
+  await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS logo TEXT');
+  await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_updated_at TIMESTAMPTZ');
+  await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_draft JSONB');
+  await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_draft_logo TEXT');
+  await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_draft_at TIMESTAMPTZ');
+  await rawQuery("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_draft_email TEXT NOT NULL DEFAULT ''");
   await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -883,7 +891,7 @@ app.get('/api/announcements/:id/cover', async (request, response) => {
 app.get('/api/announcements', async (request, response) => {
   const category = clean(request.query.category);
   const values = category ? [category] : [];
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY ${FEATURED_SQL} DESC, created_at DESC`, values);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified, (SELECT org.slug FROM organizations org WHERE org.id = announcements.organization_id AND org.profile IS NOT NULL AND org.account_status = 'active') AS company_slug FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY ${FEATURED_SQL} DESC, created_at DESC`, values);
   response.json(result.rows);
 });
 
@@ -910,7 +918,7 @@ app.get('/api/my/recommended-offers', requireUser, async (request, response) => 
 
 app.get('/api/announcements/:id', async (request, response) => {
   if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, COALESCE((SELECT jsonb_agg(m - 'dataUrl') FROM jsonb_array_elements(media) AS m), '[]'::jsonb) AS media, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
+  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, COALESCE((SELECT jsonb_agg(m - 'dataUrl') FROM jsonb_array_elements(media) AS m), '[]'::jsonb) AS media, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified, (SELECT org.slug FROM organizations org WHERE org.id = announcements.organization_id AND org.profile IS NOT NULL AND org.account_status = 'active') AS company_slug FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   response.json(result.rows[0]);
 });
@@ -1178,7 +1186,8 @@ async function sendAccessLinkEmail({ email, organization, contact, link, first }
 }
 
 const RECRUITER_LIST_SQL = `
-  SELECT o.id, o.name, o.account_status, o.auto_reports, o.verified_at, o.verification_note, o.created_at,
+  SELECT o.id, o.name, o.slug, o.account_status, o.auto_reports, o.verified_at, o.verification_note, o.created_at,
+         (o.profile IS NOT NULL) AS has_profile, (o.profile_draft IS NOT NULL) AS profile_pending,
          u.id AS user_id, u.email, COALESCE(u.data->>'contact', '') AS contact, u.email_verified_at AS activated_at,
          NULLIF(u.data->>'last_login_at', '') AS last_login_at,
          COALESCE(s.offers, 0)::int AS offers, COALESCE(s.views, 0)::int AS views, COALESCE(s.applies, 0)::int AS applies
@@ -1983,6 +1992,207 @@ app.post('/api/admin/submissions/:id/reject', requireAdmin, safe(async (request,
   notifySubmitter(submission, `Votre offre n'a pas été publiée : ${submission.data.title}`.slice(0, 180),
     `Bonjour,\n\nNous avons relu votre offre « ${submission.data.title} » et ne pouvons pas la publier en l'état :\n\n${reason}\n\nVous pouvez la corriger et nous la proposer de nouveau depuis votre espace :\n${frontendUrl}/espace-recruteur\n\nPour toute question, répondez simplement à cet e-mail.\nL'équipe Carrières RDC`
   ).catch((mailError) => console.error('E-mail au recruteur non envoyé :', mailError.message));
+}));
+
+/* ===== Pages entreprises ===== */
+
+const COMPANY_SECTORS = ['Banque et finance', 'ONG et humanitaire', 'Mines et énergie', 'Télécoms et numérique', 'Santé', 'Éducation et formation',
+  'Commerce et distribution', 'Industrie et BTP', 'Transport et logistique', 'Agriculture et agroalimentaire', 'Administration et institutions',
+  'Hôtellerie et restauration', 'Conseil et services', 'Médias et communication', 'Autre'];
+const LOGO_PATTERN = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/;
+
+// Valide une fiche (recruteur ou administrateur). Renvoie { profile } ou { error }.
+function validateCompanyProfile(body) {
+  const description = clean(body.description).slice(0, 2000);
+  const sector = clean(body.sector);
+  const city = clean(body.city).slice(0, 80);
+  const website = clean(body.website).slice(0, 200);
+  if (description.length < 40) return { error: 'Présentez votre organisation en quelques phrases (au moins 40 caractères).' };
+  if (!COMPANY_SECTORS.includes(sector)) return { error: 'Choisissez un secteur d’activité.' };
+  if (website && !/^https?:\/\/[^\s.]+\.[^\s]+$/i.test(website)) return { error: 'Le site web doit commencer par http:// ou https://.' };
+  return { profile: { description, sector, city, website } };
+}
+function validateLogo(value) {
+  if (value === undefined || value === null || value === '') return { logo: null };
+  if (typeof value !== 'string' || value.length > 700_000 || !LOGO_PATTERN.test(value)) return { error: 'Logo invalide ou trop lourd (image JPG, PNG ou WEBP).' };
+  return { logo: value };
+}
+const logoVersion = (logo) => (logo ? crypto.createHash('sha1').update(logo).digest('hex').slice(0, 10) : null);
+
+// Entreprises visibles : fiche publiée, compte actif, au moins une offre en ligne.
+const COMPANY_PUBLIC_SQL = `o.profile IS NOT NULL AND o.account_status = 'active'`;
+const OPEN_OFFERS_SQL = `(SELECT COUNT(*)::int FROM announcements WHERE organization_id = o.id AND ${PUBLICLY_VISIBLE_SQL})`;
+
+app.get('/api/companies', safe(async (_request, response) => {
+  const result = await pool.query(
+    `SELECT o.slug, o.name, o.profile->>'sector' AS sector, o.profile->>'city' AS city, (o.verified_at IS NOT NULL) AS verified,
+            o.logo IS NOT NULL AS has_logo, o.logo, ${OPEN_OFFERS_SQL} AS open_offers
+     FROM organizations o WHERE ${COMPANY_PUBLIC_SQL} AND ${OPEN_OFFERS_SQL} > 0
+     ORDER BY ${OPEN_OFFERS_SQL} DESC, o.name`
+  );
+  response.json(result.rows.map(({ logo, ...row }) => ({ ...row, logo_version: logoVersion(logo) })));
+}));
+
+app.get('/api/companies/:slug', safe(async (request, response) => {
+  const company = (await pool.query(
+    `SELECT o.id, o.slug, o.name, o.profile, o.logo, (o.verified_at IS NOT NULL) AS verified, o.created_at,
+            (SELECT COUNT(*)::int FROM announcements WHERE organization_id = o.id) AS total_offers,
+            (SELECT MIN(created_at) FROM announcements WHERE organization_id = o.id) AS first_offer_at
+     FROM organizations o WHERE o.slug = $1 AND ${COMPANY_PUBLIC_SQL}`,
+    [clean(request.params.slug).toLowerCase()]
+  )).rows[0];
+  if (!company) return response.status(404).json({ error: 'Entreprise introuvable.' });
+  const offers = await pool.query(
+    `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, created_at,
+            ${FEATURED_SQL} AS featured, TRUE AS verified
+     FROM announcements WHERE organization_id = $1 AND ${PUBLICLY_VISIBLE_SQL} ORDER BY ${FEATURED_SQL} DESC, created_at DESC`,
+    [company.id]
+  );
+  const { id: _id, logo, profile, verified, ...rest } = company;
+  response.json({ ...rest, ...profile, verified, has_logo: Boolean(logo), logo_version: logoVersion(logo), offers: offers.rows.map((row) => ({ ...row, verified })) });
+}));
+
+app.get('/api/companies/:slug/logo', safe(async (request, response) => {
+  const row = (await pool.query(`SELECT o.logo FROM organizations o WHERE o.slug = $1 AND ${COMPANY_PUBLIC_SQL}`, [clean(request.params.slug).toLowerCase()])).rows[0];
+  const match = row?.logo && LOGO_PATTERN.exec(row.logo);
+  if (!match) return response.status(404).end();
+  response.set('Content-Type', match[1]);
+  response.set('Cache-Control', 'public, max-age=86400');
+  response.send(Buffer.from(match[2], 'base64'));
+}));
+
+// Recruteur : sa fiche publiée et ses modifications en attente.
+app.get('/api/recruiter/profile', requireRecruiter, safe(async (request, response) => {
+  const o = (await pool.query(
+    'SELECT slug, name, profile, logo, profile_updated_at, profile_draft, profile_draft_logo, profile_draft_at FROM organizations WHERE id = $1',
+    [request.user.organization_id]
+  )).rows[0];
+  if (!o) return response.status(404).json({ error: 'Organisation introuvable.' });
+  response.json({
+    slug: o.slug, name: o.name, sectors: COMPANY_SECTORS,
+    published: o.profile ? { ...o.profile, logo: o.logo, updated_at: o.profile_updated_at } : null,
+    draft: o.profile_draft ? { ...o.profile_draft, logo: o.profile_draft_logo ?? null, submitted_at: o.profile_draft_at } : null,
+  });
+}));
+
+// Le recruteur propose sa fiche (ou une modification) : publiée seulement après validation de l'administrateur.
+app.put('/api/recruiter/profile', requireRecruiter, safe(async (request, response) => {
+  const { profile, error } = validateCompanyProfile(request.body);
+  if (error) return response.status(400).json({ error });
+  const current = (await pool.query('SELECT name, logo, profile_draft, profile_draft_logo FROM organizations WHERE id = $1', [request.user.organization_id])).rows[0];
+  // Logo : nouveau fichier, retrait (remove_logo) ou logo actuel conservé (celui déjà envoyé s'il est en attente).
+  let logo = current.profile_draft ? current.profile_draft_logo : current.logo;
+  if (request.body.remove_logo) logo = null;
+  else if (request.body.logo) {
+    const checked = validateLogo(request.body.logo);
+    if (checked.error) return response.status(400).json({ error: checked.error });
+    logo = checked.logo;
+  }
+  await pool.query(
+    'UPDATE organizations SET profile_draft = $2, profile_draft_logo = $3, profile_draft_at = NOW(), profile_draft_email = $4 WHERE id = $1',
+    [request.user.organization_id, JSON.stringify(profile), logo, request.user.email]
+  );
+  response.json({ ok: true });
+  sendTransactionalEmail({
+    to: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    replyTo: request.user.email,
+    subject: `Page entreprise à valider : ${current.name}`.slice(0, 180),
+    text: `${current.name} (${request.user.email}) a préparé sa page entreprise.\n\nSecteur : ${profile.sector}${profile.city ? `\nVille : ${profile.city}` : ''}${profile.website ? `\nSite : ${profile.website}` : ''}\n\n${profile.description}\n\nElle n'est pas publiée : vérifiez-la depuis ${frontendUrl}/admin#a-valider`,
+  }).catch((mailError) => console.error('Alerte e-mail non envoyée :', mailError.message));
+}));
+
+// Administrateur : fiches en attente de validation.
+app.get('/api/admin/profiles', requireAdmin, safe(async (_request, response) => {
+  const result = await pool.query(
+    `SELECT o.id, o.slug, o.name, (o.verified_at IS NOT NULL) AS verified, o.profile AS published, o.profile_draft AS draft,
+            o.profile_draft_at AS submitted_at, o.profile_draft_email AS submitter_email,
+            (o.profile_draft_logo IS NOT NULL) AS draft_has_logo, (o.profile_draft_logo IS DISTINCT FROM o.logo) AS logo_changed
+     FROM organizations o WHERE o.profile_draft IS NOT NULL ORDER BY o.profile_draft_at`
+  );
+  response.json(result.rows);
+}));
+
+app.get('/api/admin/profiles/:id/logo', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).end();
+  const column = request.query.draft === '1' ? 'profile_draft_logo' : 'logo';
+  const row = (await pool.query(`SELECT ${column} AS logo FROM organizations WHERE id = $1`, [request.params.id])).rows[0];
+  const match = row?.logo && LOGO_PATTERN.exec(row.logo);
+  if (!match) return response.status(404).end();
+  response.set('Content-Type', match[1]);
+  response.set('Cache-Control', 'private, no-store');
+  response.send(Buffer.from(match[2], 'base64'));
+}));
+
+app.post('/api/admin/profiles/:id/approve', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Organisation introuvable.' });
+  const result = await pool.query(
+    `UPDATE organizations SET profile = profile_draft, logo = profile_draft_logo, profile_updated_at = NOW(),
+            profile_draft = NULL, profile_draft_logo = NULL, profile_draft_at = NULL
+     WHERE id = $1 AND profile_draft IS NOT NULL RETURNING slug, name, profile_draft_email AS email`,
+    [request.params.id]
+  );
+  const org = result.rows[0];
+  if (!org) return response.status(409).json({ error: 'Aucune fiche en attente pour cette organisation.' });
+  response.json({ ok: true, slug: org.slug });
+  if (org.email) sendTransactionalEmail({
+    to: org.email,
+    replyTo: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    subject: `Votre page entreprise est en ligne : ${org.name}`.slice(0, 180),
+    text: `Bonjour,\n\nLa page de ${org.name} est en ligne sur Carrières RDC :\n${frontendUrl}/entreprises/${org.slug}\n\nElle présente votre organisation et toutes vos offres en cours. Partagez ce lien : c'est votre vitrine auprès des candidats.\n\nL'équipe Carrières RDC`,
+  }).catch((mailError) => console.error('E-mail au recruteur non envoyé :', mailError.message));
+}));
+
+app.post('/api/admin/profiles/:id/reject', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Organisation introuvable.' });
+  const reason = clean(request.body.reason).slice(0, 1000);
+  if (reason.length < 5) return response.status(400).json({ error: 'Indiquez le motif du refus (il est envoyé au recruteur).' });
+  const result = await pool.query(
+    `UPDATE organizations SET profile_draft = NULL, profile_draft_logo = NULL, profile_draft_at = NULL
+     WHERE id = $1 AND profile_draft IS NOT NULL RETURNING name, profile_draft_email AS email`,
+    [request.params.id]
+  );
+  const org = result.rows[0];
+  if (!org) return response.status(409).json({ error: 'Aucune fiche en attente pour cette organisation.' });
+  response.json({ ok: true });
+  if (org.email) sendTransactionalEmail({
+    to: org.email,
+    replyTo: process.env.CONTACT_ALERT_EMAIL || process.env.ADMIN_EMAIL,
+    subject: `Votre page entreprise n'a pas été publiée : ${org.name}`.slice(0, 180),
+    text: `Bonjour,\n\nNous avons relu la page de ${org.name} et ne pouvons pas la publier en l'état :\n\n${reason}\n\nVous pouvez la corriger depuis votre espace : ${frontendUrl}/espace-recruteur\n\nL'équipe Carrières RDC`,
+  }).catch((mailError) => console.error('E-mail au recruteur non envoyé :', mailError.message));
+}));
+
+// Administrateur : fiche remplie ou corrigée directement (publiée tout de suite), ou page retirée.
+app.put('/api/admin/recruiters/:id/profile', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Organisation introuvable.' });
+  if (request.body.unpublish) {
+    await pool.query('UPDATE organizations SET profile = NULL WHERE id = $1', [request.params.id]);
+    return response.json({ ok: true, published: false });
+  }
+  const { profile, error } = validateCompanyProfile(request.body);
+  if (error) return response.status(400).json({ error });
+  const current = (await pool.query('SELECT logo FROM organizations WHERE id = $1', [request.params.id])).rows[0];
+  if (!current) return response.status(404).json({ error: 'Organisation introuvable.' });
+  let logo = current.logo;
+  if (request.body.remove_logo) logo = null;
+  else if (request.body.logo) {
+    const checked = validateLogo(request.body.logo);
+    if (checked.error) return response.status(400).json({ error: checked.error });
+    logo = checked.logo;
+  }
+  const result = await pool.query(
+    'UPDATE organizations SET profile = $2, logo = $3, profile_updated_at = NOW() WHERE id = $1 RETURNING slug',
+    [request.params.id, JSON.stringify(profile), logo]
+  );
+  response.json({ ok: true, published: true, slug: result.rows[0].slug });
+}));
+
+// Administrateur : fiche actuelle d'une organisation (pour la modifier).
+app.get('/api/admin/recruiters/:id/profile', requireAdmin, safe(async (request, response) => {
+  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Organisation introuvable.' });
+  const o = (await pool.query('SELECT slug, name, profile, logo FROM organizations WHERE id = $1', [request.params.id])).rows[0];
+  if (!o) return response.status(404).json({ error: 'Organisation introuvable.' });
+  response.json({ slug: o.slug, name: o.name, sectors: COMPANY_SECTORS, published: o.profile ? { ...o.profile, logo: o.logo } : null });
 }));
 
 app.delete('/api/announcements/:id', requireAdmin, async (request, response) => {

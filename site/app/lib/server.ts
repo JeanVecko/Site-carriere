@@ -1,6 +1,6 @@
 // Fonctions utilisées uniquement côté serveur (pages rendues pour Google, sitemap).
 import { cache } from "react";
-import { API_BASE, type Announcement } from "./api";
+import { API_BASE, type Announcement, type Company, type CompanySummary } from "./api";
 
 // Adresse publique du site (liens canoniques, sitemap, partage). En production : le domaine carrieresrdc.com
 // (version www, vers laquelle Vercel redirige). NEXT_PUBLIC_SITE_URL permet de la changer sans toucher au code.
@@ -45,3 +45,23 @@ export async function fetchAnnouncements(category?: string): Promise<Announcemen
     return [];
   }
 }
+
+// Entreprises qui ont une page publique (annuaire), et la page d'une entreprise.
+export async function fetchCompanies(): Promise<CompanySummary[]> {
+  try {
+    const response = await fetch(`${API_BASE}/companies`, { next: { revalidate: REVALIDATE_SECONDS } });
+    return response.ok ? ((await response.json()) as CompanySummary[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export const fetchCompany = cache(async (slug: string): Promise<Company | null> => {
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return null;
+  try {
+    const response = await fetch(`${API_BASE}/companies/${slug}`, { next: { revalidate: REVALIDATE_SECONDS } });
+    return response.ok ? ((await response.json()) as Company) : null;
+  } catch {
+    return null;
+  }
+});

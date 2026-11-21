@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Ban, BadgeCheck, Building2, CircleCheck, Copy, KeyRound, Link2, MailCheck, MailX, Send, Trash2, TriangleAlert, UserPlus } from "lucide-react";
+import { Ban, BadgeCheck, Building2, CircleCheck, Copy, KeyRound, Link2, MailCheck, MailX, Send, Store, Trash2, TriangleAlert, UserPlus } from "lucide-react";
+import AdminCompanyProfile from "./AdminCompanyProfile";
 import { Recruiter, adminHeaders, apiRequest, formatDate } from "../lib/api";
 
 type Notify = (toast: { type: "success" | "error"; text: string }) => void;
@@ -22,6 +23,7 @@ export default function AdminRecruiters({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [access, setAccess] = useState<AccessLink | null>(null);
+  const [editingPage, setEditingPage] = useState<Recruiter | null>(null);
 
   async function invite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -251,6 +253,15 @@ export default function AdminRecruiters({
                         </button>
                       </td>
                       <td className="adm-actions-col">
+                        <button
+                          type="button"
+                          className={`adm-icon-btn${recruiter.has_profile ? " is-accent" : ""}`}
+                          onClick={() => setEditingPage(recruiter)}
+                          title={recruiter.has_profile ? "Page entreprise en ligne : modifier" : recruiter.profile_pending ? "Page entreprise proposée (voir « À valider »)" : "Créer la page entreprise"}
+                          aria-label={`Page entreprise de ${recruiter.name}`}
+                        >
+                          <Store size={16} />
+                        </button>
                         {recruiter.user_id && (
                           <button
                             type="button"
@@ -298,6 +309,18 @@ export default function AdminRecruiters({
               </tbody>
             </table>
           </div>
+        )}
+        {editingPage && (
+          <AdminCompanyProfile
+            recruiter={editingPage}
+            notify={notify}
+            onClose={() => setEditingPage(null)}
+            onSaved={(published) => {
+              onChange(recruiters.map((entry) => (entry.id === editingPage.id ? { ...entry, has_profile: published } : entry)));
+              void fetch("/api/revalidate", { method: "POST", headers: adminHeaders() }).catch(() => undefined);
+              setEditingPage(null);
+            }}
+          />
         )}
       </section>
     </>

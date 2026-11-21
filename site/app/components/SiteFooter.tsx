@@ -48,6 +48,7 @@ export default function SiteFooter({ withContact = false }: { withContact?: bool
           <ul className="pub-footer-links">
             <li><Link href="/offres">Offres d’emploi</Link></li>
             <li><Link href="/emplois">Emplois par ville</Link></li>
+            <li><Link href="/entreprises">Entreprises qui recrutent</Link></li>
             <li><Link href="/annonces">Annonces</Link></li>
             <li><Link href="/appels-offres">Appels d’offres</Link></li>
             <li><Link href="/recruteurs">Publier une offre</Link></li>

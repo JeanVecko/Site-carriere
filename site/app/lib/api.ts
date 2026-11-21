@@ -39,6 +39,7 @@ export type Announcement = {
   featured_request_days?: number | null; // demande du recruteur en attente de paiement
   verified?: boolean; // organisation vérifiée (badge « Vérifiée »)
   open_reports?: number; // signalements de visiteurs non traités (admin)
+  company_slug?: string | null; // page publique de l'entreprise (/entreprises/[slug]), si sa fiche est publiée
   filled_at?: string | null; // poste déclaré pourvu par le recruteur (offre retirée du site)
   extension_request_days?: number | null; // prolongation demandée par le recruteur, à valider
   featured_requested_at?: string | null;
@@ -46,6 +47,34 @@ export type Announcement = {
 };
 
 // Espace recruteur ouvert par l'administrateur (société + contact).
+// Fiche d'une entreprise (page /entreprises/[slug]).
+export type CompanyProfile = { description: string; sector: string; city: string; website: string };
+export type CompanySummary = {
+  slug: string;
+  name: string;
+  sector: string | null;
+  city: string | null;
+  verified: boolean;
+  has_logo: boolean;
+  logo_version: string | null;
+  open_offers: number;
+};
+export type Company = CompanyProfile & {
+  slug: string;
+  name: string;
+  verified: boolean;
+  has_logo: boolean;
+  logo_version: string | null;
+  created_at: string;
+  total_offers: number;
+  first_offer_at: string | null;
+  offers: Announcement[];
+};
+export const companyHref = (slug: string) => `/entreprises/${slug}`;
+// Logo servi par le site (/logos/…), gardé en cache : l'adresse change avec le logo.
+export const companyLogoUrl = (company: { slug: string; logo_version: string | null }) =>
+  `/logos/${encodeURIComponent(company.slug)}${company.logo_version ? `?v=${company.logo_version}` : ""}`;
+
 // Offre préparée par un recruteur, publiée seulement après validation par l'administrateur.
 export type Submission = {
   id: number | string;
@@ -72,6 +101,20 @@ export type Submission = {
 };
 
 // Demande de prolongation d'une offre par son recruteur (appliquée après validation de l'administrateur).
+// Fiche d'entreprise proposée par un recruteur, à valider.
+export type PendingProfile = {
+  id: number | string;
+  slug: string;
+  name: string;
+  verified: boolean;
+  published: CompanyProfile | null;
+  draft: CompanyProfile;
+  submitted_at: string;
+  submitter_email: string;
+  draft_has_logo: boolean;
+  logo_changed: boolean;
+};
+
 export type ExtensionRequest = {
   id: number | string;
   announcement_id: number | string;
@@ -94,6 +137,9 @@ export type ExtensionRequest = {
 export type Recruiter = {
   id: number | string;
   name: string;
+  slug?: string;
+  has_profile?: boolean; // page entreprise publiée
+  profile_pending?: boolean; // fiche proposée par le recruteur, à valider
   account_status: string;
   auto_reports?: boolean; // bilan envoyé automatiquement le lendemain de la date limite
   verified_at?: string | null; // organisation vérifiée par l'administrateur

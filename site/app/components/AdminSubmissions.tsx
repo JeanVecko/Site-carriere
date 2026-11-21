@@ -1,7 +1,8 @@
 "use client";
 
-import { BadgeCheck, CalendarPlus, CircleCheck, Clock, ExternalLink, FileText, ImageIcon, Send, XCircle } from "lucide-react";
-import { type ExtensionRequest, type Submission, API_BASE, adminHeaders, apiRequest, decodeEntities, formatDate } from "../lib/api";
+import { useEffect, useState } from "react";
+import { BadgeCheck, CalendarPlus, CircleCheck, Clock, ExternalLink, FileText, ImageIcon, Send, Store, XCircle } from "lucide-react";
+import { type ExtensionRequest, type PendingProfile, type Submission, API_BASE, adminHeaders, apiRequest, decodeEntities, formatDate } from "../lib/api";
 
 type Notify = (toast: { type: "success" | "error"; text: string }) => void;
 
@@ -9,23 +10,48 @@ type Notify = (toast: { type: "success" | "error"; text: string }) => void;
 export default function AdminSubmissions({
   submissions,
   extensions,
+  profiles,
   loading,
   onReview,
   onChange,
   onExtensionsChange,
+  onProfilesChange,
   onPublicChange,
   notify,
 }: {
   submissions: Submission[];
   extensions: ExtensionRequest[];
+  profiles: PendingProfile[];
   loading: boolean;
   onReview: (submission: Submission) => void;
   onChange: (list: Submission[]) => void;
   onExtensionsChange: (list: ExtensionRequest[]) => void;
+  onProfilesChange: (list: PendingProfile[]) => void;
   onPublicChange: () => void;
   notify: Notify;
 }) {
   const pendingExtensions = extensions.filter((item) => item.status === "pending");
+
+  async function decideProfile(item: PendingProfile, approve: boolean) {
+    let reason = "";
+    if (!approve) {
+      const answer = window.prompt(`Refuser la page de ${item.name} ?\n\nIndiquez le motif : il est envoyé au recruteur.`, "");
+      if (answer === null) return;
+      reason = answer;
+    }
+    try {
+      await apiRequest(`/admin/profiles/${item.id}/${approve ? "approve" : "reject"}`, {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify(approve ? {} : { reason }),
+      });
+      onProfilesChange(profiles.filter((entry) => entry.id !== item.id));
+      if (approve) onPublicChange();
+      notify({ type: "success", text: approve ? `Page de ${item.name} publiée. Le recruteur est prévenu par e-mail.` : "Page refusée. Le recruteur est prévenu par e-mail." });
+    } catch (decideError) {
+      notify({ type: "error", text: decideError instanceof Error ? decideError.message : "Action impossible." });
+    }
+  }
 
   async function approveExtension(item: ExtensionRequest) {
     try {
@@ -91,6 +117,44 @@ export default function AdminSubmissions({
         <Send size={16} /> Les recruteurs préparent ici leurs offres. Rien n’est publié sans votre validation : relisez, corrigez si besoin, puis publiez.
       </p>
 
+      {profiles.map((item) => (
+        <section key={`page-${item.id}`} className="adm-card adm-sub adm-profile-sub">
+          <div className="adm-sub-head">
+            <div className="adm-profile-head">
+              <DraftLogo item={item} />
+              <div>
+                <span className="adm-sub-org">
+                  <Store size={14} /> {item.published ? "Modification de la page entreprise" : "Nouvelle page entreprise"}
+                </span>
+                <h3>
+                  {item.name}
+                  {item.verified && <BadgeCheck size={15} className="adm-verified-icon" aria-label="Organisation vérifiée" />}
+                </h3>
+                <p className="adm-sub-meta">
+                  {item.draft.sector}
+                  {item.draft.city ? ` · ${item.draft.city}` : ""}
+                  {item.draft.website ? ` · ${item.draft.website}` : ""}
+                  {item.logo_changed ? " · logo modifié" : ""}
+                </p>
+              </div>
+            </div>
+            <span className="adm-sub-when">
+              <Clock size={14} aria-hidden="true" /> Envoyée le {formatDate(item.submitted_at)}
+              <small>par {item.submitter_email}</small>
+            </span>
+          </div>
+          <p className="adm-sub-desc">{item.draft.description}</p>
+          <div className="adm-sub-actions">
+            <button type="button" className="adm-btn adm-btn-danger-ghost" onClick={() => void decideProfile(item, false)}>
+              <XCircle size={16} /> Refuser
+            </button>
+            <button type="button" className="adm-btn adm-btn-primary" onClick={() => void decideProfile(item, true)}>
+              <CircleCheck size={16} /> Publier la page
+            </button>
+          </div>
+        </section>
+      ))}
+
       {pendingExtensions.length > 0 && (
         <section className="adm-card adm-ext">
           <h3>
@@ -123,7 +187,7 @@ export default function AdminSubmissions({
       )}
 
       {pending.length === 0 ? (
-        <p className="adm-empty">Aucune offre en attente de validation.</p>
+        <p className="adm-empty">{profiles.length || pendingExtensions.length ? "Aucune nouvelle offre en attente." : "Rien en attente de validation."}</p>
       ) : (
         <ul className="adm-sub-list">
           {pending.map((item) => (
@@ -201,5 +265,34 @@ export default function AdminSubmissions({
         </section>
       )}
     </div>
+  );
+}
+
+function DraftLogo({ item }: { item: PendingProfile }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!item.draft_has_logo) return;
+    let objectUrl = "";
+    let cancelled = false;
+    fetch(`${API_BASE}/admin/profiles/${item.id}/logo?draft=1`, { headers: adminHeaders() })
+      .then((response) => (response.ok ? response.blob() : null))
+      .then((blob) => {
+        if (!blob || cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [item.id, item.draft_has_logo]);
+  return url ? (
+    // eslint-disable-next-line @next/next/no-img-element -- aperçu du logo proposé
+    <img className="adm-profile-logo" src={url} alt={`Logo proposé par ${item.name}`} />
+  ) : (
+    <span className="adm-profile-logo is-empty" aria-hidden="true">
+      <Store size={22} />
+    </span>
   );
 }

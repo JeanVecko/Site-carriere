@@ -23,8 +23,10 @@ import OfferRow from "./OfferRow";
 import VerifiedBadge from "./VerifiedBadge";
 import ReportOffer from "./ReportOffer";
 import SaveOffer from "./SaveOffer";
+import CompanyLogo from "./CompanyLogo";
 import { SOCIAL_NETWORKS } from "./SocialLinks";
 import {
+  companyHref,
   API_BASE,
   applyTarget,
   mediaUrl,
@@ -39,7 +41,7 @@ import {
   paragraphs,
   type Announcement,
 } from "../lib/api";
-import { fetchAnnouncement, fetchAnnouncements, SITE_URL } from "../lib/server";
+import { fetchAnnouncement, fetchAnnouncements, fetchCompany, SITE_URL } from "../lib/server";
 
 // Page de détail commune aux trois adresses : /offre/…, /annonce/… et /appel-offre/….
 // Chaque route (app/offre, app/annonce, app/appel-offre) l'utilise avec sa propre base.
@@ -181,6 +183,8 @@ export default async function PublicationPage({ params, base }: PublicationProps
     { icon: CalendarClock, label: item.category === "Annonce" ? terms.deadlineLabel : "Date d’expiration", value: item.deadline ? formatDate(item.deadline) : "Non précisée" },
   ].filter((fact) => fact.value);
 
+  // Page de l'entreprise (si sa fiche est publiée) : encadré « À propos de l'employeur ».
+  const company = item.company_slug ? await fetchCompany(item.company_slug) : null;
   const similar = (await fetchAnnouncements())
     .filter((entry) => entry.category === item.category && String(entry.id) !== String(item.id) && !isExpired(entry))
     .slice(0, 3);
@@ -223,9 +227,15 @@ export default async function PublicationPage({ params, base }: PublicationProps
             <div className="pub-offer-hero-text">
               <h1>{title}</h1>
               <p>
-                <span className="pub-company">
-                  <Building2 size={15} aria-hidden="true" /> {decodeEntities(item.company)}
-                </span>
+                {company ? (
+                  <Link className="pub-company pub-company-link" href={companyHref(company.slug)}>
+                    <Building2 size={15} aria-hidden="true" /> {decodeEntities(item.company)}
+                  </Link>
+                ) : (
+                  <span className="pub-company">
+                    <Building2 size={15} aria-hidden="true" /> {decodeEntities(item.company)}
+                  </span>
+                )}
                 {item.verified && <VerifiedBadge />}
                 <span aria-hidden="true">·</span>
                 <MapPin size={15} aria-hidden="true" /> {decodeEntities(item.location)}
@@ -338,6 +348,29 @@ export default async function PublicationPage({ params, base }: PublicationProps
               ))}
             </dl>
           </section>
+
+          {company && (
+            <section className="pub-offer-card pub-employer" aria-labelledby="employer-title">
+              <h3 id="employer-title" className="pub-card-title">À propos de l’employeur</h3>
+              <div className="pub-employer-head">
+                <CompanyLogo company={company} size={52} />
+                <div>
+                  <strong>
+                    {company.name}
+                    {company.verified && <VerifiedBadge compact />}
+                  </strong>
+                  <small>
+                    {company.sector}
+                    {company.city ? ` · ${company.city}` : ""}
+                  </small>
+                </div>
+              </div>
+              <p>{company.description.length > 220 ? `${company.description.slice(0, 220).trim()}…` : company.description}</p>
+              <Link className="pub-btn pub-btn-outline pub-btn-block" href={companyHref(company.slug)}>
+                Voir la page{company.offers.length > 1 ? ` et ses ${company.offers.length} offres` : ""}
+              </Link>
+            </section>
+          )}
 
           <section className="pub-offer-card pub-share" aria-labelledby="share-title">
             <h3 id="share-title" className="pub-card-title">Partager cette {terms.noun === "appel d’offres" ? "publication" : terms.noun}</h3>
