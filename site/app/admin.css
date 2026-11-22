@@ -292,3 +292,44 @@
   .adm-inbox-item .adm-message { padding: 0 14px 14px; }
   .adm-inbox-replied { display: none; }
 }
+
+/* ===================== Souhaits : affiches de vœux ===================== */
+.adm-greet { align-items: start; display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.adm-greet-form { display: flex; flex-direction: column; gap: 16px; }
+.adm-greet-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-greet-shortcuts button { align-items: center; background: var(--adm-card); border: 1px solid var(--adm-border); border-radius: 999px; color: var(--adm-text); cursor: pointer; display: inline-flex; font: inherit; font-size: 13px; font-weight: 600; gap: 6px; padding: 7px 13px; transition: background .15s, border-color .15s, color .15s, transform .12s; }
+.adm-greet-shortcuts button:hover { border-color: #c5cfdc; transform: translateY(-1px); }
+.adm-greet-shortcuts button.is-active { background: var(--adm-primary); border-color: var(--adm-primary); color: #fff; }
+.adm-greet-row { display: flex; flex-wrap: wrap; gap: 14px; }
+.adm-greet-row > .adm-field { min-width: 200px; }
+.adm-greet-label { align-items: center; display: flex; justify-content: space-between; }
+.adm-greet-link { align-items: center; background: none; border: 0; color: var(--adm-primary-2, #123f82); cursor: pointer; display: inline-flex; font: inherit; font-size: 12.5px; font-weight: 700; gap: 5px; padding: 0; }
+.adm-greet-link:hover { text-decoration: underline; }
+.adm-greet-count { align-self: flex-end; color: #8391a7; font-size: 12px; }
+.adm-greet-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-greet-swatches button { align-items: center; background: var(--adm-card); border: 1px solid var(--adm-border); border-radius: 10px; color: var(--adm-text); cursor: pointer; display: inline-flex; font: inherit; font-size: 13px; font-weight: 600; gap: 7px; padding: 7px 12px; }
+.adm-greet-swatches button span { border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1); height: 16px; width: 16px; }
+.adm-greet-swatches .is-navy span { background: linear-gradient(150deg, #092d63, #0f3d80); }
+.adm-greet-swatches .is-gold span { background: linear-gradient(150deg, #e6b31e, #c18f00); }
+.adm-greet-swatches .is-light span { background: linear-gradient(150deg, #fff, #f2ead2); }
+.adm-greet-swatches button.is-active { border-color: var(--adm-primary); box-shadow: 0 0 0 2px rgba(9,45,99,.15); }
+.adm-greet-check { align-items: center; color: var(--adm-text); display: flex; font-size: 14px; gap: 9px; }
+.adm-greet-check input { accent-color: var(--adm-primary); height: 17px; width: 17px; }
+.adm-greet-preview { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 16px; }
+.adm-greet-preview .adm-card-header { align-items: baseline; display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: space-between; }
+.adm-greet-size { color: #8391a7; font-size: 12.5px; }
+.adm-greet-frame { align-self: center; background: #eef2f7; border-radius: 14px; box-shadow: 0 10px 30px -12px rgba(9,30,66,.35); max-width: 100%; overflow: hidden; position: relative; transition: aspect-ratio .3s, width .3s; }
+.adm-greet-frame.is-square { aspect-ratio: 1; width: 100%; }
+.adm-greet-frame.is-wide { aspect-ratio: 16 / 9; width: 100%; }
+.adm-greet-frame.is-story { aspect-ratio: 9 / 16; width: min(100%, 360px); }
+.adm-greet-frame img { animation: adm-greet-in .35s ease-out both; display: block; height: 100%; object-fit: cover; width: 100%; }
+.adm-greet-frame.is-loading img { filter: saturate(.7); opacity: .6; transition: opacity .2s; }
+.adm-greet-placeholder { align-items: center; color: #8391a7; display: flex; font-size: 14px; height: 100%; justify-content: center; }
+.adm-greet-spinner { animation: adm-greet-spin .8s linear infinite; border: 3px solid rgba(255,255,255,.6); border-radius: 50%; border-top-color: #d9a400; height: 34px; left: calc(50% - 17px); position: absolute; top: calc(50% - 17px); width: 34px; }
+.adm-btn.is-disabled { opacity: .6; pointer-events: none; }
+@keyframes adm-greet-in { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes adm-greet-spin { to { transform: rotate(360deg); } }
+@media (max-width: 1100px) {
+  .adm-greet { grid-template-columns: 1fr; }
+  .adm-greet-preview { position: static; }
+}

@@ -234,3 +234,11 @@ html[data-theme="dark"] .tone-info .cr-dialog-icon { background: #1a2d55; color:
 html[data-theme="dark"] .tone-warning .cr-dialog-icon { background: #3d2f10; color: #f6c453; }
 html[data-theme="dark"] .tone-danger .cr-dialog-icon { background: #3a1b22; color: #fca5a5; }
 html[data-theme="dark"] .tone-success .cr-dialog-icon { background: #133524; color: #6ee7a0; }
+
+/* Souhaits */
+html[data-theme="dark"] .adm-greet-shortcuts button, html[data-theme="dark"] .adm-greet-swatches button { background: #12203b; border-color: #2c4170; color: #eef3fb; }
+html[data-theme="dark"] .adm-greet-shortcuts button.is-active { background: #d9a400; border-color: #d9a400; color: #0c1730; }
+html[data-theme="dark"] .adm-greet-swatches button.is-active { border-color: #d9a400; }
+html[data-theme="dark"] .adm-greet-frame { background: #0c1730; }
+html[data-theme="dark"] .adm-greet-link { color: #f6c453; }
+html[data-theme="dark"] .adm-greet-check { color: #eef3fb; }

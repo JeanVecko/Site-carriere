@@ -33,6 +33,7 @@ import {
   MailCheck,
   Star,
   ClipboardCheck,
+  PartyPopper,
 } from "lucide-react";
 import {
   Announcement,
@@ -54,13 +55,14 @@ import { CategorySplitChart, PublicationsChart, TopViewsChart } from "./AdminCha
 import AdminRecruiters from "./AdminRecruiters";
 import AdminSubmissions from "./AdminSubmissions";
 import AdminShareKit from "./AdminShareKit";
+import AdminGreetings from "./AdminGreetings";
 import { filesToMedia } from "../lib/media";
 import { confirmDialog } from "./Dialogs";
 
 const TOKEN_KEY = "carrieres-admin-token";
 const AUTH_EVENT = "carrieres-admin-auth";
 
-type Section = "dashboard" | "submissions" | "publish" | "offers" | "expired" | "recruiters" | "messages";
+type Section = "dashboard" | "submissions" | "publish" | "offers" | "expired" | "recruiters" | "greetings" | "messages";
 
 const SECTIONS: Array<{ id: Section; label: string; icon: typeof LayoutDashboard }> = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -69,6 +71,7 @@ const SECTIONS: Array<{ id: Section; label: string; icon: typeof LayoutDashboard
   { id: "offers", label: "Offres publiées", icon: BriefcaseBusiness },
   { id: "expired", label: "Offres expirées", icon: Archive },
   { id: "recruiters", label: "Recruteurs", icon: Building2 },
+  { id: "greetings", label: "Souhaits", icon: PartyPopper },
   { id: "messages", label: "Messages", icon: Inbox },
 ];
 
@@ -82,6 +85,7 @@ const SECTION_HASHES: Record<Section, string> = {
   offers: "offres",
   expired: "expirees",
   recruiters: "recruteurs",
+  greetings: "souhaits",
   messages: "messages",
 };
 const SCROLL_KEY = "carrieres-admin-scroll";
@@ -653,6 +657,9 @@ function Dashboard() {
         )}
         {section === "recruiters" && (
           <AdminRecruiters recruiters={recruiters} loading={loading} onChange={setRecruiters} notify={setToast} />
+        )}
+        {section === "greetings" && (
+          <AdminGreetings openOffers={announcements.filter((item) => !item.hidden && !item.filled_at && !isExpired(item)).length} />
         )}
         {section === "messages" && (
           <>
