@@ -24,7 +24,7 @@ import { CONTACT_EMAIL, CONTACT_PHONE, FEATURED_PLANS } from "../lib/api";
 export const metadata: Metadata = {
   title: "Recruteurs et partenaires — Carrières RDC",
   description:
-    "Publiez vos offres d’emploi, annonces et appels d’offres sur Carrières RDC : mise en ligne en moins de 24 h, relais sur nos réseaux, 3 premiers mois offerts.",
+    "Publiez vos offres d’emploi, annonces et appels d’offres sur Carrières RDC : mise en ligne en moins de 24 h, relais sur nos réseaux, publication offerte jusqu’au 31 décembre 2026.",
   alternates: { canonical: "/recruteurs" },
 };
 
@@ -86,7 +86,7 @@ export default function RecruitersPage() {
             </p>
             <ul className="pub-about-badges">
               <li><Clock size={15} aria-hidden="true" /> En ligne en moins de 24 h</li>
-              <li><Gift size={15} aria-hidden="true" /> 3 premiers mois offerts</li>
+              <li><Gift size={15} aria-hidden="true" /> Offert jusqu’au 31 décembre 2026</li>
               <li><BadgeCheck size={15} aria-hidden="true" /> Sans engagement</li>
             </ul>
           </div>
@@ -125,8 +125,12 @@ export default function RecruitersPage() {
             <div>
               <h2 id="price-title">Tarifs : offre de lancement</h2>
               <p>
-                Carrières RDC est en pleine croissance. Pour remercier les organisations qui nous font confiance dès
-                maintenant, <strong>la publication est offerte pendant vos 3 premiers mois de partenariat</strong>.
+                Carrières RDC est en pleine croissance. Pour son lancement, <strong>la publication est offerte à toutes les
+                organisations pendant les 3 premiers mois d’existence du site, jusqu’au 31 décembre 2026</strong>.
+              </p>
+              <p>
+                À partir du <strong>1er janvier 2027</strong>, la publication se fera dans le cadre d’une convention de partenariat,
+                que vous êtes libre de signer ou non.
               </p>
               <p className="pub-about-note">
                 <CircleCheck size={15} aria-hidden="true" /> Aucun service payant n’est engagé sans votre accord écrit.

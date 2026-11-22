@@ -180,7 +180,7 @@ export default function AboutPage() {
           <section className="pub-about-cta" aria-labelledby="about-cta-title">
             <div>
               <h2 id="about-cta-title">Vous recrutez ?</h2>
-              <p>Confiez-nous vos offres : publication en moins de 24 h et 3 premiers mois offerts.</p>
+              <p>Confiez-nous vos offres : publication en moins de 24 h, offerte jusqu’au 31 décembre 2026.</p>
             </div>
             <div className="pub-about-cta-buttons">
               <Link className="pub-btn pub-btn-gold" href="/recruteurs">
