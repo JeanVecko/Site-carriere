@@ -242,3 +242,33 @@ html[data-theme="dark"] .adm-greet-swatches button.is-active { border-color: #d9
 html[data-theme="dark"] .adm-greet-frame { background: #0c1730; }
 html[data-theme="dark"] .adm-greet-link { color: #f6c453; }
 html[data-theme="dark"] .adm-greet-check { color: #eef3fb; }
+
+
+/* Conseils carrière */
+html[data-theme="dark"] .pub-article-card, html[data-theme="dark"] .pub-article-filters button { background: #12203b; border-color: #2c4170; }
+html[data-theme="dark"] .pub-article-filters button { color: #eef3fb; }
+html[data-theme="dark"] .pub-article-filters button em { background: #1b2c4d; color: #a9b6cc; }
+html[data-theme="dark"] .pub-article-filters button.is-active { background: #d9a400; border-color: #d9a400; color: #0c1730; }
+html[data-theme="dark"] .pub-article-card-text h2, html[data-theme="dark"] .pub-article-card-text h3, html[data-theme="dark"] .pub-article-body h2, html[data-theme="dark"] .pub-article-body h3,
+html[data-theme="dark"] .pub-article-outline strong, html[data-theme="dark"] .pub-article-alert strong, html[data-theme="dark"] .pub-article-related h2 { color: #eef3fb; }
+html[data-theme="dark"] .pub-article-card-excerpt, html[data-theme="dark"] .pub-article-alert p, html[data-theme="dark"] .pub-article-share > span { color: #a9b6cc; }
+html[data-theme="dark"] .pub-article-body, html[data-theme="dark"] .pub-article-outline a { color: #c9d4e6; }
+html[data-theme="dark"] .pub-article-body strong { color: #fff; }
+html[data-theme="dark"] .pub-article-body a { color: #8fb3ff; }
+html[data-theme="dark"] .pub-article-body ol li::marker { color: #f6c453; }
+html[data-theme="dark"] .pub-article-outline a:hover { background: #1b2c4d; color: #fff; }
+html[data-theme="dark"] .pub-article-tip { background: #2a2310; border-color: #5c4a14; }
+html[data-theme="dark"] .pub-article-tip strong { color: #f6c453; }
+html[data-theme="dark"] .pub-article-tip p { color: #eadfc0; }
+html[data-theme="dark"] .pub-article-share { border-color: #2c4170; }
+
+
+/* Admin : conseils carrière */
+html[data-theme="dark"] .adm-article-templates button { background: #12203b; border-color: #2c4170; color: #eef3fb; }
+html[data-theme="dark"] .adm-article-templates button:hover { background: #1b2c4d; }
+html[data-theme="dark"] .adm-article-status.is-draft { background: #1b2c4d; color: #a9b6cc; }
+html[data-theme="dark"] .adm-article-status.is-published { background: #133524; color: #6ee7a0; }
+html[data-theme="dark"] .adm-article-toolbar, html[data-theme="dark"] .adm-article-cover-empty { background: #0c1730; border-color: #2c4170; color: #a9b6cc; }
+html[data-theme="dark"] .adm-article-toolbar button { color: #eef3fb; }
+html[data-theme="dark"] .adm-article-toolbar button:hover { background: #1b2c4d; }
+html[data-theme="dark"] .adm-article-preview { border-color: #2c4170; }

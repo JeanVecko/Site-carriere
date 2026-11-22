@@ -7,7 +7,8 @@ import SiteFooter from "./components/SiteFooter";
 import OfferRow from "./components/OfferRow";
 import SplashScreen from "./components/SplashScreen";
 import { CONTRACT_TYPES, isExpired } from "./lib/api";
-import { fetchAnnouncements } from "./lib/server";
+import ArticleCard from "./components/ArticleCard";
+import { fetchAnnouncements, fetchArticles } from "./lib/server";
 import { cityHref, citiesWithJobs } from "./lib/cities";
 
 export const revalidate = 43200;
@@ -18,7 +19,8 @@ function cityOf(location?: string) {
 }
 
 export default async function Home() {
-  const open = (await fetchAnnouncements()).filter((item) => !isExpired(item));
+  const [all, articles] = await Promise.all([fetchAnnouncements(), fetchArticles(3)]);
+  const open = all.filter((item) => !isExpired(item));
   const jobs = open.filter((item) => item.category === "Offre d’emploi");
   // Les 5 dernières offres d’emploi encore ouvertes (l’API trie de la plus récente à la plus ancienne).
   const latest = jobs.slice(0, 5);
@@ -152,6 +154,26 @@ export default async function Home() {
                 </Link>
               </li>
             </ul>
+          </section>
+        )}
+
+        {/* ----- Derniers conseils carrière ----- */}
+        {articles.length > 0 && (
+          <section className="pub-container home-articles" aria-labelledby="articles-title">
+            <header className="home-title">
+              <h2 id="articles-title">Conseils carrière</h2>
+              <p>CV, entretien, appels d’offres : nos guides pour réussir votre recherche d’emploi.</p>
+            </header>
+            <div className="pub-article-grid">
+              {articles.map((article) => (
+                <ArticleCard key={article.slug} article={article} />
+              ))}
+            </div>
+            <div className="pub-more">
+              <Link className="pub-btn pub-btn-outline" href="/conseils">
+                Tous les conseils <ArrowRight size={16} />
+              </Link>
+            </div>
           </section>
         )}
 

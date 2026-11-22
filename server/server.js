@@ -256,6 +256,23 @@ async function migrateDatabase() {
   await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_draft_logo TEXT');
   await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_draft_at TIMESTAMPTZ');
   await rawQuery("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_draft_email TEXT NOT NULL DEFAULT ''");
+  // Conseils carrière : articles écrits et publiés par l'administrateur (/conseils).
+  await rawQuery(`CREATE TABLE IF NOT EXISTS articles (
+    id BIGSERIAL PRIMARY KEY,
+    slug TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    excerpt TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    cover TEXT,
+    cover_version TEXT,
+    reading_minutes INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'draft',
+    published_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await rawQuery('CREATE INDEX IF NOT EXISTS articles_published_idx ON articles (status, published_at DESC)');
   await rawQuery("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE");
   await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL");
   await rawQuery("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'member'");
@@ -2606,6 +2623,148 @@ app.patch('/api/my/applications/received/:id', requireUser, requireOrganizationO
   if (!result.rows[0]) return response.status(404).json({ error: 'Candidature introuvable.' });
   response.json(result.rows[0]);
 });
+
+/* ===== Conseils carrière (articles) ===== */
+
+const ARTICLE_CATEGORIES = ['CV et lettre de motivation', 'Entretien d’embauche', 'Recherche d’emploi', 'Appels d’offres', 'Droit du travail',
+  'Vie professionnelle', 'Conseils aux recruteurs'];
+const ARTICLE_LIST_COLUMNS = `slug, title, excerpt, category, cover_version, (cover IS NOT NULL) AS has_cover, reading_minutes, published_at, updated_at`;
+
+// Valide un article envoyé par l'admin. Renvoie { article } ou { error }.
+function validateArticle(body) {
+  const title = clean(body.title).slice(0, 140);
+  const excerpt = clean(body.excerpt).slice(0, 300);
+  const category = clean(body.category);
+  const content = typeof body.body === 'string' ? body.body.replace(/\r\n/g, '\n').trim().slice(0, 60000) : '';
+  if (title.length < 10) return { error: 'Donnez un titre d’au moins 10 caractères.' };
+  if (excerpt.length < 40) return { error: 'Écrivez un résumé d’au moins 40 caractères (il apparaît sur Google et dans la liste des conseils).' };
+  if (!ARTICLE_CATEGORIES.includes(category)) return { error: 'Choisissez une catégorie.' };
+  if (content.length < 200) return { error: 'Le texte de l’article est trop court (au moins 200 caractères).' };
+  const words = content.split(/\s+/).filter(Boolean).length;
+  return { article: { title, excerpt, category, body: content, reading_minutes: Math.max(1, Math.round(words / 200)) } };
+}
+// Image de couverture : absente du corps = inchangée, null ou '' = retirée.
+function validateCover(value) {
+  if (value === undefined) return { keep: true };
+  if (value === null || value === '') return { cover: null };
+  if (typeof value !== 'string' || value.length > 1_500_000 || !LOGO_PATTERN.test(value)) return { error: 'Image de couverture invalide ou trop lourde (JPG, PNG ou WEBP, 1 Mo au plus).' };
+  return { cover: value };
+}
+async function uniqueArticleSlug(title, exceptId = 0) {
+  // Adresse lisible jusqu'à 75 caractères (les titres d'articles sont longs), coupée entre deux mots.
+  const full = title.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const base = (full.length > 75 ? full.slice(0, 75).replace(/-[^-]*$/, '') : full) || 'conseil';
+  for (let i = 1; i < 50; i++) {
+    const slug = i === 1 ? base : `${base.slice(0, 56)}-${i}`;
+    const clash = await pool.query('SELECT 1 FROM articles WHERE slug = $1 AND id <> $2', [slug, exceptId]);
+    if (!clash.rows[0]) return slug;
+  }
+  return `${base.slice(0, 50)}-${Date.now().toString(36)}`;
+}
+
+app.get('/api/articles', safe(async (request, response) => {
+  const limit = Math.min(Math.max(Number(request.query.limit) || 100, 1), 200);
+  const result = await pool.query(`SELECT ${ARTICLE_LIST_COLUMNS} FROM articles WHERE status = 'published' ORDER BY published_at DESC LIMIT $1`, [limit]);
+  response.json(result.rows);
+}));
+
+app.get('/api/articles/:slug', safe(async (request, response) => {
+  const article = (await pool.query(
+    `SELECT id, ${ARTICLE_LIST_COLUMNS}, body FROM articles WHERE slug = $1 AND status = 'published'`,
+    [clean(request.params.slug).toLowerCase()]
+  )).rows[0];
+  if (!article) return response.status(404).json({ error: 'Article introuvable.' });
+  // À lire aussi : même catégorie d'abord, puis les plus récents.
+  const related = await pool.query(
+    `SELECT ${ARTICLE_LIST_COLUMNS} FROM articles WHERE status = 'published' AND id <> $1
+     ORDER BY (category = $2) DESC, published_at DESC LIMIT 3`,
+    [article.id, article.category]
+  );
+  const { id: _id, ...rest } = article;
+  response.json({ ...rest, related: related.rows });
+}));
+
+app.get('/api/articles/:slug/cover', safe(async (request, response) => {
+  const row = (await pool.query("SELECT cover FROM articles WHERE slug = $1 AND status = 'published'", [clean(request.params.slug).toLowerCase()])).rows[0];
+  const match = row?.cover && LOGO_PATTERN.exec(row.cover);
+  if (!match) return response.status(404).end();
+  response.set('Content-Type', match[1]);
+  response.set('Cache-Control', 'public, max-age=86400');
+  response.send(Buffer.from(match[2], 'base64'));
+}));
+
+app.get('/api/admin/articles', requireAdmin, safe(async (_request, response) => {
+  const result = await pool.query(
+    `SELECT id, status, created_at, ${ARTICLE_LIST_COLUMNS}, LENGTH(body) AS length FROM articles
+     ORDER BY (status = 'draft') DESC, COALESCE(published_at, updated_at) DESC`
+  );
+  response.json({ categories: ARTICLE_CATEGORIES, articles: result.rows });
+}));
+
+app.get('/api/admin/articles/:id', requireAdmin, safe(async (request, response) => {
+  const article = (await pool.query(`SELECT id, status, cover, body, ${ARTICLE_LIST_COLUMNS} FROM articles WHERE id = $1`, [Number(request.params.id) || 0])).rows[0];
+  if (!article) return response.status(404).json({ error: 'Article introuvable.' });
+  response.json(article);
+}));
+
+app.post('/api/admin/articles', requireAdmin, safe(async (request, response) => {
+  const { article, error } = validateArticle(request.body);
+  if (error) return response.status(400).json({ error });
+  const cover = validateCover(request.body.cover);
+  if (cover.error) return response.status(400).json({ error: cover.error });
+  const slug = await uniqueArticleSlug(article.title);
+  const value = cover.keep ? null : cover.cover;
+  const result = await pool.query(
+    `INSERT INTO articles (slug, title, excerpt, category, body, reading_minutes, cover, cover_version)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, slug, status`,
+    [slug, article.title, article.excerpt, article.category, article.body, article.reading_minutes, value, logoVersion(value)]
+  );
+  response.status(201).json(result.rows[0]);
+}));
+
+app.put('/api/admin/articles/:id', requireAdmin, safe(async (request, response) => {
+  const id = Number(request.params.id) || 0;
+  const current = (await pool.query('SELECT id, status, published_at FROM articles WHERE id = $1', [id])).rows[0];
+  if (!current) return response.status(404).json({ error: 'Article introuvable.' });
+  const { article, error } = validateArticle(request.body);
+  if (error) return response.status(400).json({ error });
+  const cover = validateCover(request.body.cover);
+  if (cover.error) return response.status(400).json({ error: cover.error });
+  // L'adresse suit le titre tant que l'article n'a jamais été publié ; ensuite elle ne change plus (liens partagés, Google).
+  const slugSql = current.published_at ? 'slug' : '$8::text';
+  const params = [article.title, article.excerpt, article.category, article.body, article.reading_minutes, id, cover.keep];
+  if (!current.published_at) params.push(await uniqueArticleSlug(article.title, id));
+  params.push(cover.keep ? null : cover.cover, cover.keep ? null : logoVersion(cover.cover));
+  const n = params.length;
+  const result = await pool.query(
+    `UPDATE articles SET title = $1, excerpt = $2, category = $3, body = $4, reading_minutes = $5, slug = ${slugSql},
+       cover = CASE WHEN $7::boolean THEN cover ELSE $${n - 1}::text END, cover_version = CASE WHEN $7::boolean THEN cover_version ELSE $${n}::text END,
+       updated_at = NOW()
+     WHERE id = $6 RETURNING id, slug, status`,
+    params
+  );
+  if (current.status === 'published') refreshPublicSite();
+  response.json(result.rows[0]);
+}));
+
+app.post('/api/admin/articles/:id/publish', requireAdmin, safe(async (request, response) => {
+  const published = request.body.published !== false;
+  const result = await pool.query(
+    `UPDATE articles SET status = $2, published_at = CASE WHEN $2 = 'published' THEN COALESCE(published_at, NOW()) ELSE published_at END, updated_at = NOW()
+     WHERE id = $1 RETURNING id, slug, status, published_at`,
+    [Number(request.params.id) || 0, published ? 'published' : 'draft']
+  );
+  if (!result.rows[0]) return response.status(404).json({ error: 'Article introuvable.' });
+  refreshPublicSite();
+  response.json(result.rows[0]);
+}));
+
+app.delete('/api/admin/articles/:id', requireAdmin, safe(async (request, response) => {
+  const result = await pool.query('DELETE FROM articles WHERE id = $1 RETURNING status', [Number(request.params.id) || 0]);
+  if (!result.rows[0]) return response.status(404).json({ error: 'Article introuvable.' });
+  if (result.rows[0].status === 'published') refreshPublicSite();
+  response.json({ deleted: true });
+}));
 
 app.use((_error, _request, response, _next) => response.status(500).json({ error: 'Erreur interne du serveur.' }));
 

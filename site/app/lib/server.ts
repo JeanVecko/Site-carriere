@@ -1,6 +1,7 @@
 // Fonctions utilisées uniquement côté serveur (pages rendues pour Google, sitemap).
 import { cache } from "react";
 import { API_BASE, type Announcement, type Company, type CompanySummary } from "./api";
+import type { Article, ArticleSummary } from "./articles";
 
 // Adresse publique du site (liens canoniques, sitemap, partage). En production : le domaine carrieresrdc.com
 // (version www, vers laquelle Vercel redirige). NEXT_PUBLIC_SITE_URL permet de la changer sans toucher au code.
@@ -61,6 +62,26 @@ export const fetchCompany = cache(async (slug: string): Promise<Company | null> 
   try {
     const response = await fetch(`${API_BASE}/companies/${slug}`, { next: { revalidate: REVALIDATE_SECONDS } });
     return response.ok ? ((await response.json()) as Company) : null;
+  } catch {
+    return null;
+  }
+});
+
+// Conseils carrière publiés (liste sans le texte) et un article complet.
+export async function fetchArticles(limit?: number): Promise<ArticleSummary[]> {
+  try {
+    const response = await fetch(`${API_BASE}/articles${limit ? `?limit=${limit}` : ""}`, { next: { revalidate: REVALIDATE_SECONDS } });
+    return response.ok ? ((await response.json()) as ArticleSummary[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export const fetchArticle = cache(async (slug: string): Promise<Article | null> => {
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return null;
+  try {
+    const response = await fetch(`${API_BASE}/articles/${slug}`, { next: { revalidate: REVALIDATE_SECONDS } });
+    return response.ok ? ((await response.json()) as Article) : null;
   } catch {
     return null;
   }

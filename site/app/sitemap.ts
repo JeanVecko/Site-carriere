@@ -1,13 +1,14 @@
 import type { MetadataRoute } from "next";
 import { detailHref, isExpired } from "./lib/api";
-import { fetchAnnouncements, fetchCompanies, SITE_URL } from "./lib/server";
+import { fetchAnnouncements, fetchArticles, fetchCompanies, SITE_URL } from "./lib/server";
+import { articleHref } from "./lib/articles";
 import { companyHref } from "./lib/api";
 import { cityHref, citiesWithJobs } from "./lib/cities";
 
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const pages = ["", "/offres", "/emplois", "/entreprises", "/annonces", "/appels-offres", "/a-propos", "/recruteurs", "/alertes", "/mentions-legales"].map((path) => ({
+  const pages = ["", "/offres", "/emplois", "/entreprises", "/conseils", "/annonces", "/appels-offres", "/a-propos", "/recruteurs", "/alertes", "/mentions-legales"].map((path) => ({
     url: `${SITE_URL}${path}`,
     changeFrequency: "daily" as const,
   }));
@@ -22,5 +23,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
   // Pages des entreprises qui ont des offres en cours.
   const companies = (await fetchCompanies()).map((company) => ({ url: `${SITE_URL}${companyHref(company.slug)}`, changeFrequency: "weekly" as const }));
-  return [...pages, ...cities, ...companies, ...offers];
+  // Conseils carrière publiés.
+  const articles = (await fetchArticles()).map((article) => ({
+    url: `${SITE_URL}${articleHref(article.slug)}`,
+    lastModified: new Date(article.updated_at),
+    changeFrequency: "monthly" as const,
+  }));
+  return [...pages, ...articles, ...cities, ...companies, ...offers];
 }

@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/annonces", label: "Annonces", extra: false },
   { href: "/appels-offres", label: "Appels d’offres", extra: false },
   // Masqué dans la barre des écrans moyens (trop serrée), toujours présent dans le menu mobile et le pied de page.
+  { href: "/conseils", label: "Conseils", extra: true },
   { href: "/a-propos", label: "À propos", extra: true },
 ];
 

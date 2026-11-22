@@ -72,3 +72,26 @@ export async function logoToDataUrl(file: File): Promise<string> {
   context.drawImage(source, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL("image/jpeg", 0.85);
 }
+
+// Couverture d'un article : recadrée au format 16:9 (centre de l'image), 1600 × 900 au plus, JPEG léger.
+export async function coverToDataUrl(file: File): Promise<string> {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error("L’image doit être au format JPG, PNG ou WEBP.");
+  const source = await loadImage(file);
+  const ratio = 16 / 9;
+  let cropWidth = source.width;
+  let cropHeight = cropWidth / ratio;
+  if (cropHeight > source.height) {
+    cropHeight = source.height;
+    cropWidth = cropHeight * ratio;
+  }
+  const width = Math.min(1600, Math.round(cropWidth));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, width);
+  canvas.height = Math.max(1, Math.round(width / ratio));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Impossible de préparer l’image.");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(source, (source.width - cropWidth) / 2, (source.height - cropHeight) / 2, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
