@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Ban, BadgeCheck, Building2, CircleCheck, Copy, KeyRound, Link2, MailCheck, MailX, Send, Store, Trash2, TriangleAlert, UserPlus } from "lucide-react";
 import AdminCompanyProfile from "./AdminCompanyProfile";
 import { Recruiter, adminHeaders, apiRequest, formatDate } from "../lib/api";
+import { confirmDialog, copyDialog, promptDialog } from "./Dialogs";
 
 type Notify = (toast: { type: "success" | "error"; text: string }) => void;
 type AccessLink = { recruiter: Recruiter; link: string; emailed: boolean; emailError: string };
@@ -68,7 +69,7 @@ export default function AdminRecruiters({
   }
 
   async function setStatus(recruiter: Recruiter, status: "active" | "suspended") {
-    if (status === "suspended" && !window.confirm(`Suspendre l’accès de ${recruiter.name} ? Le recruteur ne pourra plus se connecter ; ses offres restent en ligne.`)) return;
+    if (status === "suspended" && !(await confirmDialog({ tone: "warning", title: `Suspendre l’accès de ${recruiter.name} ?`, message: "Le recruteur ne pourra plus se connecter à son espace. Ses offres restent en ligne.", confirmLabel: "Suspendre" }))) return;
     try {
       const updated = await apiRequest<Recruiter>(`/admin/recruiters/${recruiter.id}/status`, {
         method: "PATCH",
@@ -87,13 +88,17 @@ export default function AdminRecruiters({
     const verified = !recruiter.verified_at;
     let note = "";
     if (verified) {
-      const answer = window.prompt(
-        `Marquer « ${recruiter.name} » comme organisation vérifiée.\n\nNotez ce que vous avez contrôlé (document, numéro d’enregistrement, appel…). Cette note n’est visible que dans l’admin.`,
-        ""
-      );
+      const answer = await promptDialog({
+        tone: "success",
+        title: `Marquer « ${recruiter.name} » comme vérifiée`,
+        message: "Le badge « Vérifiée » apparaîtra sur toutes ses offres et sur sa page entreprise.",
+        label: "Ce que vous avez contrôlé (visible seulement dans l’admin)",
+        placeholder: "Ex. RCCM n° …, appel au siège le 22/11",
+        confirmLabel: "Marquer vérifiée",
+      });
       if (answer === null) return;
       note = answer;
-    } else if (!window.confirm(`Retirer le badge « Vérifiée » de ${recruiter.name} ?`)) {
+    } else if (!(await confirmDialog({ tone: "warning", title: "Retirer le badge « Vérifiée » ?", message: `${recruiter.name} ne sera plus présentée comme organisation vérifiée.`, confirmLabel: "Retirer le badge" }))) {
       return;
     }
     try {
@@ -126,7 +131,7 @@ export default function AdminRecruiters({
   }
 
   async function remove(recruiter: Recruiter) {
-    if (!window.confirm(`Supprimer l’espace de ${recruiter.name} ? Le compte est effacé définitivement ; ses offres restent publiées, sans rattachement.`)) return;
+    if (!(await confirmDialog({ tone: "danger", title: `Supprimer l’espace de ${recruiter.name} ?`, message: "Le compte est effacé définitivement. Ses offres restent publiées, sans rattachement.", confirmLabel: "Supprimer l’espace" }))) return;
     try {
       await apiRequest(`/admin/recruiters/${recruiter.id}`, { method: "DELETE", headers: adminHeaders() });
       onChange(recruiters.filter((entry) => entry.id !== recruiter.id));
@@ -340,7 +345,7 @@ function AccessLinkCard({ access, onClose }: { access: AccessLink; onClose: () =
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2500);
     } catch {
-      window.prompt("Copiez le message :", message);
+      void copyDialog({ title: "Copiez le message", message: "La copie automatique n’est pas disponible sur cet appareil.", text: message });
     }
   }
 

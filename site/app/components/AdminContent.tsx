@@ -55,6 +55,7 @@ import AdminRecruiters from "./AdminRecruiters";
 import AdminSubmissions from "./AdminSubmissions";
 import AdminShareKit from "./AdminShareKit";
 import { filesToMedia } from "../lib/media";
+import { confirmDialog } from "./Dialogs";
 
 const TOKEN_KEY = "carrieres-admin-token";
 const AUTH_EVENT = "carrieres-admin-auth";
@@ -398,7 +399,7 @@ function Dashboard() {
   }
 
   async function deleteAnnouncement(item: Announcement) {
-    if (!window.confirm(`Supprimer définitivement « ${decodeEntities(item.title)} » ? Cette action est irréversible.`)) return;
+    if (!(await confirmDialog({ tone: "danger", title: "Supprimer cette publication ?", message: `« ${decodeEntities(item.title)} » sera supprimée définitivement, avec ses statistiques. Cette action est irréversible.`, confirmLabel: "Supprimer" }))) return;
     try {
       await apiRequest(`/announcements/${item.id}`, { method: "DELETE", headers: adminHeaders() });
       setAnnouncements((list) => list.filter((entry) => entry.id !== item.id));
@@ -412,7 +413,7 @@ function Dashboard() {
   // Mise « à la une » (ou retrait) d'une offre jusqu'à une date incluse.
   // Offre déclarée pourvue par erreur : remise en ligne (si sa date limite n'est pas dépassée).
   async function unfill(item: Announcement) {
-    if (!window.confirm(`Remettre « ${decodeEntities(item.title)} » en ligne ?`)) return;
+    if (!(await confirmDialog({ tone: "info", title: "Remettre l’offre en ligne ?", message: `« ${decodeEntities(item.title)} » réapparaîtra sur le site (si sa date limite n’est pas dépassée).`, confirmLabel: "Remettre en ligne" }))) return;
     try {
       await apiRequest(`/admin/announcements/${item.id}/filled`, { method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ filled: false }) });
       refreshPublicSite();
@@ -425,7 +426,7 @@ function Dashboard() {
 
   // Signalements de visiteurs vérifiés et traités par l'administrateur.
   async function resolveReports(item: Announcement) {
-    if (!window.confirm(`Marquer les signalements de « ${decodeEntities(item.title)} » comme traités ? Ils restent consultables dans Messages.`)) return;
+    if (!(await confirmDialog({ tone: "info", title: "Signalements traités ?", message: `Les signalements de « ${decodeEntities(item.title)} » seront marqués comme traités. Ils restent consultables dans Messages.`, confirmLabel: "Marquer comme traités" }))) return;
     try {
       await apiRequest(`/admin/announcements/${item.id}/reports/resolve`, { method: "PATCH", headers: adminHeaders() });
       setAnnouncements((list) => list.map((entry) => (entry.id === item.id ? { ...entry, open_reports: 0 } : entry)));
@@ -457,7 +458,7 @@ function Dashboard() {
     const question = final
       ? `Envoyer le bilan final de « ${decodeEntities(item.title)} » à ${recruiter?.email || "son recruteur"} ?`
       : `Envoyer le point de diffusion de « ${decodeEntities(item.title)} » (offre en cours) à ${recruiter?.email || "son recruteur"} ?`;
-    if (!window.confirm(question)) return;
+    if (!(await confirmDialog({ tone: "info", title: final ? "Envoyer le bilan final ?" : "Envoyer le point de diffusion ?", message: question, confirmLabel: "Envoyer" }))) return;
     try {
       const result = await apiRequest<{ to: string }>(`/admin/announcements/${item.id}/send-report`, {
         method: "POST",
@@ -484,7 +485,7 @@ function Dashboard() {
   }
 
   async function deleteMessage(message: ContactMessage) {
-    if (!window.confirm(`Supprimer le message de ${message.name} ?`)) return;
+    if (!(await confirmDialog({ tone: "danger", title: "Supprimer ce message ?", message: `Le message de ${message.name} sera supprimé définitivement.`, confirmLabel: "Supprimer" }))) return;
     try {
       await apiRequest(`/messages/${message.id}`, { method: "DELETE", headers: adminHeaders() });
       setMessages((list) => list.filter((entry) => entry.id !== message.id));
@@ -1576,7 +1577,7 @@ function AlertsPanel() {
   }, [load]);
 
   async function sendNow() {
-    if (!window.confirm("Envoyer maintenant les nouvelles publications à tous les abonnés concernés ?")) return;
+    if (!(await confirmDialog({ tone: "info", title: "Envoyer les alertes maintenant ?", message: "Les nouvelles publications seront envoyées par e-mail à tous les abonnés concernés.", confirmLabel: "Envoyer" }))) return;
     setState({ status: "pending", text: "" });
     try {
       await apiRequest("/alerts/digest", { method: "POST", headers: adminHeaders() });

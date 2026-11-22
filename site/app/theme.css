@@ -913,3 +913,65 @@ span.pub-company-logo { align-items: center; display: inline-flex; font-weight: 
 .adm-profile-head { align-items: center; display: flex; gap: 14px; }
 .adm-profile-logo { background: #fff; border: 1px solid var(--adm-border); border-radius: 12px; flex-shrink: 0; height: 60px; object-fit: contain; width: 60px; }
 .adm-profile-logo.is-empty { align-items: center; color: var(--adm-muted); display: flex; justify-content: center; }
+
+/* ===================== Fenêtres de dialogue (confirmation, saisie, message) ===================== */
+.cr-dialog-backdrop { align-items: center; animation: cr-backdrop-in .24s ease-out both; background: rgba(7, 18, 38, .46); display: flex; inset: 0; justify-content: center; padding: 16px; position: fixed; z-index: 200; -webkit-backdrop-filter: blur(6px) saturate(120%); backdrop-filter: blur(6px) saturate(120%); }
+.cr-dialog-backdrop.is-closing { animation: cr-backdrop-out .18s ease-in both; }
+.cr-dialog { animation: cr-dialog-in .34s cubic-bezier(.16, 1, .3, 1) both; background: #fff; border: 1px solid rgba(9, 45, 99, .08); border-radius: 20px; box-shadow: 0 1px 2px rgba(9, 30, 66, .08), 0 24px 60px -12px rgba(7, 18, 38, .45); color: #14213d; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; max-height: calc(100vh - 32px); max-width: 460px; overflow-y: auto; padding: 24px 24px 20px; position: relative; transform-origin: 50% 60%; width: 100%; }
+.cr-dialog.is-closing { animation: cr-dialog-out .18s cubic-bezier(.4, 0, 1, 1) both; }
+.cr-dialog-close { align-items: center; background: none; border: 0; border-radius: 10px; color: #8391a7; cursor: pointer; display: flex; height: 32px; justify-content: center; position: absolute; right: 12px; top: 12px; transition: background .15s, color .15s; width: 32px; }
+.cr-dialog-close:hover { background: #f1f4f9; color: #14213d; }
+.cr-dialog-head { display: flex; gap: 16px; padding-right: 24px; }
+.cr-dialog-icon { align-items: center; animation: cr-icon-pop .5s .08s cubic-bezier(.34, 1.56, .64, 1) both; border-radius: 14px; display: flex; flex-shrink: 0; height: 46px; justify-content: center; width: 46px; }
+.tone-info .cr-dialog-icon { background: #e8f0ff; color: #1d4ed8; }
+.tone-warning .cr-dialog-icon { background: #fff4d6; color: #b7791f; }
+.tone-danger .cr-dialog-icon { background: #fdecec; color: #c2412d; }
+.tone-success .cr-dialog-icon { background: #e3f6ea; color: #1f8a4c; }
+.cr-dialog h2 { font-size: 18px; letter-spacing: -.01em; line-height: 1.3; margin: 2px 0 6px; }
+.cr-dialog-message { color: #5d6b82; font-size: 14.5px; line-height: 1.55; margin: 0; white-space: pre-line; }
+.cr-dialog-field { animation: cr-fade-up .3s .1s ease-out both; display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
+.cr-dialog-field span { color: #14213d; font-size: 13px; font-weight: 700; }
+.cr-dialog-field input, .cr-dialog-field textarea { background: #f8fafd; border: 1px solid #dfe5ee; border-radius: 12px; color: #14213d; font: inherit; font-size: 15px; padding: 11px 13px; resize: vertical; transition: border-color .15s, box-shadow .15s, background .15s; width: 100%; }
+.cr-dialog-field input:focus, .cr-dialog-field textarea:focus { background: #fff; border-color: #092d63; box-shadow: 0 0 0 4px rgba(9, 45, 99, .1); outline: none; }
+.cr-dialog-field small { color: #8391a7; font-size: 12px; }
+.cr-dialog-field small.is-error { color: #c2412d; }
+.cr-dialog-actions { animation: cr-fade-up .3s .14s ease-out both; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+.cr-dialog-btn { align-items: center; border: 1px solid transparent; border-radius: 12px; cursor: pointer; display: inline-flex; font: inherit; font-size: 14.5px; font-weight: 700; gap: 7px; justify-content: center; min-height: 42px; padding: 10px 18px; transition: background .15s, border-color .15s, box-shadow .15s, transform .12s; }
+.cr-dialog-btn:active:not(:disabled) { transform: scale(.97); }
+.cr-dialog-btn:focus-visible { outline: 3px solid rgba(217, 164, 0, .55); outline-offset: 2px; }
+.cr-dialog-btn:disabled { cursor: not-allowed; opacity: .5; }
+.cr-dialog-btn.is-ghost { background: #fff; border-color: #dfe5ee; color: #14213d; }
+.cr-dialog-btn.is-ghost:hover { background: #f4f7fb; }
+.cr-dialog-btn.is-primary { background: #092d63; color: #fff; }
+.cr-dialog-btn.is-primary:hover:not(:disabled) { background: #123f82; box-shadow: 0 8px 20px -6px rgba(9, 45, 99, .5); }
+.cr-dialog-btn.is-danger { background: #c2412d; color: #fff; }
+.cr-dialog-btn.is-danger:hover:not(:disabled) { background: #a8341f; box-shadow: 0 8px 20px -6px rgba(194, 65, 45, .55); }
+@media (max-width: 520px) {
+  /* Téléphone : la fenêtre monte du bas de l'écran, boutons pleine largeur. */
+  .cr-dialog-backdrop { align-items: flex-end; padding: 0; }
+  .cr-dialog { animation-name: cr-sheet-in; border-radius: 22px 22px 0 0; max-height: 88vh; max-width: none; padding: 22px 18px calc(18px + env(safe-area-inset-bottom)); }
+  .cr-dialog.is-closing { animation-name: cr-sheet-out; }
+  .cr-dialog-actions { flex-direction: column-reverse; }
+  .cr-dialog-btn { width: 100%; }
+}
+@keyframes cr-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cr-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes cr-dialog-in { from { opacity: 0; transform: translateY(14px) scale(.95); } to { opacity: 1; transform: none; } }
+@keyframes cr-dialog-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px) scale(.97); } }
+@keyframes cr-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes cr-sheet-out { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes cr-icon-pop { from { opacity: 0; transform: scale(.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes cr-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Les autres fenêtres du site (mise à la une, prolongation, signalement, kit de partage, fiche entreprise…) :
+   même entrée animée. */
+.rec-modal-backdrop, .adm-modal-backdrop { animation: cr-backdrop-in .24s ease-out both; -webkit-backdrop-filter: blur(6px) saturate(120%); backdrop-filter: blur(6px) saturate(120%); }
+.rec-modal, .adm-modal { animation: cr-dialog-in .34s cubic-bezier(.16, 1, .3, 1) both; }
+@media (max-width: 520px) {
+  .rec-modal-backdrop, .adm-modal-backdrop { align-items: flex-end; padding: 0; }
+  .rec-modal, .adm-modal { animation-name: cr-sheet-in; border-radius: 22px 22px 0 0; max-height: 90vh; max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cr-dialog, .cr-dialog-icon, .cr-dialog-field, .cr-dialog-actions, .rec-modal, .adm-modal { animation-name: cr-backdrop-in !important; animation-duration: .15s !important; }
+  .cr-dialog.is-closing, .cr-dialog-backdrop.is-closing { animation-name: cr-backdrop-out !important; }
+}

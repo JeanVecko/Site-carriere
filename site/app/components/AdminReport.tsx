@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Copy, Eye, Heart, MousePointerClick, Percent, Printer } from "lucide-react";
 import { adminHeaders, apiRequest, decodeEntities, detailHref, formatDate, recruiterHeaders } from "../lib/api";
+import { copyDialog } from "./Dialogs";
 
 // Adresse publique du site, pour le lien de l’offre dans le bilan (www.carrieresrdc.com en ligne).
 const SITE_URL = "https://www.carrieresrdc.com";
@@ -113,7 +114,7 @@ export default function AdminReport({ id, mode = "admin" }: { id: string; mode?:
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2500);
     } catch {
-      window.prompt("Copiez le résumé :", summary);
+      void copyDialog({ title: "Copiez le résumé", message: "La copie automatique n’est pas disponible sur cet appareil.", text: summary });
     }
   }
 

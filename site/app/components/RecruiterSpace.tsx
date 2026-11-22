@@ -34,6 +34,7 @@ import {
   isExpired,
   recruiterHeaders,
 } from "../lib/api";
+import { alertDialog, confirmDialog } from "./Dialogs";
 
 const AUTH_EVENT = "carrieres-recruteur-auth";
 
@@ -185,12 +186,12 @@ function RecruiterDashboard({ onExpired }: { onExpired: (message: string) => voi
   const clearRepublish = useCallback(() => setRepublishId(null), []);
 
   async function markFilled(offer: Offer) {
-    if (!window.confirm(`Le poste « ${decodeEntities(offer.title)} » est pourvu ?\n\nL’offre sera retirée du site : les candidats ne pourront plus postuler. Vous gardez ses statistiques et son bilan.`)) return;
+    if (!(await confirmDialog({ tone: "success", title: "Le poste est pourvu ?", message: `« ${decodeEntities(offer.title)} » sera retirée du site : les candidats ne pourront plus postuler. Vous gardez ses statistiques et son bilan.`, confirmLabel: "Oui, retirer l’offre" }))) return;
     try {
       await apiRequest(`/recruiter/offers/${encodeURIComponent(String(offer.id))}/filled`, { method: "POST", headers: recruiterHeaders() });
       await load();
     } catch (fillError) {
-      window.alert(fillError instanceof Error ? fillError.message : "Action impossible.");
+      void alertDialog({ tone: "danger", title: "Action impossible", message: fillError instanceof Error ? fillError.message : "Réessayez dans un instant." });
     }
   }
 

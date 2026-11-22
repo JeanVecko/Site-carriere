@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ExternalLink, Store, X } from "lucide-react";
 import { type Recruiter, adminHeaders, apiRequest, companyHref } from "../lib/api";
 import CompanyProfileForm, { type ProfileValues } from "./CompanyProfileForm";
+import { confirmDialog } from "./Dialogs";
 
 type Loaded = { slug: string; name: string; sectors: string[]; published: ProfileValues | null };
 
@@ -40,7 +41,7 @@ export default function AdminCompanyProfile({
   }, [onClose]);
 
   async function unpublish() {
-    if (!window.confirm(`Retirer la page publique de ${recruiter.name} ? Ses offres restent en ligne.`)) return;
+    if (!(await confirmDialog({ tone: "warning", title: "Retirer la page entreprise ?", message: `La page publique de ${recruiter.name} ne sera plus visible. Ses offres restent en ligne.`, confirmLabel: "Retirer la page" }))) return;
     try {
       await apiRequest(`/admin/recruiters/${recruiter.id}/profile`, { method: "PUT", headers: adminHeaders(), body: JSON.stringify({ unpublish: true }) });
       notify({ type: "success", text: "Page entreprise retirée." });

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { BadgeCheck, CalendarPlus, CircleCheck, Clock, ExternalLink, FileText, ImageIcon, Send, Store, XCircle } from "lucide-react";
 import { type ExtensionRequest, type PendingProfile, type Submission, API_BASE, adminHeaders, apiRequest, decodeEntities, formatDate } from "../lib/api";
+import { promptDialog } from "./Dialogs";
 
 type Notify = (toast: { type: "success" | "error"; text: string }) => void;
 
@@ -35,7 +36,7 @@ export default function AdminSubmissions({
   async function decideProfile(item: PendingProfile, approve: boolean) {
     let reason = "";
     if (!approve) {
-      const answer = window.prompt(`Refuser la page de ${item.name} ?\n\nIndiquez le motif : il est envoyé au recruteur.`, "");
+      const answer = await promptDialog({ tone: "danger", title: `Refuser la page de ${item.name} ?`, message: "Le motif est envoyé au recruteur par e-mail pour qu’il puisse corriger sa page.", label: "Motif du refus", multiline: true, required: true, minLength: 5, confirmLabel: "Refuser" });
       if (answer === null) return;
       reason = answer;
     }
@@ -65,7 +66,7 @@ export default function AdminSubmissions({
   }
 
   async function rejectExtension(item: ExtensionRequest) {
-    const reason = window.prompt(`Refuser la prolongation de « ${decodeEntities(item.title)} » ?\n\nIndiquez le motif : il est envoyé au recruteur.`, "");
+    const reason = await promptDialog({ tone: "danger", title: "Refuser la prolongation ?", message: `« ${decodeEntities(item.title)} » garde sa date limite actuelle. Le motif est envoyé au recruteur.`, label: "Motif du refus", multiline: true, required: true, minLength: 5, confirmLabel: "Refuser" });
     if (reason === null) return;
     try {
       await apiRequest(`/admin/extensions/${item.id}/reject`, { method: "POST", headers: adminHeaders(), body: JSON.stringify({ reason }) });
@@ -80,10 +81,16 @@ export default function AdminSubmissions({
   const done = submissions.filter((item) => item.status === "published" || item.status === "rejected");
 
   async function reject(item: Submission) {
-    const reason = window.prompt(
-      `Refuser « ${decodeEntities(item.title)} » (${item.organization_name}) ?\n\nIndiquez le motif : il est envoyé au recruteur par e-mail pour qu’il puisse corriger son offre.`,
-      ""
-    );
+    const reason = await promptDialog({
+      tone: "danger",
+      title: "Refuser cette offre ?",
+      message: `« ${decodeEntities(item.title)} » (${item.organization_name}) ne sera pas publiée. Le motif est envoyé au recruteur pour qu’il puisse corriger son offre.`,
+      label: "Motif du refus",
+      multiline: true,
+      required: true,
+      minLength: 5,
+      confirmLabel: "Refuser",
+    });
     if (reason === null) return;
     try {
       await apiRequest(`/admin/submissions/${item.id}/reject`, { method: "POST", headers: adminHeaders(), body: JSON.stringify({ reason }) });

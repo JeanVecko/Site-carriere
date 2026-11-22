@@ -7,6 +7,7 @@ import "./theme.css";
 import "./dark.css";
 import PageTransition from "./components/PageTransition";
 import AppInstall from "./components/AppInstall";
+import DialogHost from "./components/Dialogs";
 import { SPLASH_PRE_PAINT_SCRIPT } from "./lib/splash";
 import { THEME_PRE_PAINT_SCRIPT } from "./lib/theme";
 import { SITE_URL } from "./lib/server";
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <PageTransition />
         {/* Application installable : service worker et invitation « Installer l'application ». */}
         <AppInstall />
+        <DialogHost />
         {/* Vercel Web Analytics (sans cookies) : actif seulement sur le site déployé par Vercel. */}
         {process.env.VERCEL === "1" && (
           <>

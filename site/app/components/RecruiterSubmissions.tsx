@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CircleCheck, Clock, Eye, FilePlus2, FileUp, Send, Trash2, TriangleAlert, X, XCircle } from "lucide-react";
 import { type Submission, apiRequest, decodeEntities, formatDate, recruiterHeaders, termsFor } from "../lib/api";
 import { filesToMedia } from "../lib/media";
+import { alertDialog, confirmDialog } from "./Dialogs";
 
 const STATUS: Record<string, { label: string; tone: string; icon: typeof Clock }> = {
   pending: { label: "En attente de validation", tone: "is-pending", icon: Clock },
@@ -65,12 +66,12 @@ export default function RecruiterSubmissions({
   }, [load]);
 
   async function withdraw(item: Submission) {
-    if (!window.confirm(`Retirer votre proposition « ${decodeEntities(item.title)} » ?`)) return;
+    if (!(await confirmDialog({ tone: "warning", title: "Retirer cette proposition ?", message: `« ${decodeEntities(item.title)} » ne sera pas examinée par Carrières RDC.`, confirmLabel: "Retirer" }))) return;
     try {
       await apiRequest(`/recruiter/submissions/${item.id}`, { method: "DELETE", headers: recruiterHeaders() });
       setList((current) => (current || []).filter((entry) => entry.id !== item.id));
     } catch (withdrawError) {
-      window.alert(withdrawError instanceof Error ? withdrawError.message : "Retrait impossible.");
+      void alertDialog({ tone: "danger", title: "Retrait impossible", message: withdrawError instanceof Error ? withdrawError.message : "Réessayez dans un instant." });
     }
   }
 

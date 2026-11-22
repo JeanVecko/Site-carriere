@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Copy, Download, ExternalLink, RotateCcw, Share2, X } from "lucide-react";
 import { Announcement, decodeEntities } from "../lib/api";
 import { FACEBOOK_PAGE_URL, NETWORKS, Network, buildCaption, offerUrl } from "../lib/shareKit";
+import { copyDialog } from "./Dialogs";
 
 // Kit de diffusion d'une offre : texte prêt à publier pour chaque réseau (modifiable) et images à télécharger.
 export default function AdminShareKit({ item, onClose }: { item: Announcement; onClose: () => void }) {
@@ -35,7 +36,7 @@ export default function AdminShareKit({ item, onClose }: { item: Announcement; o
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2500);
     } catch {
-      window.prompt("Copiez le texte :", text);
+      void copyDialog({ title: "Copiez le texte", message: "La copie automatique n’est pas disponible sur cet appareil.", text });
     }
   }
 

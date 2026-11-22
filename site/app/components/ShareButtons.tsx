@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Link2 } from "lucide-react";
 import { SOCIAL_NETWORKS } from "./SocialLinks";
+import { copyDialog } from "./Dialogs";
 
 const icon = (name: string) => SOCIAL_NETWORKS.find((network) => network.name === name)?.path || "";
 
@@ -19,7 +20,7 @@ export default function ShareButtons({ url, title }: { url: string; title: strin
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      window.prompt("Copiez le lien de l’offre :", url);
+      void copyDialog({ title: "Copiez le lien de l’offre", message: "La copie automatique n’est pas disponible sur cet appareil.", text: url });
     }
   }
 
