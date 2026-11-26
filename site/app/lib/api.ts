@@ -8,6 +8,7 @@ export const API_BASE = (
 export type Announcement = {
   id?: number | string;
   _id?: string;
+  slug?: string | null; // adresse lisible attribuée par l’API (/offre/comptable-senior)
   title: string;
   company: string;
   location: string;
@@ -404,11 +405,13 @@ export const DETAIL_BASES: Record<string, string> = {
 };
 
 // Adresse publique d'une publication, lisible par les moteurs de recherche :
-// /offre/12-comptable-kinshasa, /annonce/13-formation-…, /appel-offre/14-recherche-de-transporteurs-…
-export function detailHref(item: { id?: number | string; _id?: string; title?: string; category?: string | null }): string {
+// /offre/comptable-kinshasa, /annonce/formation-…, /appel-offre/recherche-de-transporteurs-… (« -2 » si le titre existe déjà).
+// Sans adresse connue (ancienne donnée), format /offre/12-titre : la page redirige alors vers l'adresse lisible.
+export function detailHref(item: { id?: number | string; _id?: string; slug?: string | null; title?: string; category?: string | null }): string {
+  const base = DETAIL_BASES[item.category || ""] || "/offre";
+  if (item.slug) return `${base}/${encodeURIComponent(item.slug)}`;
   const id = String(item.id ?? item._id ?? "");
   const slug = item.title ? slugify(item.title) : "";
-  const base = DETAIL_BASES[item.category || ""] || "/offre";
   return `${base}/${encodeURIComponent(slug ? `${id}-${slug}` : id)}`;
 }
 

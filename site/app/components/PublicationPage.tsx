@@ -84,8 +84,13 @@ const EMPLOYMENT_TYPES: Record<string, string> = {
   Autre: "OTHER",
 };
 
-function idFromSlug(slug: string): string {
-  return decodeURIComponent(slug).split("-")[0];
+// Adresse demandée, telle quelle (l'API la reconnaît, ainsi que les anciens liens /offre/12-titre).
+function keyFromSlug(slug: string): string {
+  try {
+    return decodeURIComponent(slug).toLowerCase();
+  } catch {
+    return "";
+  }
 }
 
 function summary(item: Announcement): string {
@@ -94,7 +99,7 @@ function summary(item: Announcement): string {
 }
 
 export async function publicationMetadata({ params }: PublicationProps): Promise<Metadata> {
-  const item = await fetchAnnouncement(idFromSlug((await params).slug));
+  const item = await fetchAnnouncement(keyFromSlug((await params).slug));
   if (!item) return { title: "Publication introuvable — Carrières RDC" };
   const title = `${decodeEntities(item.title)} — ${decodeEntities(item.company)} — Carrières RDC`;
   return {
@@ -151,10 +156,10 @@ function escapeForHtml(value: string): string {
 
 export default async function PublicationPage({ params, base }: PublicationProps & { base: string }) {
   const { slug } = await params;
-  const item = await fetchAnnouncement(idFromSlug(slug));
+  const item = await fetchAnnouncement(keyFromSlug(slug));
   if (!item) notFound();
 
-  // Adresse canonique : /offre/12-titre, /annonce/12-titre ou /appel-offre/12-titre selon la catégorie
+  // Adresse canonique : /offre/titre, /annonce/titre ou /appel-offre/titre selon la catégorie
   // (redirige les anciens liens, les titres modifiés et les publications changées de catégorie).
   const canonical = detailHref(item);
   if (decodeURIComponent(`${base}/${slug}`) !== decodeURIComponent(canonical)) permanentRedirect(canonical);

@@ -33,8 +33,14 @@ async function logoDataUrl(): Promise<string | null> {
 }
 
 export default async function Image({ params }: { params?: Promise<{ slug?: string }> }) {
-  const id = decodeURIComponent((await params)?.slug || "").split("-")[0];
-  const [item, logo] = await Promise.all([id ? fetchAnnouncement(id) : null, logoDataUrl()]);
+  // Adresse lisible (comptable-senior) ou ancien format (12-comptable-senior) : l'API reconnaît les deux.
+  let key = "";
+  try {
+    key = decodeURIComponent((await params)?.slug || "").toLowerCase();
+  } catch {
+    key = "";
+  }
+  const [item, logo] = await Promise.all([key ? fetchAnnouncement(key) : null, logoDataUrl()]);
 
   const title = item ? clip(decodeEntities(item.title), 90) : "Offres d’emploi, annonces et appels d’offres en RDC";
   const company = item ? clip(decodeEntities(item.company), 60) : "";

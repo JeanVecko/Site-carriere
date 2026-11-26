@@ -256,6 +256,13 @@ async function migrateDatabase() {
   await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_draft_logo TEXT');
   await rawQuery('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_draft_at TIMESTAMPTZ');
   await rawQuery("ALTER TABLE organizations ADD COLUMN IF NOT EXISTS profile_draft_email TEXT NOT NULL DEFAULT ''");
+  // Adresse lisible des offres (/offre/comptable-senior) ; un chiffre n'est ajouté qu'en cas de titre identique.
+  await rawQuery('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS slug TEXT');
+  await rawQuery('CREATE UNIQUE INDEX IF NOT EXISTS announcements_slug_idx ON announcements (slug)');
+  const unslugged = await rawQuery('SELECT id, title FROM announcements WHERE slug IS NULL ORDER BY id');
+  for (const row of unslugged.rows) {
+    await rawQuery('UPDATE announcements SET slug = $2 WHERE id = $1', [row.id, await uniqueOfferSlug(row.title, row.id, rawQuery)]);
+  }
   // Conseils carrière : articles écrits et publiés par l'administrateur (/conseils).
   await rawQuery(`CREATE TABLE IF NOT EXISTS articles (
     id BIGSERIAL PRIMARY KEY,
@@ -474,6 +481,27 @@ function requireOrganizationOwner(request, response, next) {
 }
 function slugify(value) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+}
+// Adresse lisible d'un titre, jusqu'à 75 caractères, coupée entre deux mots.
+function titleSlug(title) {
+  const full = String(title || '').replace(/&[a-z0-9#]+;/gi, ' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return full.length > 75 ? full.slice(0, 75).replace(/-[^-]*$/, '') : full;
+}
+// Adresse unique d'une offre : le titre seul, puis « -2 », « -3 »… si une autre offre porte déjà ce titre.
+// Une adresse qui commencerait par un nombre est précédée de « offre- » : les anciens liens (/offre/79-titre) restent sans ambiguïté.
+async function uniqueOfferSlug(title, id = 0, query = (...args) => pool.query(...args)) {
+  let base = titleSlug(title) || 'offre';
+  if (/^\d/.test(base)) base = `offre-${base}`;
+  for (let i = 1; i < 500; i++) {
+    const slug = i === 1 ? base : `${base.slice(0, 70)}-${i}`;
+    const clash = await query('SELECT 1 FROM announcements WHERE slug = $1 AND id <> $2', [slug, id]);
+    if (!clash.rows[0]) return slug;
+  }
+  return `${base.slice(0, 60)}-${id}`;
+}
+async function assignOfferSlug(id, title) {
+  await pool.query('UPDATE announcements SET slug = $2 WHERE id = $1', [id, await uniqueOfferSlug(title, id)]);
 }
 async function findOrCreateOrganization({ name, code }) {
   if (code) {
@@ -908,7 +936,7 @@ app.get('/api/announcements/:id/cover', async (request, response) => {
 app.get('/api/announcements', async (request, response) => {
   const category = clean(request.query.category);
   const values = category ? [category] : [];
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified, (SELECT org.slug FROM organizations org WHERE org.id = announcements.organization_id AND org.profile IS NOT NULL AND org.account_status = 'active') AS company_slug FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY ${FEATURED_SQL} DESC, created_at DESC`, values);
+  const result = await pool.query(`SELECT id, slug, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, jsonb_array_length(media) AS media_count, ${HAS_COVER_SQL} AS has_cover, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified, (SELECT org.slug FROM organizations org WHERE org.id = announcements.organization_id AND org.profile IS NOT NULL AND org.account_status = 'active') AS company_slug FROM announcements WHERE ${PUBLICLY_VISIBLE_SQL} ${category ? 'AND category = $1' : ''} ORDER BY ${FEATURED_SQL} DESC, created_at DESC`, values);
   response.json(result.rows);
 });
 
@@ -917,7 +945,7 @@ app.get('/api/my/recommended-offers', requireUser, async (request, response) => 
   const profileResult = await pool.query('SELECT data FROM users WHERE id = $1', [request.user.id]);
   const profile = profileResult.rows[0]?.data || {};
   const result = await pool.query(
-    `SELECT id, title, category, company, location, description, media, created_at
+    `SELECT id, slug, title, category, company, location, description, media, created_at
      FROM announcements WHERE category = 'Offre d’emploi' ORDER BY created_at DESC`
   );
   const normalize = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -934,15 +962,26 @@ app.get('/api/my/recommended-offers', requireUser, async (request, response) => 
 });
 
 app.get('/api/announcements/:id', async (request, response) => {
-  if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
-  const result = await pool.query(`SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, COALESCE((SELECT jsonb_agg(m - 'dataUrl') FROM jsonb_array_elements(media) AS m), '[]'::jsonb) AS media, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified, (SELECT org.slug FROM organizations org WHERE org.id = announcements.organization_id AND org.profile IS NOT NULL AND org.account_status = 'active') AS company_slug FROM announcements WHERE id = $1 AND ${PUBLICLY_VISIBLE_SQL}`, [request.params.id]);
+  // /api/announcements/79, /api/announcements/comptable-senior ou ancien format /api/announcements/79-comptable-senior.
+  const key = clean(request.params.id).toLowerCase();
+  if (!/^[a-z0-9-]{1,120}$/.test(key)) return response.status(404).json({ error: 'Annonce introuvable.' });
+  let where = 'id = $1';
+  let value = key;
+  if (!/^\d+$/.test(key)) {
+    const bySlug = (await pool.query('SELECT id FROM announcements WHERE slug = $1', [key])).rows[0];
+    const legacy = /^(\d+)-/.exec(key);
+    if (bySlug) value = bySlug.id;
+    else if (legacy) value = legacy[1];
+    else return response.status(404).json({ error: 'Annonce introuvable.' });
+  }
+  const result = await pool.query(`SELECT id, slug, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, apply_contact, source_url, salary, created_at, COALESCE((SELECT jsonb_agg(m - 'dataUrl') FROM jsonb_array_elements(media) AS m), '[]'::jsonb) AS media, ${MEDIA_VERSION_SQL} AS media_version, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until, COALESCE((SELECT org.verified_at IS NOT NULL FROM organizations org WHERE org.id = announcements.organization_id), FALSE) AS verified, (SELECT org.slug FROM organizations org WHERE org.id = announcements.organization_id AND org.profile IS NOT NULL AND org.account_status = 'active') AS company_slug FROM announcements WHERE ${where} AND ${PUBLICLY_VISIBLE_SQL}`, [value]);
   if (!result.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   response.json(result.rows[0]);
 });
 
 app.get('/api/admin/announcements', requireAdmin, async (_request, response) => {
   const result = await pool.query(
-    `SELECT a.id, a.title, a.category, a.company, a.location, a.description, a.contract_type,
+    `SELECT a.id, a.slug, a.title, a.category, a.company, a.location, a.description, a.contract_type,
             to_char(a.deadline, 'YYYY-MM-DD') AS deadline, a.apply_contact, a.source_url, a.salary,
             jsonb_array_length(a.media) AS media_count, a.views, a.apply_clicks, a.saves, a.created_at, a.report_sent_at,
             ${FEATURED_SQL} AS featured, to_char(a.featured_from, 'YYYY-MM-DD') AS featured_from, to_char(a.featured_until, 'YYYY-MM-DD') AS featured_until,
@@ -969,6 +1008,7 @@ app.post('/api/announcements', requireAdmin, async (request, response) => {
     // Les pièces jointes sont envoyées en JSON : une liste JavaScript brute serait mal convertie par le pilote.
     [...values.slice(0, 5), JSON.stringify(values[5]), ...values.slice(6)]
   );
+  await assignOfferSlug(result.rows[0].id, values[0]);
   response.status(201).json(result.rows[0]);
 });
 
@@ -976,7 +1016,7 @@ app.post('/api/announcements', requireAdmin, async (request, response) => {
 // Sans nouveaux fichiers (keep_media = true), les pièces jointes existantes sont conservées ; vues et date de publication aussi.
 app.put('/api/announcements/:id', requireAdmin, async (request, response) => {
   if (!/^\d+$/.test(request.params.id)) return response.status(404).json({ error: 'Annonce introuvable.' });
-  const existing = await pool.query('SELECT media FROM announcements WHERE id = $1', [request.params.id]);
+  const existing = await pool.query('SELECT media, title, views FROM announcements WHERE id = $1', [request.params.id]);
   if (!existing.rows[0]) return response.status(404).json({ error: 'Annonce introuvable.' });
   const body = request.body.keep_media ? { ...request.body, media: existing.rows[0].media } : request.body;
   const { values, error } = validateAnnouncementWithMedia(body);
@@ -987,6 +1027,7 @@ app.put('/api/announcements/:id', requireAdmin, async (request, response) => {
      WHERE id = $1`,
     [request.params.id, ...values.slice(0, 5), JSON.stringify(values[5]), ...values.slice(6)]
   );
+  if (values[0] !== existing.rows[0].title && !Number(existing.rows[0].views)) await assignOfferSlug(request.params.id, values[0]);
   response.json({ id: request.params.id });
 });
 
@@ -1134,7 +1175,7 @@ async function offerReport(id, organizationId = null) {
   await flushCounters().catch(() => {});
   if (!/^\d+$/.test(String(id))) return null;
   const offer = await pool.query(
-    `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
+    `SELECT id, slug, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
             created_at, views, apply_clicks, saves, to_char(featured_from, 'YYYY-MM-DD') AS featured_from,
             to_char(featured_until, 'YYYY-MM-DD') AS featured_until FROM announcements
      WHERE id = $1 AND ($2::bigint IS NULL OR organization_id = $2::bigint)`,
@@ -1463,7 +1504,7 @@ async function sendExpiryReminders() {
 async function recruiterOffer(request) {
   if (!/^\d+$/.test(request.params.id)) return null;
   const result = await pool.query(
-    `SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
+    `SELECT id, slug, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
             apply_contact, salary, filled_at, ${PUBLICLY_VISIBLE_SQL} AS visible
      FROM announcements WHERE id = $1 AND organization_id = $2`,
     [request.params.id, request.user.organization_id]
@@ -1836,7 +1877,7 @@ app.get('/api/recruiter/me', requireRecruiter, safe(async (request, response) =>
   const [organization, offers] = await Promise.all([
     pool.query(`SELECT o.name, COALESCE(u.data->>'contact', '') AS contact FROM organizations o JOIN users u ON u.id = $2 WHERE o.id = $1`, [request.user.organization_id, request.user.id]),
     pool.query(
-      `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, created_at,
+      `SELECT id, slug, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, created_at,
               views, apply_clicks, saves, ${FEATURED_SQL} AS featured, to_char(featured_until, 'YYYY-MM-DD') AS featured_until,
               featured_request_days, featured_requested_at, filled_at,
               (SELECT x.days FROM offer_extension_requests x WHERE x.announcement_id = announcements.id AND x.status = 'pending' LIMIT 1) AS extension_request_days,
@@ -1987,11 +2028,12 @@ app.post('/api/admin/submissions/:id/publish', requireAdmin, safe(async (request
     throw insertError;
   }
   const offerId = created.rows[0].id;
+  await assignOfferSlug(offerId, values[0]);
   await pool.query("UPDATE offer_submissions SET status = 'published', announcement_id = $2, decided_at = NOW() WHERE id = $1", [submission.id, offerId]);
   response.status(201).json({ id: offerId });
   const title = values[0];
   notifySubmitter(submission, `Votre offre est publiée : ${title}`.slice(0, 180),
-    `Bonjour,\n\nVotre offre « ${title} » a été vérifiée et publiée sur Carrières RDC :\n${frontendUrl}/offre/${offerId}\n\nPartagez ce lien sur vos réseaux pour toucher plus de candidats. Vous suivez ses consultations et les clics sur « Postuler » depuis votre espace :\n${frontendUrl}/espace-recruteur\n\nMerci de votre confiance,\nL'équipe Carrières RDC`
+    `Bonjour,\n\nVotre offre « ${title} » a été vérifiée et publiée sur Carrières RDC :\n${frontendUrl}/offre/${(await pool.query('SELECT slug FROM announcements WHERE id = $1', [offerId])).rows[0]?.slug || offerId}\n\nPartagez ce lien sur vos réseaux pour toucher plus de candidats. Vous suivez ses consultations et les clics sur « Postuler » depuis votre espace :\n${frontendUrl}/espace-recruteur\n\nMerci de votre confiance,\nL'équipe Carrières RDC`
   ).catch((mailError) => console.error('E-mail au recruteur non envoyé :', mailError.message));
 }));
 
@@ -2060,7 +2102,7 @@ app.get('/api/companies/:slug', safe(async (request, response) => {
   )).rows[0];
   if (!company) return response.status(404).json({ error: 'Entreprise introuvable.' });
   const offers = await pool.query(
-    `SELECT id, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, created_at,
+    `SELECT id, slug, title, category, company, location, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline, created_at,
             ${FEATURED_SQL} AS featured, TRUE AS verified
      FROM announcements WHERE organization_id = $1 AND ${PUBLICLY_VISIBLE_SQL} ORDER BY ${FEATURED_SQL} DESC, created_at DESC`,
     [company.id]
@@ -2377,7 +2419,7 @@ async function sendAlertDigests() {
     run.checked += 1;
     const since = alert.last_sent_at || alert.confirmed_at;
     const offers = (await pool.query(
-      `SELECT id, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
+      `SELECT id, slug, title, category, company, location, description, contract_type, to_char(deadline, 'YYYY-MM-DD') AS deadline,
               ${FEATURED_SQL} AS featured
        FROM announcements
        WHERE created_at > $1 AND (deadline IS NULL OR deadline >= CURRENT_DATE)
@@ -2394,7 +2436,7 @@ async function sendAlertDigests() {
     const unsubscribe = `${frontendUrl}/alertes/desabonner?token=${alert.token}`;
     const lines = matches.map((offer) => {
       const deadline = offer.deadline ? ` — date limite : ${new Date(`${offer.deadline}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : '';
-      return `• ${offer.featured ? '⭐ À LA UNE — ' : ''}${offer.title}\n  ${offer.company}, ${offer.location}${deadline}\n  ${frontendUrl}${ALERT_DETAIL_BASES[offer.category] || '/offre'}/${offer.id}`;
+      return `• ${offer.featured ? '⭐ À LA UNE — ' : ''}${offer.title}\n  ${offer.company}, ${offer.location}${deadline}\n  ${frontendUrl}${ALERT_DETAIL_BASES[offer.category] || '/offre'}/${offer.slug || offer.id}`;
     });
     const count = matches.length;
     try {
@@ -2460,13 +2502,14 @@ app.post('/api/my/jobs', requireUser, async (request, response) => {
     "INSERT INTO announcements (title, category, company, location, description, media, owner_id, organization_id) VALUES ($1, 'Offre d’emploi', $2, $3, $4, $5, $6, $7) RETURNING *",
     [title, company, location, description, JSON.stringify(media), request.user.id, request.user.organization_id || null]
   );
+  await assignOfferSlug(result.rows[0].id, title);
   response.status(201).json(result.rows[0]);
 });
 
 app.get('/api/my/jobs', requireUser, async (request, response) => {
   if (request.user.role !== 'recruteur') return response.status(403).json({ error: 'Réservé aux comptes recruteurs.' });
   const result = await pool.query(
-    'SELECT id, title, category, company, location, description, media, created_at FROM announcements WHERE owner_id = $1 OR organization_id = $2 ORDER BY created_at DESC',
+    'SELECT id, slug, title, category, company, location, description, media, created_at FROM announcements WHERE owner_id = $1 OR organization_id = $2 ORDER BY created_at DESC',
     [request.user.id, request.user.organization_id || 0]
   );
   response.json(result.rows);

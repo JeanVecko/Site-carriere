@@ -20,14 +20,17 @@ export const SITE_URL = (
 // 12 h est seulement un délai de secours.
 const REVALIDATE_SECONDS = 43200;
 
-export const fetchAnnouncement = cache(async (id: string): Promise<Announcement | null> => {
-  if (!/^\d+$/.test(id)) return null;
+// Une publication par son adresse (comptable-senior), son numéro (12) ou l'ancien format (12-comptable-senior).
+export const fetchAnnouncement = cache(async (key: string): Promise<Announcement | null> => {
+  if (!/^[a-z0-9-]{1,120}$/.test(key)) return null;
+  const load = async (value: string) => {
+    const response = await fetch(`${API_BASE}/announcements/${value}`, { next: { revalidate: REVALIDATE_SECONDS } });
+    return response.ok ? ((await response.json()) as Announcement) : null;
+  };
   try {
-    const response = await fetch(`${API_BASE}/announcements/${id}`, {
-      next: { revalidate: REVALIDATE_SECONDS },
-    });
-    if (!response.ok) return null;
-    return (await response.json()) as Announcement;
+    // Ancien format (12-titre) : par le numéro si l'adresse complète n'est pas reconnue.
+    const legacy = /^(\d+)-/.exec(key);
+    return (await load(key)) || (legacy ? await load(legacy[1]) : null);
   } catch {
     return null;
   }
