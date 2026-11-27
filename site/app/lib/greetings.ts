@@ -217,9 +217,109 @@ export function suggestPromoTheme(date: Date): PromoTheme {
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1).trim()}…` : text);
 const cityOf = (location = "") => location.split(/[·,(/-]/)[0].trim();
 
+// Numéro de semaine : fait tourner les textes d'une semaine à l'autre pour ne pas republier la même légende.
+const weekNumber = (date: Date) => Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / (7 * 86400000));
+const pick = <T,>(list: T[], index: number) => list[((index % list.length) + list.length) % list.length];
+// Légende complète : texte, lien et mots-clés.
+const finish = (body: string, link: string, tags: string) => `${body}\n\n👉 ${link}\n\n#CarrieresRDC ${tags}`;
+const contactLines = `📩 ${CONTACT_EMAIL}\n📞 ${CONTACT_PHONE}`;
+
+// Leçons « Conseils carrière » : l'affiche résume en 3 points, la légende enseigne la leçon complète.
+type CareerLesson = { title: string; eyebrow: string; points: string[]; lesson: string };
+const CAREER_LESSONS: CareerLesson[] = [
+  {
+    title: "Un CV qui retient l’attention",
+    eyebrow: "Conseil carrière · CV",
+    points: ["1 à 2 pages, clair et aéré", "Des résultats, pas seulement des tâches", "Adapté à chaque offre"],
+    lesson: `📚 CONSEIL CARRIÈRE — Votre CV a moins d’une minute pour convaincre.
+
+1️⃣ Restez court : 1 à 2 pages, une mise en page simple et aérée.
+2️⃣ Allez à l’essentiel en haut de page : le poste visé, un numéro de téléphone joignable et une adresse e-mail sérieuse (prenom.nom@…, pas « bebe_cool@… »).
+3️⃣ Montrez des résultats, pas seulement des tâches : « J’ai réduit les retards de paiement de 20 % » convainc plus que « Gestion de la comptabilité ».
+4️⃣ Adaptez votre CV à chaque offre : reprenez les mots-clés de l’annonce (compétences, logiciels, diplômes demandés).
+5️⃣ Relisez-vous, puis faites relire : une faute d’orthographe suffit parfois à être écarté.
+
+💡 Astuce : envoyez toujours votre CV en PDF, nommé « CV-Prénom-Nom.pdf ».`,
+  },
+  {
+    title: "Réussir son entretien d’embauche",
+    eyebrow: "Conseil carrière · Entretien",
+    points: ["Renseignez-vous sur l’organisation", "Préparez des exemples concrets", "Arrivez 15 minutes en avance"],
+    lesson: `📚 CONSEIL CARRIÈRE — Un entretien se gagne avant d’entrer dans la salle.
+
+1️⃣ Renseignez-vous sur l’organisation : ses activités, ses projets, ses valeurs. Citez-les pendant l’entretien.
+2️⃣ Relisez l’offre et préparez un exemple concret pour chaque compétence demandée : la situation, ce que vous avez fait, le résultat obtenu.
+3️⃣ Préparez votre présentation en 2 minutes : qui vous êtes, ce que vous savez faire, pourquoi ce poste.
+4️⃣ Arrivez 15 minutes en avance, avec une tenue soignée et des copies de votre CV et de vos diplômes.
+5️⃣ À la fin, posez une ou deux questions sur le poste : cela montre votre intérêt.
+
+💡 Astuce : le lendemain, envoyez un court message de remerciement au recruteur.`,
+  },
+  {
+    title: "La lettre de motivation qui fait la différence",
+    eyebrow: "Conseil carrière · Lettre",
+    points: ["Une lettre pour chaque offre", "Vous, moi, nous", "Une page, pas plus"],
+    lesson: `📚 CONSEIL CARRIÈRE — Une lettre de motivation, ce n’est pas votre CV en phrases.
+
+1️⃣ Écrivez une lettre pour chaque offre : le recruteur reconnaît tout de suite une lettre copiée-collée.
+2️⃣ Suivez le plan « Vous, moi, nous » :
+   • Vous : ce qui vous attire dans l’organisation et le poste ;
+   • Moi : ce que vous apportez, avec un exemple concret ;
+   • Nous : ce que vous pourrez accomplir ensemble, et votre demande d’entretien.
+3️⃣ Une page, pas plus, avec des phrases courtes.
+4️⃣ Rappelez la référence de l’offre et le titre exact du poste.
+
+💡 Astuce : terminez par une formule simple et polie, puis signez avec vos nom et téléphone.`,
+  },
+  {
+    title: "Bien postuler par e-mail",
+    eyebrow: "Conseil carrière · Candidature",
+    points: ["Un objet clair avec la référence", "CV et lettre en PDF", "Un message court et poli"],
+    lesson: `📚 CONSEIL CARRIÈRE — Beaucoup de candidatures sont écartées avant même d’être lues. Voici comment éviter cela :
+
+1️⃣ Objet clair : « Candidature – Comptable – Réf. 12/2026 – Prénom Nom ».
+2️⃣ Envoyez à l’adresse exacte indiquée dans l’offre, avant la date limite (n’attendez pas le dernier jour).
+3️⃣ Joignez les documents demandés, et seulement eux, en PDF : CV, lettre, diplômes si l’offre les demande.
+4️⃣ Dans le message, 3 ou 4 lignes suffisent : le poste visé, les pièces jointes, vos coordonnées.
+5️⃣ Respectez la méthode demandée : si l’offre exige un dépôt physique ou un formulaire en ligne, faites-le.
+
+💡 Astuce : envoyez-vous d’abord l’e-mail à vous-même pour vérifier que les pièces jointes s’ouvrent bien.`,
+  },
+  {
+    title: "Ne payez jamais pour un emploi",
+    eyebrow: "Conseil carrière · Vigilance",
+    points: ["Aucun recruteur sérieux ne demande d’argent", "Méfiez-vous des promesses trop belles", "Vérifiez l’organisation"],
+    lesson: `📚 CONSEIL CARRIÈRE — Protégez-vous des fausses offres d’emploi.
+
+1️⃣ Un recruteur sérieux ne vous demande jamais d’argent : ni « frais de dossier », ni « frais de formation », ni « frais de visa ».
+2️⃣ Méfiez-vous des promesses trop belles : gros salaire sans expérience, embauche immédiate sans entretien.
+3️⃣ Vérifiez l’organisation : adresse, site internet, numéro officiel. Une adresse Gmail pour une grande entreprise doit vous alerter.
+4️⃣ Ne transmettez jamais vos codes Mobile Money, ni la copie de vos papiers à un inconnu.
+5️⃣ En cas de doute, demandez conseil avant de répondre.
+
+💡 Sur Carrières RDC, chaque offre est vérifiée avant publication. Vous avez repéré une offre suspecte ? Signalez-la-nous.`,
+  },
+  {
+    title: "Relancer après une candidature",
+    eyebrow: "Conseil carrière · Suivi",
+    points: ["Attendez une à deux semaines", "Un message court et poli", "Notez vos candidatures"],
+    lesson: `📚 CONSEIL CARRIÈRE — Pas de réponse à votre candidature ? Relancez, mais avec méthode.
+
+1️⃣ Attendez une à deux semaines après la date limite avant de relancer.
+2️⃣ Envoyez un message court et poli : rappelez le poste, la date d’envoi et redites votre intérêt.
+3️⃣ Une seule relance suffit : insister plusieurs fois fait mauvaise impression.
+4️⃣ Tenez un tableau de vos candidatures : poste, organisation, date d’envoi, relance, réponse.
+5️⃣ Un refus n’est pas un échec : demandez poliment ce qui vous a manqué, et continuez à postuler.
+
+💡 Astuce : créez une alerte e-mail sur Carrières RDC pour ne manquer aucune nouvelle offre.`,
+  },
+];
+
 export function promoText(theme: PromoTheme, date: Date, offers: PromoOffer[] = [], openCount = 0): PromoText {
   // La publication est offerte jusqu'au 31 décembre 2026 (lancement du site) ; ensuite, convention de partenariat.
   const launch = date.getTime() < new Date(2027, 0, 1).getTime();
+  const week = weekNumber(date);
+  const freeLine = launch ? "🎁 Publication offerte jusqu’au 31 décembre 2026\n" : "";
   switch (theme) {
     case "offres": {
       const list = offers.slice(0, 4).map((offer) => clip(`${offer.title} — ${offer.company}${cityOf(offer.location) ? `, ${cityOf(offer.location)}` : ""}`, 78));
@@ -231,7 +331,11 @@ export function promoText(theme: PromoTheme, date: Date, offers: PromoOffer[] = 
         points: list,
         cta: "Postulez gratuitement sur",
         url: "www.carrieresrdc.com/offres",
-        caption: `💼 Les offres du jour sur Carrières RDC\n\n${list.map((line) => `✅ ${line}`).join("\n")}\n\nDétails et candidatures sur le site.`,
+        caption: finish(
+          `💼 LES OFFRES DU JOUR sur Carrières RDC\n\n${list.map((line) => `✅ ${line}`).join("\n")}\n\nPostulez avant la date limite : les premières candidatures sont souvent les plus regardées. Partagez avec ceux qui cherchent un emploi 🙏`,
+          "Détails et candidatures : www.carrieresrdc.com/offres",
+          "#EmploiRDC #OffreEmploi #Kinshasa #RDC",
+        ),
       };
     }
     case "candidats":
@@ -247,14 +351,18 @@ export function promoText(theme: PromoTheme, date: Date, offers: PromoOffer[] = 
         ],
         cta: "Consultez les offres sur",
         url: "www.carrieresrdc.com",
-        caption: "🔎 Vous cherchez un emploi en RDC ?\n\nCarrières RDC publie chaque jour des offres vérifiées, partout dans le pays. C’est gratuit pour les candidats.",
+        caption: finish(
+          `🔎 Vous cherchez un emploi en RDC ?\n\n${openCount >= 5 ? `${roundedCount(openCount)} offres vous attendent en ce moment` : "De nouvelles offres vous attendent chaque jour"} sur Carrières RDC : ONG, entreprises, institutions, à Kinshasa, Lubumbashi, Goma et partout dans le pays.\n\n✅ Des offres vérifiées avant publication\n✅ Gratuit pour les candidats\n✅ Des conseils pour réussir CV et entretiens`,
+          "www.carrieresrdc.com",
+          "#EmploiRDC #OffreEmploi #Kinshasa #RDC",
+        ),
       };
     case "recruteurs":
       return {
         title: "Vous recrutez ?",
         eyebrow: "Pour les recruteurs",
         decor: "RECRUTEZ",
-        messages: ["Publiez vos offres sur Carrières RDC et touchez des milliers de candidats.", "Trouvez les bons profils, partout en RDC.", ""],
+        messages: ["Publiez vos offres sur Carrières RDC et trouvez les bons profils.", "Les candidats que vous cherchez sont déjà chez nous.", ""],
         points: [
           ...(launch ? ["Publication offerte jusqu’au 31 décembre 2026"] : []),
           "Mise en ligne en moins de 24 h",
@@ -263,7 +371,18 @@ export function promoText(theme: PromoTheme, date: Date, offers: PromoOffer[] = 
         ],
         cta: "Publiez votre offre sur",
         url: "www.carrieresrdc.com/recruteurs",
-        caption: `📢 Entreprises, ONG, institutions : vous recrutez ?\n\nPubliez vos offres sur Carrières RDC${launch ? " — c’est offert jusqu’au 31 décembre 2026" : ""}. Mise en ligne en moins de 24 h et relais sur nos réseaux.`,
+        caption: finish(
+          `${pick(
+            [
+              "📢 VOUS RECRUTEZ ? Les bons profils sont déjà sur Carrières RDC.\n\nChaque jour, des chercheurs d’emploi de toute la RDC consultent nos offres. Publiez la vôtre et recevez des candidatures de candidats qui correspondent à votre besoin.",
+              "📢 UN POSTE À POURVOIR ? Ne laissez pas votre offre passer inaperçue.\n\nUne offre affichée sur un mur ou envoyée dans un seul groupe touche peu de monde. Sur Carrières RDC, elle est vue par des candidats de Kinshasa, Lubumbashi, Goma et de toute la RDC, et partagée sur nos réseaux.",
+              "📢 RECRUTER PREND DU TEMPS. Nous vous en faisons gagner.\n\nEnvoyez-nous votre offre : nous la vérifions, la publions et la partageons sur Facebook, WhatsApp et TikTok. Vous n’avez plus qu’à choisir parmi les candidatures reçues.",
+            ],
+            week,
+          )}\n\n${freeLine}✅ Mise en ligne en moins de 24 h\n✅ Relais sur Facebook, WhatsApp et TikTok\n✅ Bilan des vues et des candidatures\n\nFaites-nous confiance pour votre prochain recrutement 🤝\n\n${contactLines}`,
+          "Publiez votre offre : www.carrieresrdc.com/recruteurs",
+          "#Recrutement #EmploiRDC #RH #RDC",
+        ),
       };
     case "partenaires":
       return {
@@ -283,7 +402,22 @@ export function promoText(theme: PromoTheme, date: Date, offers: PromoOffer[] = 
         ],
         cta: "Contactez-nous sur",
         url: "www.carrieresrdc.com/recruteurs",
-        caption: `🤝 Entreprises, ONG, institutions : devenez partenaire de Carrières RDC !\n\nVotre page entreprise, le badge « Organisation vérifiée », des offres mises en avant et relayées sur nos réseaux, et un bilan de chaque recrutement.${launch ? "\n\n🎁 La publication est offerte jusqu’au 31 décembre 2026." : ""}\n\n📩 ${CONTACT_EMAIL}\n📞 ${CONTACT_PHONE}`,
+        caption: finish(
+          `${pick(
+            [
+              "🤝 ENTREPRISES, ONG, INSTITUTIONS : devenez partenaire de Carrières RDC !\n\nAssociez votre nom à la plateforme qui connecte les talents congolais aux opportunités, et faites de chaque recrutement un succès.",
+              "🤝 ET SI VOS RECRUTEMENTS DEVENAIENT PLUS SIMPLES ?\n\nNos partenaires publient leurs offres en toute confiance, gagnent en visibilité auprès des candidats et suivent les résultats de chaque recrutement.",
+              "🤝 VOTRE ORGANISATION MÉRITE D’ÊTRE VUE PAR LES MEILLEURS TALENTS.\n\nDevenez partenaire de Carrières RDC : votre marque employeur mise en avant, vos offres relayées partout en RDC.",
+            ],
+            week,
+          )}\n\n✅ Votre page entreprise, avec logo et offres\n✅ Le badge « Organisation vérifiée »\n✅ Vos offres « à la une » et relayées sur nos réseaux\n✅ Un bilan des vues et des candidatures${
+            launch
+              ? "\n\n🎁 Signez dès maintenant : la publication reste offerte jusqu’au 31 décembre 2026, et la convention ne prend effet qu’au 1er janvier 2027."
+              : ""
+          }\n\nÉcrivez-nous pour en parler :\n${contactLines}`,
+          "www.carrieresrdc.com/recruteurs",
+          "#Partenariat #Recrutement #EmploiRDC #RDC",
+        ),
       };
     case "alertes":
       return {
@@ -294,30 +428,61 @@ export function promoText(theme: PromoTheme, date: Date, offers: PromoOffer[] = 
         points: ["Choisissez vos métiers et vos villes", "Recevez les nouvelles offres par e-mail", "Gratuit, désinscription en un clic"],
         cta: "Créez votre alerte sur",
         url: "www.carrieresrdc.com/alertes",
-        caption: "🔔 Ne ratez plus aucune offre !\n\nCréez gratuitement votre alerte e-mail : choisissez vos métiers et vos villes, nous vous envoyons les nouvelles offres.",
+        caption: finish(
+          "🔔 NE RATEZ PLUS AUCUNE OFFRE !\n\nLes meilleures offres partent vite. Créez gratuitement votre alerte e-mail en 1 minute : choisissez vos métiers et vos villes, et recevez les nouvelles offres dès leur publication.\n\n✅ Gratuit\n✅ Seulement les offres qui vous intéressent\n✅ Désinscription en un clic",
+          "Créez votre alerte : www.carrieresrdc.com/alertes",
+          "#EmploiRDC #OffreEmploi #RDC",
+        ),
       };
     case "appels":
       return {
-        title: "Appels d’offres en RDC",
-        eyebrow: "Entreprises et fournisseurs",
+        title: "Un appel d’offres à publier ?",
+        eyebrow: "Entreprises · ONG · Institutions",
         decor: "MARCHÉS",
-        messages: ["Les marchés publics et privés, au même endroit.", "Ne manquez plus une opportunité de marché.", ""],
-        points: ["Marchés publics et privés", "Dossiers et dates limites à jour", "Alertes par e-mail"],
-        cta: "Consultez les appels d’offres sur",
-        url: "www.carrieresrdc.com/appels-offres",
-        caption: "📑 Entreprises et fournisseurs : retrouvez les appels d’offres publics et privés en RDC sur Carrières RDC, avec leurs dossiers et dates limites.",
+        messages: [
+          "Faites-nous confiance pour le diffuser auprès des fournisseurs de toute la RDC.",
+          "Plus de visibilité, plus de soumissions, un meilleur choix.",
+          "",
+        ],
+        points: [
+          ...(launch ? ["Publication offerte jusqu’au 31 décembre 2026"] : []),
+          "Vu par les fournisseurs de toute la RDC",
+          "Dossier et date limite bien visibles",
+          "Relayé sur Facebook, WhatsApp et TikTok",
+        ],
+        cta: "Publiez-le sur",
+        url: "www.carrieresrdc.com/recruteurs",
+        caption: finish(
+          `${pick(
+            [
+              "📑 VOUS AVEZ UN APPEL D’OFFRES À PUBLIER ? Faites-nous confiance.\n\nEntreprises, ONG, institutions : diffusez vos appels d’offres, avis à manifestation d’intérêt et consultations auprès des fournisseurs, prestataires et consultants de toute la RDC.",
+              "📑 PLUS DE SOUMISSIONS, UN MEILLEUR CHOIX.\n\nPlus votre appel d’offres est vu, plus vous recevez d’offres sérieuses, et mieux vous choisissez votre fournisseur. Publiez-le sur Carrières RDC.",
+              "📑 VOTRE APPEL D’OFFRES MÉRITE LES MEILLEURS PRESTATAIRES.\n\nNe le laissez pas circuler dans un seul groupe : sur Carrières RDC, il est consultable par les entreprises et consultants de tout le pays, avec son dossier et sa date limite.",
+            ],
+            week,
+          )}\n\n${freeLine}✅ Mise en ligne rapide, après vérification\n✅ Dossier téléchargeable et date limite bien visible\n✅ Relais sur Facebook, WhatsApp et TikTok\n\nEnvoyez-nous votre avis, nous nous occupons du reste 🤝\n\n${contactLines}`,
+          "Publiez votre appel d’offres : www.carrieresrdc.com/recruteurs",
+          "#AppelDOffres #MarchesPublics #RDC #Kinshasa",
+        ),
       };
-    case "conseils":
+    case "conseils": {
+      // Une leçon différente à chaque affiche « Conseils carrière » (publiée une semaine sur deux).
+      const lesson = pick(CAREER_LESSONS, Math.floor(week / 2));
       return {
-        title: "Conseils carrière",
-        eyebrow: "CV · Entretien · Appels d’offres",
+        title: lesson.title,
+        eyebrow: lesson.eyebrow,
         decor: "CONSEILS",
-        messages: ["Nos guides pratiques pour réussir votre recherche d’emploi.", "Mettez toutes les chances de votre côté.", ""],
-        points: ["Rédiger un CV qui retient l’attention", "Réussir son entretien d’embauche", "Répondre à un appel d’offres"],
-        cta: "Lisez nos conseils sur",
+        messages: ["Les 3 règles à retenir :", "Mettez toutes les chances de votre côté.", ""],
+        points: lesson.points,
+        cta: "Tous nos conseils sur",
         url: "www.carrieresrdc.com/conseils",
-        caption: "📚 CV, lettre de motivation, entretien, appels d’offres : découvrez nos conseils pratiques pour réussir votre recherche d’emploi en RDC.",
+        caption: finish(
+          `${lesson.lesson}\n\nEnregistrez ce message et partagez-le avec ceux qui cherchent un emploi 🙏`,
+          "Plus de conseils : www.carrieresrdc.com/conseils",
+          "#ConseilCarriere #EmploiRDC #RechercheEmploi #RDC",
+        ),
       };
+    }
     default:
       return {
         title: "Rejoignez Carrières RDC",
@@ -327,7 +492,11 @@ export function promoText(theme: PromoTheme, date: Date, offers: PromoOffer[] = 
         points: ["Des offres publiées chaque jour", "Facebook, WhatsApp et TikTok", "Partagez avec ceux qui cherchent un emploi"],
         cta: "Toutes les offres sur",
         url: "www.carrieresrdc.com",
-        caption: "🤝 Suivez Carrières RDC sur Facebook, WhatsApp et TikTok, et partagez avec vos proches qui cherchent un emploi !",
+        caption: finish(
+          "🤝 REJOIGNEZ LA COMMUNAUTÉ CARRIÈRES RDC !\n\nSuivez-nous sur Facebook, WhatsApp et TikTok pour recevoir chaque jour les nouvelles offres d’emploi, appels d’offres et conseils carrière.\n\nVous connaissez quelqu’un qui cherche un emploi ? Partagez-lui ce message : une offre peut changer une vie 🙏",
+          "www.carrieresrdc.com",
+          "#EmploiRDC #OffreEmploi #RDC",
+        ),
       };
   }
 }

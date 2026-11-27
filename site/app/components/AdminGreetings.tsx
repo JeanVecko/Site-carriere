@@ -41,7 +41,7 @@ export default function AdminGreetings({ openOffers, offers = [] }: { openOffers
   const [occasion, setOccasion] = useState<Occasion>(() => suggestOccasion(parseDay(date)));
   const [theme, setTheme] = useState<PromoTheme>(() => suggestPromoTheme(parseDay(date)));
   const textFor = (nextMode: Mode, key: Occasion | PromoTheme, day: string) =>
-    nextMode === "voeux" ? { ...greetingText(key as Occasion, parseDay(day)), points: [] as string[], cta: "", url: "" } : promoText(key as PromoTheme, parseDay(day), offers, openOffers);
+    nextMode === "voeux" ? (() => { const text = greetingText(key as Occasion, parseDay(day)); return { ...text, caption: greetingCaption(text.caption), points: [] as string[], cta: "", url: "" }; })() : promoText(key as PromoTheme, parseDay(day), offers, openOffers);
   const base = useMemo(() => textFor(mode, mode === "voeux" ? occasion : theme, date), [mode, occasion, theme, date]); // eslint-disable-line react-hooks/exhaustive-deps
   const [variant, setVariant] = useState(0);
   const [title, setTitle] = useState(base.title);
@@ -50,7 +50,7 @@ export default function AdminGreetings({ openOffers, offers = [] }: { openOffers
   const [points, setPoints] = useState("");
   const [cta, setCta] = useState("");
   const [link, setLink] = useState("");
-  const [caption, setCaption] = useState(greetingCaption(base.caption));
+  const [caption, setCaption] = useState(base.caption);
   const [format, setFormat] = useState<GreetingFormat>("square");
   const [style, setStyle] = useState<GreetingStyle>("navy");
   const [showStat, setShowStat] = useState(openOffers > 0);
@@ -70,7 +70,7 @@ export default function AdminGreetings({ openOffers, offers = [] }: { openOffers
     setPoints(text.points.join("\n"));
     setCta(text.cta);
     setLink(text.url);
-    setCaption(greetingCaption(text.caption));
+    setCaption(text.caption);
   }
   function chooseDate(value: string, forced?: Occasion) {
     if (!value) return;
