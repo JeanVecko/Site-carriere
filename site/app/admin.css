@@ -373,3 +373,9 @@
 .adm-article-preview { border: 1px solid #cfd8e3; border-radius: 8px; max-height: 640px; overflow-y: auto; padding: 22px 26px; }
 .adm-article-preview .pub-article-body { font-size: 15.5px; }
 .adm-segmented button svg { vertical-align: -2px; }
+
+/* Souhaits : vœux ou promotion */
+.adm-greet-head { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
+.adm-greet-tip { align-items: center; display: flex; font-size: 12.5px; gap: 6px; margin: -6px 0 0; }
+.adm-greet-tip svg, .adm-greet-shortcuts svg[aria-label] { color: #d9a400; }
+.adm-greet-shortcuts button.is-active svg[aria-label] { color: #f6c453; }

@@ -3,7 +3,7 @@ import { API_BASE } from "../../lib/api";
 import { GREETING_FORMATS, GreetingFormat, GreetingStyle } from "../../lib/greetings";
 import { logoDataUrl, siteFonts } from "../../lib/ogAssets";
 
-// Affiche de vœux aux couleurs de Carrières RDC (admin → Souhaits). Réservée à l'administrateur : le texte est
+// Affiche de vœux ou de promotion aux couleurs de Carrières RDC (admin → Souhaits). Réservée à l'administrateur : le texte est
 // libre, une adresse publique permettrait à n'importe qui de fabriquer une affiche « officielle ».
 const NAVY = "#092d63";
 const NAVY_2 = "#0f3d80";
@@ -48,6 +48,11 @@ export async function POST(request: Request) {
   const decor = clean(body.decor, 12).toUpperCase();
   const stat = clean(body.stat, 8);
   const statLabel = clean(body.statLabel, 60);
+  // Promotion : liste de points forts (4 au plus), phrase d'appel et adresse du site en pied d'affiche.
+  const points = (Array.isArray(body.points) ? body.points : []).map((point: unknown) => clean(point, 80)).filter(Boolean).slice(0, 4) as string[];
+  const cta = clean(body.cta, 50) || "Votre carrière commence ici";
+  const rawUrl = clean(body.url, 60).toLowerCase();
+  const url = /^www\.carrieresrdc\.com(\/[a-z0-9-]+)?$/.test(rawUrl) ? rawUrl : "www.carrieresrdc.com";
 
   const [logo, fonts] = await Promise.all([logoDataUrl(), siteFonts()]);
   const { width, height } = GREETING_FORMATS.find((entry) => entry.id === format)!;
@@ -57,9 +62,12 @@ export async function POST(request: Request) {
 
   const square = format === "square";
   // Carré : tailles réduites pour que le titre, le message et le compteur tiennent avec le pied de page.
-  const titleSize = Math.round((wide ? 1.15 : square ? (stat ? 0.8 : 0.88) : 1) * (title.length <= 16 ? 132 : title.length <= 24 ? 110 : title.length <= 34 ? 90 : 74));
-  const gap = square ? 26 : 34;
-  const messageSize = wide ? 44 : square ? (message.length > 200 ? 32 : 37) : message.length > 200 ? 36 : 42;
+  const crowded = points.length > 0;
+  const titleScale = wide ? (crowded ? 1 : 1.15) : square ? (crowded ? 0.7 : stat ? 0.8 : 0.88) : crowded ? 0.9 : 1;
+  const titleSize = Math.round(titleScale * (title.length <= 16 ? 132 : title.length <= 24 ? 110 : title.length <= 34 ? 90 : 74));
+  const gap = square ? (crowded ? 20 : 26) : crowded ? 28 : 34;
+  const messageSize = wide ? (crowded ? 38 : 44) : square ? (crowded ? 30 : message.length > 200 ? 32 : 37) : crowded ? 36 : message.length > 200 ? 36 : 42;
+  const pointSize = wide ? 36 : square ? 30 : 38;
   const decorSize = Math.min(wide ? 560 : 460, Math.round(((wide ? 1.7 : 1.45) * width) / Math.max(decor.length, 3)));
 
   return new ImageResponse(
@@ -124,6 +132,20 @@ export async function POST(request: Request) {
           <div style={{ display: "flex", fontSize: titleSize, fontWeight: 800, lineHeight: 1.04, letterSpacing: -titleSize * 0.025, marginTop: gap }}>{title}</div>
           <div style={{ display: "flex", width: 150, height: 10, borderRadius: 99, background: p.accent, marginTop: gap }} />
           {message && <div style={{ display: "flex", fontSize: messageSize, lineHeight: 1.42, color: p.soft, marginTop: gap, maxWidth: wide ? 1150 : 900 }}>{message}</div>}
+          {points.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: square ? 12 : 16, marginTop: gap + 4 }}>
+              {points.map((point) => (
+                <div key={point} style={{ display: "flex", alignItems: "center", gap: 16, fontSize: pointSize, fontWeight: 700, lineHeight: 1.25 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, width: pointSize * 1.15, height: pointSize * 1.15, borderRadius: 999, background: style === "gold" ? NAVY : GOLD }}>
+                    <svg width={pointSize * 0.7} height={pointSize * 0.7} viewBox="0 0 24 24">
+                      <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke={style === "gold" ? GOLD : NAVY} strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <div style={{ display: "flex", flex: 1 }}>{point}</div>
+                </div>
+              ))}
+            </div>
+          )}
           {stat && (
             <div style={{ display: "flex", marginTop: square ? 30 : 44 }}>
               <div
@@ -150,14 +172,15 @@ export async function POST(request: Request) {
             flexDirection: story ? "column" : "row",
             alignItems: story ? "flex-start" : "center",
             justifyContent: "space-between",
-            gap: story ? 8 : 0,
+            flexWrap: "wrap",
+            gap: story ? 8 : "6px 24px",
             borderTop: `3px solid ${p.accent}`,
             paddingTop: 26,
             fontSize: wide ? 36 : 32,
           }}
         >
-          <div style={{ display: "flex", fontWeight: 700 }}>Votre carrière commence ici</div>
-          <div style={{ display: "flex", color: style === "gold" ? "#ffffff" : style === "light" ? NAVY : GOLD, fontWeight: 800 }}>www.carrieresrdc.com</div>
+          <div style={{ display: "flex", fontWeight: 700 }}>{cta}</div>
+          <div style={{ display: "flex", color: style === "gold" ? "#ffffff" : style === "light" ? NAVY : GOLD, fontWeight: 800 }}>{url}</div>
         </div>
       </div>
     ),

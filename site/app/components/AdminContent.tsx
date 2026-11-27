@@ -664,7 +664,12 @@ function Dashboard() {
         )}
         {section === "articles" && <AdminArticles setToast={setToast} />}
         {section === "greetings" && (
-          <AdminGreetings openOffers={announcements.filter((item) => !item.hidden && !item.filled_at && !isExpired(item)).length} />
+          <AdminGreetings
+            openOffers={announcements.filter((item) => !item.hidden && !item.filled_at && !isExpired(item)).length}
+            offers={announcements
+              .filter((item) => !item.hidden && !item.filled_at && !isExpired(item))
+              .map((item) => ({ title: decodeEntities(item.title), company: decodeEntities(item.company), location: decodeEntities(item.location || "") }))}
+          />
         )}
         {section === "messages" && (
           <>
